@@ -6,6 +6,20 @@ export const REQUEST_TIMEOUT_MS = 10_000
 export const RESTART_BACKOFF_MS = [250, 1_000, 4_000] as const
 export const MAX_RESTARTS = 3
 
+const BRIDGE_ENV_ALLOWLIST = new Set([
+  'PATH',
+  'PATHEXT',
+  'SystemRoot',
+  'SYSTEMROOT',
+  'TEMP',
+  'TMP',
+  'TMPDIR',
+  'LANG',
+  'LC_ALL',
+  'LC_CTYPE',
+  'LC_MESSAGES'
+])
+
 export function isPrivateKeyShaped(value: string): boolean {
   return /^nsec1[0-9a-z]{20,}$/i.test(value) || /^[0-9a-f]{64}$/i.test(value)
 }
@@ -14,6 +28,9 @@ export function sanitizeBridgeEnv(env: NodeJS.ProcessEnv | Record<string, string
   const next: Record<string, string> = {}
   for (const [key, value] of Object.entries(env)) {
     if (typeof value !== 'string' || isPrivateKeyShaped(value)) {
+      continue
+    }
+    if (!BRIDGE_ENV_ALLOWLIST.has(key)) {
       continue
     }
     next[key] = value
@@ -27,7 +44,7 @@ export interface BuzzProcessOptions {
   env?: NodeJS.ProcessEnv | Record<string, string | undefined>
   requestTimeoutMs?: number
   spawnImpl?: (command: string, args: string[], options: SpawnOptions) => ChildProcess
-  sleep?: (ms: number) => void
+  sleep?: (ms: number) => void | Promise<void>
   now?: () => number
 }
 
@@ -49,12 +66,12 @@ export function resolveBuzzBridgeBinary(root = process.resourcesPath || process.
 
 export function createPantheonBuzzProcess(options: BuzzProcessOptions): PantheonBuzzProcess {
   const spawnImpl = options.spawnImpl ?? spawn
-  const sleep = options.sleep ?? ((ms: number) => {
-    const end = Date.now() + ms
-    while (Date.now() < end) {
-      /* bounded restart backoff; production uses short sleeps */
-    }
-  })
+  const sleep =
+    options.sleep ??
+    ((ms: number) =>
+      new Promise<void>(resolve => {
+        setTimeout(resolve, ms)
+      }))
   const timeoutMs = options.requestTimeoutMs ?? REQUEST_TIMEOUT_MS
   let child: ChildProcess | null = null
   let restarts = 0
@@ -79,6 +96,9 @@ export function createPantheonBuzzProcess(options: BuzzProcessOptions): Pantheon
         newline = buffer.indexOf('\n')
       }
     })
+    next.on('error', () => {
+      // Missing sidecar or spawn failure must not take down Electron.
+    })
     next.on('exit', () => {
       if (disposed) {
         return
@@ -88,20 +108,25 @@ export function createPantheonBuzzProcess(options: BuzzProcessOptions): Pantheon
       }
       const delay = RESTART_BACKOFF_MS[restarts] ?? RESTART_BACKOFF_MS[RESTART_BACKOFF_MS.length - 1]
       restarts += 1
-      sleep(delay)
-      if (!disposed) {
-        boot()
-      }
+      void Promise.resolve(sleep(delay)).then(() => {
+        if (!disposed) {
+          boot()
+        }
+      })
     })
   }
 
   const boot = () => {
-    const next = spawnImpl(options.binaryPath, args, {
-      shell: false,
-      env,
-      stdio: ['pipe', 'pipe', 'pipe']
-    })
-    attach(next)
+    try {
+      const next = spawnImpl(options.binaryPath, args, {
+        shell: false,
+        env,
+        stdio: ['pipe', 'pipe', 'pipe']
+      })
+      attach(next)
+    } catch {
+      // A thrown spawn (missing binary in some stubs) must not crash the app.
+    }
   }
 
   const handleLine = (line: string) => {
@@ -137,7 +162,13 @@ export function createPantheonBuzzProcess(options: BuzzProcessOptions): Pantheon
           reject(new Error('buzz bridge timeout'))
         }, timeoutMs)
         pending.set(id, { resolve, reject, timer })
-        child?.stdin?.write(`${JSON.stringify({ id, method, params })}\n`)
+        try {
+          child?.stdin?.write(`${JSON.stringify({ id, method, params })}\n`)
+        } catch {
+          clearTimeout(timer)
+          pending.delete(id)
+          reject(new Error('buzz bridge unavailable'))
+        }
       })
     },
     dispose() {

@@ -1,3 +1,6 @@
+import { existsSync, readFileSync } from 'node:fs'
+import path from 'node:path'
+
 import { ipcMain as defaultIpcMain, type IpcMain } from 'electron'
 
 import {
@@ -35,9 +38,67 @@ export function validateRoomId(roomId: unknown): string {
   return roomId
 }
 
+export function parseBuzzRelayUrlFromWorkspaceConfig(text: string): string | undefined {
+  try {
+    const parsed = JSON.parse(text) as {
+      buzz?: { relayUrl?: unknown; relay_url?: unknown }
+      relayUrl?: unknown
+    }
+    const candidates = [parsed.buzz?.relayUrl, parsed.buzz?.relay_url, parsed.relayUrl]
+    for (const candidate of candidates) {
+      if (typeof candidate === 'string' && /^https?:\/\//i.test(candidate) && !isPrivateKeyShaped(candidate)) {
+        return candidate
+      }
+    }
+  } catch {
+    /* workspace.yaml / config.yaml */
+  }
+  const match = text.match(/(?:^|\n)\s*relay_url:\s*['"]?(https?:\/\/[^\s#'"]+)/i)
+  const url = match?.[1]
+  if (url && !isPrivateKeyShaped(url)) {
+    return url
+  }
+  return undefined
+}
+
+export function resolveBuzzRelayUrl(options?: {
+  homeDir?: string
+  readFile?: (filePath: string) => string | undefined
+}): string | undefined {
+  const home = options?.homeDir
+  if (!home) {
+    return undefined
+  }
+  const read =
+    options?.readFile ??
+    ((filePath: string) => {
+      try {
+        if (!existsSync(filePath)) {
+          return undefined
+        }
+        return readFileSync(filePath, 'utf8')
+      } catch {
+        return undefined
+      }
+    })
+  const candidates = [path.join(home, 'pantheon', 'workspace.json'), path.join(home, 'config.yaml')]
+  for (const filePath of candidates) {
+    const text = read(filePath)
+    if (!text) {
+      continue
+    }
+    const url = parseBuzzRelayUrlFromWorkspaceConfig(text)
+    if (url) {
+      return url
+    }
+  }
+  return undefined
+}
+
 export interface PantheonBuzzIpcDeps {
-  ipcMain: Pick<IpcMain, 'handle' | 'removeHandler'>
+  ipcMain?: Pick<IpcMain, 'handle' | 'removeHandler'>
   createProcess?: () => PantheonBuzzProcess
+  homeDir?: string
 }
 
 export interface PantheonBuzzIpcHandle {
@@ -48,9 +109,12 @@ let active: PantheonBuzzIpcHandle | null = null
 
 export function registerPantheonBuzzIpc(deps?: PantheonBuzzIpcDeps): PantheonBuzzIpcHandle {
   const ipcMain = deps?.ipcMain ?? defaultIpcMain
-  const processHandle = (deps?.createProcess ?? (() => createPantheonBuzzProcess({
-    binaryPath: resolveBuzzBridgeBinary()
-  })))()
+  const processHandle = (deps?.createProcess ??
+    (() =>
+      createPantheonBuzzProcess({
+        binaryPath: resolveBuzzBridgeBinary(),
+        relayUrl: resolveBuzzRelayUrl({ homeDir: deps?.homeDir })
+      })))()
 
   ipcMain.handle(PANTHEON_BUZZ_IPC.status, async () => processHandle.request('status'))
   ipcMain.handle(PANTHEON_BUZZ_IPC.listRooms, async (_event, input?: { cursor?: string }) =>

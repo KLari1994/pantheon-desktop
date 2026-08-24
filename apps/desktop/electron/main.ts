@@ -15370,7 +15370,7 @@ app.whenReady().then(() => {
   // it without the renderer visiting Settings. A failed registration is logged
   // here and surfaced in Settings via the IPC state (never silent).
   applyQuickEntrySettings(readQuickEntrySettings())
-  registerPantheonBuzzIpc()
+  registerPantheonBuzzIpc({ homeDir: HERMES_HOME })
 
   if (IS_MAC) {
     const reposition = () => wakeIndicatorController.reposition()

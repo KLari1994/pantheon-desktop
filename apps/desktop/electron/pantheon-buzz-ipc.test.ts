@@ -7,7 +7,9 @@ import { afterEach, test } from 'vitest'
 import {
   isPrivateKeyShaped,
   PANTHEON_BUZZ_IPC,
+  parseBuzzRelayUrlFromWorkspaceConfig,
   registerPantheonBuzzIpc,
+  resolveBuzzRelayUrl,
   RESTART_BACKOFF_MS,
   sanitizeBridgeEnv,
   validateMessageLimit
@@ -62,6 +64,8 @@ test('spawn uses shell false and strips key-shaped env/args', () => {
   const env = captured?.options.env as Record<string, string>
   assert.equal(env.LEAK, undefined)
   assert.equal(env.HEX, undefined)
+  assert.equal(env.PANTHEON_BUZZ_RELAY_URL, undefined)
+  assert.equal(env.PATH, '/usr/bin')
   assert.equal(JSON.stringify(captured).includes(canary), false)
   assert.equal(JSON.stringify(captured).includes(hexCanary), false)
   processHandle.dispose()
@@ -99,7 +103,7 @@ test('ipc rejects out-of-range limits and unknown rooms stay typed', async () =>
   api.dispose()
 })
 
-test('crash restarts with 250ms then 1s then 4s and then stops', () => {
+test('crash restarts with 250ms then 1s then 4s and then stops', async () => {
   assert.deepEqual(RESTART_BACKOFF_MS, [250, 1000, 4000])
   const delays: number[] = []
   const children = [new FakeChild(), new FakeChild(), new FakeChild(), new FakeChild()]
@@ -113,9 +117,13 @@ test('crash restarts with 250ms then 1s then 4s and then stops', () => {
     spawnImpl: () => children[index++] as never
   })
   children[0].emit('exit', 1, null)
+  await Promise.resolve()
   children[1].emit('exit', 1, null)
+  await Promise.resolve()
   children[2].emit('exit', 1, null)
+  await Promise.resolve()
   children[3].emit('exit', 1, null)
+  await Promise.resolve()
   assert.deepEqual(delays, [250, 1000, 4000])
   handle.dispose()
 })
@@ -135,10 +143,48 @@ test('timeout fails the in-flight request without leaking canaries', async () =>
   handle.dispose()
 })
 
-test('sanitizeBridgeEnv drops private-key-shaped values', () => {
+test('sanitizeBridgeEnv allowlists PATH and drops secret-bearing keys', () => {
   const canary = 'cd'.repeat(32)
-  const env = sanitizeBridgeEnv({ PATH: '/bin', KEY: canary, OK: 'relay' })
+  const env = sanitizeBridgeEnv({
+    PATH: '/bin',
+    KEY: canary,
+    OK: 'relay',
+    BUZZ_PRIVATE_KEY: 'not-hex-but-secret',
+    PANTHEON_BUZZ_RELAY_URL: 'https://relay.example.test'
+  })
   assert.equal(env.KEY, undefined)
-  assert.equal(env.OK, 'relay')
+  assert.equal(env.OK, undefined)
+  assert.equal(env.BUZZ_PRIVATE_KEY, undefined)
+  assert.equal(env.PANTHEON_BUZZ_RELAY_URL, undefined)
   assert.equal(env.PATH, '/bin')
+})
+
+test('workspace config supplies relay URL and ignores env escape hatches', () => {
+  const files: Record<string, string> = {
+    '/home/user/.hermes/pantheon/workspace.json': JSON.stringify({
+      buzz: { relayUrl: 'https://community.example.test' }
+    })
+  }
+  assert.equal(
+    resolveBuzzRelayUrl({
+      homeDir: '/home/user/.hermes',
+      readFile: filePath => files[filePath]
+    }),
+    'https://community.example.test'
+  )
+  assert.equal(parseBuzzRelayUrlFromWorkspaceConfig('relay_url: https://from-yaml.example.test'), 'https://from-yaml.example.test')
+  assert.equal(resolveBuzzRelayUrl({ homeDir: undefined }), undefined)
+})
+
+test('spawn error is swallowed so the desktop shell stays up', () => {
+  const child = new FakeChild()
+  const handle = createPantheonBuzzProcess({
+    binaryPath: '/missing/buzz-bridge',
+    spawnImpl: () => {
+      queueMicrotask(() => child.emit('error', new Error('ENOENT')))
+      return child as never
+    }
+  })
+  child.emit('error', new Error('ENOENT'))
+  handle.dispose()
 })

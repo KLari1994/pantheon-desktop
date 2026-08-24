@@ -176,7 +176,7 @@ export default async function beforePack(context) {
       console.log(`[before-pack] re-staged get-windows for target ${platform}-${archName}`)
       const sidecar = stageBuzzSidecar({ platform, arch: archName })
       if (sidecar.staged) {
-        console.log(`[before-pack] staged Buzz sidecar for ${sidecar.target} sha256=${sidecar.sha256}`)
+        console.log(`[before-pack] staged Buzz sidecar for ${sidecar.target}`)
       }
     }
   } catch (err) {

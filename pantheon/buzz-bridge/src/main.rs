@@ -1,57 +1,48 @@
-use std::io::{self, BufRead, Write};
+use std::io::{self, BufReader, Write};
 
 use buzz_bridge::{
-    handle_line, redact_text, CredentialStore, FakeCredentialStore, FakeRelay, KeyringCredentialStore,
-    RelayAdapter, StockBuzzRelay,
+    handle_line, production_relay, read_ndjson_frame, redact_text, relay_url_from_args,
+    CredentialStore, KeyringCredentialStore,
 };
-
-fn relay_url_from_args() -> String {
-    std::env::args()
-        .skip_while(|arg| arg != "--relay-url")
-        .nth(1)
-        .or_else(|| std::env::var("PANTHEON_BUZZ_RELAY_URL").ok())
-        .unwrap_or_default()
-}
 
 fn main() {
     let stdin = io::stdin();
+    let mut reader = BufReader::new(stdin.lock());
     let mut stdout = io::stdout();
     let mut stderr = io::stderr();
     let store = KeyringCredentialStore::platform_default();
-    let fake_store = FakeCredentialStore::default();
-    let relay_url = relay_url_from_args();
+    let relay_url = relay_url_from_args(std::env::args());
     let secret = store.get().ok().flatten();
-    let stock = if relay_url.is_empty() {
-        None
-    } else {
-        StockBuzzRelay::new(relay_url, secret.as_deref()).ok()
-    };
-    let fake = FakeRelay::default();
+    let relay = production_relay(relay_url.as_deref(), secret.as_deref());
 
-    for line in stdin.lock().lines() {
-        let Ok(line) = line else {
-            let _ = writeln!(
-                stderr,
-                "{}",
-                redact_text(r#"{"level":"error","msg":"stdin read failed"}"#)
-            );
-            continue;
-        };
-        let outcome = if let Some(relay) = stock.as_ref() {
-            match store.get() {
-                Ok(_) => handle_line(line.as_bytes(), &store, relay as &dyn RelayAdapter),
-                Err(_) => handle_line(line.as_bytes(), &fake_store, relay as &dyn RelayAdapter),
+    loop {
+        let frame = match read_ndjson_frame(&mut reader) {
+            Ok(Some(Ok(line))) => line,
+            Ok(Some(Err(_))) => {
+                let oversized = vec![b'x'; buzz_bridge::MAX_FRAME_BYTES + 1];
+                let outcome = handle_line(&oversized, &store, relay.as_ref());
+                let _ = writeln_response(&mut stdout, &outcome.response);
+                continue;
             }
-        } else {
-            match store.get() {
-                Ok(_) => handle_line(line.as_bytes(), &store, &fake as &dyn RelayAdapter),
-                Err(_) => handle_line(line.as_bytes(), &fake_store, &fake as &dyn RelayAdapter),
+            Ok(None) => break,
+            Err(_) => {
+                let _ = writeln!(
+                    stderr,
+                    "{}",
+                    redact_text(r#"{"level":"error","msg":"stdin read failed"}"#)
+                );
+                continue;
             }
         };
-        let _ = writeln!(stdout, "{}", outcome.response);
-        let _ = stdout.flush();
+        let outcome = handle_line(&frame, &store, relay.as_ref());
+        let _ = writeln_response(&mut stdout, &outcome.response);
         if outcome.should_exit {
             break;
         }
     }
+}
+
+fn writeln_response(stdout: &mut impl io::Write, response: &str) -> io::Result<()> {
+    writeln!(stdout, "{response}")?;
+    stdout.flush()
 }

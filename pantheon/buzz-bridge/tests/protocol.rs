@@ -134,3 +134,117 @@ fn redaction_strips_runtime_hex_canary() {
     let redacted = redact_text(&leaked);
     assert!(!redacted.contains(&canary), "redacted={redacted}");
 }
+
+#[test]
+fn successful_payload_keeps_public_hex_identifiers() {
+    use buzz_bridge::{RelayAdapter, RelayError, BuzzRoom, BuzzRoomPage, BuzzStatus, BuzzMessageWindow};
+    use buzz_bridge::BUZZ_COMPATIBILITY_COMMIT;
+
+    struct PublicHexRelay;
+    impl RelayAdapter for PublicHexRelay {
+        fn status(&self) -> Result<BuzzStatus, RelayError> {
+            Ok(BuzzStatus {
+                state: "open".into(),
+                error: None,
+                compatibility_commit: BUZZ_COMPATIBILITY_COMMIT.into(),
+                relay_url: Some("https://relay.example.test".into()),
+            })
+        }
+        fn list_rooms(&self, _cursor: Option<&str>) -> Result<BuzzRoomPage, RelayError> {
+            Ok(BuzzRoomPage {
+                rooms: vec![BuzzRoom {
+                    id: "aa".repeat(32),
+                    name: "General".into(),
+                    members: vec![],
+                }],
+                next_cursor: None,
+            })
+        }
+        fn get_room(&self, _room_id: &str) -> Result<BuzzRoom, RelayError> {
+            Err(RelayError::Unavailable("unused".into()))
+        }
+        fn message_window(
+            &self,
+            _room_id: &str,
+            _before: Option<&str>,
+            _limit: u32,
+        ) -> Result<BuzzMessageWindow, RelayError> {
+            Err(RelayError::Unavailable("unused".into()))
+        }
+    }
+
+    let store = FakeCredentialStore::default();
+    let id = Uuid::new_v4();
+    let outcome = handle_line(
+        format!(r#"{{"id":"{id}","method":"rooms.list"}}"#).as_bytes(),
+        &store,
+        &PublicHexRelay,
+    );
+    let hex_id = "aa".repeat(32);
+    assert!(
+        outcome.response.contains(&hex_id),
+        "public hex id was stripped: {}",
+        outcome.response
+    );
+    assert!(!outcome.response.contains("[redacted]"));
+}
+
+#[test]
+fn missing_relay_url_is_not_read_from_env() {
+    use buzz_bridge::relay_url_from_args;
+    assert_eq!(relay_url_from_args(["buzz-bridge"]), None);
+    assert_eq!(
+        relay_url_from_args(["buzz-bridge", "--relay-url", "https://relay.example.test"]),
+        Some("https://relay.example.test".into())
+    );
+}
+
+#[test]
+fn ndjson_reader_rejects_before_holding_an_unbounded_line() {
+    use buzz_bridge::read_ndjson_frame;
+    use std::io::Cursor;
+
+    let oversized = format!("{}\n", "x".repeat(MAX_FRAME_BYTES + 8));
+    let mut cursor = Cursor::new(oversized.into_bytes());
+    let frame = read_ndjson_frame(&mut cursor).expect("read").expect("frame");
+    assert!(frame.is_err());
+
+    let id = Uuid::new_v4();
+    let next = format!(r#"{{"id":"{id}","method":"status"}}"#) + "\n";
+    let mut cursor = Cursor::new(next.into_bytes());
+    let frame = read_ndjson_frame(&mut cursor).expect("read").expect("frame");
+    assert!(frame.is_ok());
+}
+
+#[test]
+fn closed_relay_does_not_serve_fake_rooms() {
+    use buzz_bridge::ClosedRelay;
+    let store = FakeCredentialStore::default();
+    let relay = ClosedRelay::missing_relay_url();
+    let id = Uuid::new_v4();
+    let outcome = handle_line(
+        format!(r#"{{"id":"{id}","method":"rooms.list"}}"#).as_bytes(),
+        &store,
+        &relay,
+    );
+    let body = response_json(&outcome);
+    assert_eq!(body["ok"], false);
+    assert_eq!(body["error"]["code"], "unavailable");
+    assert!(!outcome.response.contains("room-a"));
+}
+
+#[test]
+fn production_relay_without_url_is_closed_not_fake() {
+    let relay = buzz_bridge::production_relay(None, None);
+    let store = FakeCredentialStore::default();
+    let id = Uuid::new_v4();
+    let outcome = handle_line(
+        format!(r#"{{"id":"{id}","method":"rooms.list"}}"#).as_bytes(),
+        &store,
+        relay.as_ref(),
+    );
+    let body = response_json(&outcome);
+    assert_eq!(body["ok"], false);
+    assert_eq!(body["error"]["code"], "unavailable");
+    assert!(!outcome.response.contains("General"));
+}

@@ -1,3 +1,4 @@
+use std::io::{BufRead, Read};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use regex::Regex;
@@ -48,6 +49,7 @@ pub enum ProtocolError {
     UnknownMethod,
     InvalidLimit,
     InvalidRoomId,
+    Unavailable,
 }
 
 impl ProtocolError {
@@ -59,6 +61,7 @@ impl ProtocolError {
             Self::UnknownMethod => "unknown_method",
             Self::InvalidLimit => "invalid_limit",
             Self::InvalidRoomId => "invalid_room_id",
+            Self::Unavailable => "unavailable",
         }
     }
 }
@@ -82,14 +85,67 @@ fn error_response(id: Option<&str>, code: &str, message: &str) -> String {
 }
 
 fn ok_response(id: &str, result: Value) -> String {
-    redact_text(
-        &json!({
-            "id": id,
-            "ok": true,
-            "result": result
-        })
-        .to_string(),
-    )
+    json!({
+        "id": id,
+        "ok": true,
+        "result": result
+    })
+    .to_string()
+}
+
+/// Parse `--relay-url` from argv. Production never reads env for this.
+pub fn relay_url_from_args<I, S>(args: I) -> Option<String>
+where
+    I: IntoIterator<Item = S>,
+    S: AsRef<str>,
+{
+    let mut iter = args.into_iter();
+    while let Some(arg) = iter.next() {
+        let arg = arg.as_ref();
+        if arg == "--relay-url" {
+            return iter
+                .next()
+                .map(|value| value.as_ref().trim().to_string())
+                .filter(|value| !value.is_empty());
+        }
+        if let Some(value) = arg.strip_prefix("--relay-url=") {
+            let value = value.trim();
+            if !value.is_empty() {
+                return Some(value.to_string());
+            }
+        }
+    }
+    None
+}
+
+/// Read one NDJSON line, rejecting before the buffer can grow past the ceiling.
+pub fn read_ndjson_frame<R: BufRead>(
+    reader: &mut R,
+) -> std::io::Result<Option<Result<Vec<u8>, ProtocolError>>> {
+    let mut buf = Vec::new();
+    let n = reader
+        .by_ref()
+        .take(MAX_FRAME_BYTES as u64 + 1)
+        .read_until(b'\n', &mut buf)?;
+    if n == 0 {
+        return Ok(None);
+    }
+    let ended = buf.last() == Some(&b'\n');
+    if !ended || buf.len() > MAX_FRAME_BYTES {
+        if !ended {
+            let mut discard = Vec::new();
+            reader.read_until(b'\n', &mut discard)?;
+        }
+        return Ok(Some(Err(ProtocolError::FrameTooLarge)));
+    }
+    buf.pop();
+    if buf.last() == Some(&b'\r') {
+        buf.pop();
+    }
+    if buf.len() > MAX_FRAME_BYTES {
+        return Ok(Some(Err(ProtocolError::FrameTooLarge)));
+    }
+    Ok(Some(Ok(buf)))
 }
 
 fn validate_room_id(value: &str) -> Result<(), ProtocolError> {
@@ -164,7 +220,9 @@ fn dispatch(
                 .get("cursor")
                 .and_then(Value::as_str)
                 .map(str::to_string);
-            let page = relay.list_rooms(cursor.as_deref()).map_err(|_| ProtocolError::MalformedFrame)?;
+            let page = relay
+                .list_rooms(cursor.as_deref())
+                .map_err(|_| ProtocolError::Unavailable)?;
             Ok(serde_json::to_value(page).unwrap_or_else(|_| json!({ "rooms": [], "nextCursor": null })))
         }
         "rooms.get" => {
@@ -174,7 +232,7 @@ fn dispatch(
                 .and_then(Value::as_str)
                 .unwrap_or("");
             validate_room_id(room_id)?;
-            let room = relay.get_room(room_id).map_err(|_| ProtocolError::InvalidRoomId)?;
+            let room = relay.get_room(room_id).map_err(|_| ProtocolError::Unavailable)?;
             Ok(serde_json::to_value(room).unwrap_or_else(|_| json!({})))
         }
         "messages.window" => {
@@ -202,7 +260,7 @@ fn dispatch(
             }
             let window = relay
                 .message_window(room_id, before.as_deref(), limit as u32)
-                .map_err(|_| ProtocolError::MalformedFrame)?;
+                .map_err(|_| ProtocolError::Unavailable)?;
             Ok(serde_json::to_value(window).unwrap_or_else(|_| json!({ "messages": [] })))
         }
         "credential.set" => {

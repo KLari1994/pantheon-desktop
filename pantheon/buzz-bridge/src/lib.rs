@@ -12,7 +12,11 @@ pub use credential_store::{
     KEYRING_SERVICE,
 };
 pub use protocol::{
-    handle_line, redact_text, BridgeEvent, BridgeRequest, HandleOutcome, ProtocolError,
-    BUZZ_COMPATIBILITY_COMMIT, MAX_FRAME_BYTES, MAX_ID_LEN, MAX_MESSAGE_LIMIT, MIN_MESSAGE_LIMIT,
+    handle_line, read_ndjson_frame, redact_text, relay_url_from_args, BridgeEvent, BridgeRequest,
+    HandleOutcome, ProtocolError, BUZZ_COMPATIBILITY_COMMIT, MAX_FRAME_BYTES, MAX_ID_LEN,
+    MAX_MESSAGE_LIMIT, MIN_MESSAGE_LIMIT,
 };
-pub use relay::{BuzzStatus, FakeRelay, RelayAdapter, RelayError, StockBuzzRelay};
+pub use relay::{
+    production_relay, BuzzMessage, BuzzMessageWindow, BuzzRoom, BuzzRoomPage, BuzzStatus,
+    ClosedRelay, FakeRelay, RelayAdapter, RelayError, StockBuzzRelay,
+};

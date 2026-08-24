@@ -74,6 +74,60 @@ pub trait RelayAdapter: Send + Sync {
     ) -> Result<BuzzMessageWindow, RelayError>;
 }
 
+/// Production fail-closed adapter. Used when the sidecar has no relay URL
+/// or (on Windows) no owner credential. Not a test fake.
+pub struct ClosedRelay {
+    reason: String,
+}
+
+impl ClosedRelay {
+    pub fn missing_relay_url() -> Self {
+        Self {
+            reason: "missing_relay_url".into(),
+        }
+    }
+
+    pub fn missing_credential() -> Self {
+        Self {
+            reason: "missing_credential".into(),
+        }
+    }
+
+    pub fn from_message(reason: impl Into<String>) -> Self {
+        Self {
+            reason: reason.into(),
+        }
+    }
+}
+
+impl RelayAdapter for ClosedRelay {
+    fn status(&self) -> Result<BuzzStatus, RelayError> {
+        Ok(BuzzStatus {
+            state: "closed".into(),
+            error: Some(self.reason.clone()),
+            compatibility_commit: BUZZ_COMPATIBILITY_COMMIT.into(),
+            relay_url: None,
+        })
+    }
+
+    fn list_rooms(&self, _cursor: Option<&str>) -> Result<BuzzRoomPage, RelayError> {
+        Err(RelayError::Unavailable(self.reason.clone()))
+    }
+
+    fn get_room(&self, _room_id: &str) -> Result<BuzzRoom, RelayError> {
+        Err(RelayError::Unavailable(self.reason.clone()))
+    }
+
+    fn message_window(
+        &self,
+        _room_id: &str,
+        _before: Option<&str>,
+        _limit: u32,
+    ) -> Result<BuzzMessageWindow, RelayError> {
+        Err(RelayError::Unavailable(self.reason.clone()))
+    }
+}
+
 #[derive(Clone)]
 pub struct FakeRelay {
     rooms: Vec<BuzzRoom>,
@@ -318,6 +372,21 @@ fn message_from_event(event: &Value, room_id: &str) -> Option<BuzzMessage> {
         created_at: event.get("created_at").and_then(Value::as_u64).unwrap_or(0),
         author: event.get("pubkey").and_then(Value::as_str).unwrap_or("").to_string(),
     })
+}
+
+/// Build the production relay. FakeRelay is never selected here.
+/// Windows without a credential fails closed. Missing URL fails closed.
+pub fn production_relay(relay_url: Option<&str>, secret: Option<&str>) -> Box<dyn RelayAdapter> {
+    let Some(url) = relay_url.map(str::trim).filter(|value| !value.is_empty()) else {
+        return Box::new(ClosedRelay::missing_relay_url());
+    };
+    if cfg!(windows) && secret.is_none() {
+        return Box::new(ClosedRelay::missing_credential());
+    }
+    match StockBuzzRelay::new(url.to_string(), secret) {
+        Ok(relay) => Box::new(relay),
+        Err(err) => Box::new(ClosedRelay::from_message(err.to_string())),
+    }
 }
 
 pub fn public_key_hex_from_secret(secret: &str) -> Option<String> {
