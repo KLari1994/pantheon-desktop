@@ -20,6 +20,7 @@ import {
   completeOpenTimelineParts,
   textPart
 } from '@/lib/chat-messages'
+import { describeRollbackPreview } from '@/pantheon/destination'
 
 import {
   appendText,
@@ -223,8 +224,17 @@ export async function runRewindSubmit(
   interruptFirst: boolean,
   recovery?: { storedSessionId?: null | string; onSessionRecovered?: (sessionId: string) => void },
   truncateRowId?: number,
-  sourceText?: string
+  sourceText?: string,
+  rollback?: { worktree: string; machine: string; approved?: boolean }
 ): Promise<SurvivorUserRowIds | undefined> {
+  if (rollback) {
+    const preview = previewRollback({ sessionId, ...rollback })
+
+    if (!preview.allowed) {
+      throw new Error(preview.summary)
+    }
+  }
+
   // Recovery may rebind the live id mid-flight; interrupt/submit must both
   // follow it rather than pinning the dead one.
   let liveSessionId = sessionId
@@ -483,6 +493,9 @@ export function applyReloadOptimistic(state: ClientSessionState, plan: ReloadPla
 export interface RestoreTarget {
   text?: string
   userOrdinal?: null | number
+  approved?: boolean
+  worktree?: string
+  machine?: string
 }
 
 export interface RestorePlan {
@@ -635,4 +648,22 @@ export function applyBranchVisibility(state: ClientSessionState, next: readonly 
   })
 
   return changed ? { ...state, messages } : state
+}
+
+/** Name the exact session/worktree/machine before a rewind/rollback is allowed. */
+export function rollbackMachineName(): string {
+  if (typeof window !== 'undefined' && window.location?.hostname) {
+    return window.location.hostname
+  }
+
+  return 'local'
+}
+
+export function previewRollback(ctx: { sessionId: string; worktree: string; machine: string; approved?: boolean }) {
+  const preview = describeRollbackPreview(ctx)
+
+  return {
+    ...preview,
+    allowed: preview.requiresApproval ? ctx.approved === true : true
+  }
 }

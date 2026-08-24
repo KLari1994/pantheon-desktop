@@ -19,6 +19,7 @@ import { requestComposerDraftSync } from '@/store/composer'
 import { $activeGatewayProfile, normalizeProfileKey } from '@/store/profile'
 import { $sessions, rememberedSessionProfile } from '@/store/session'
 import { isHudWindow } from '@/store/windows'
+import { hudHandoffForDestination, type PantheonDestination } from '@/pantheon/destination'
 
 /** Whether a HUD window is currently up. In the HUD's own renderer this is
  *  always true (it IS the HUD); in the main window it tracks the child so the
@@ -86,6 +87,21 @@ export function closeHud(): void {
 }
 
 export const toggleHud = (sessionId?: null | string) => ($hudActive.get() ? closeHud() : openHud(sessionId))
+
+/** Open HUD only for bot/session destinations. Rooms hand off to the main window. */
+export function openDestination(destination: PantheonDestination): { surface: 'hud'; storedSessionId: string } | { surface: 'main-window'; href: string } {
+  const handoff = hudHandoffForDestination(destination)
+
+  if (handoff.surface === 'hud') {
+    openHud(handoff.storedSessionId)
+
+    return handoff
+  }
+
+  const href = `/rooms?room=${encodeURIComponent(handoff.destination.roomId)}`
+
+  return { surface: 'main-window', href }
+}
 
 /** Tell main which session this HUD is on. Main holds it (the HUD's renderer
  *  doesn't outlive the window) and hands it back in the close broadcast so the

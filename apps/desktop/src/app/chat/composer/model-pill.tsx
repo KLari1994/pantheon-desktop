@@ -13,6 +13,7 @@ import { ChevronDown } from '@/lib/icons'
 import { formatModelStatusLabel } from '@/lib/model-status-label'
 import { cn } from '@/lib/utils'
 import { $currentModelSource, $defaultReasoningEffort, setModelPickerOpen } from '@/store/session'
+import { showModelPicker } from '@/store/model-visibility'
 
 import { onComposerModelMenuRequest } from './focus'
 import { useComposerScope } from './scope'
@@ -129,6 +130,15 @@ export function ModelPill({
     : copy.switchModel
 
   const title = pinnedOverride ? `${baseTitle} — ${copy.modelPinned}` : baseTitle
+  const pickerAllowed = showModelPicker(currentProvider || 'hermes') && showModelPicker(currentModel || 'hermes')
+
+  if (!pickerAllowed) {
+    return (
+      <span aria-label={title} className={pillClass} data-testid="model-pill-static" title={title}>
+        {label}
+      </span>
+    )
+  }
 
   if (!model.modelMenuContent) {
     return (

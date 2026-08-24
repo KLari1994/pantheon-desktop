@@ -6,6 +6,7 @@ import { ownsAmbientCue } from '@/store/ambient'
 import { notifyError } from '@/store/notifications'
 import { $voicePlayback } from '@/store/voice-playback'
 import { $autoSpeakReplies } from '@/store/voice-prefs'
+import { canAutoSpeakReplies, type VoiceSurface } from '@/pantheon/destination'
 
 import { useComposerScope } from '../scope'
 
@@ -24,6 +25,9 @@ interface UseAutoSpeakReplies {
   pendingReply: () => AutoSpeakReply | null
   /** Re-arm on session switch so opening a chat never reads its existing last reply. */
   sessionId: string | null | undefined
+  /** Spoken replies stay opt-in and never fire on group/cron/background. */
+  surface?: VoiceSurface
+  perAgent?: boolean
 }
 
 /**
@@ -38,9 +42,12 @@ export function useAutoSpeakReplies({
   failureLabel,
   markSpoken,
   pendingReply,
-  sessionId
+  sessionId,
+  surface = 'direct-chat',
+  perAgent = true
 }: UseAutoSpeakReplies) {
   const enabled = useStore($autoSpeakReplies)
+  const allowed = canAutoSpeakReplies(surface, { enabled, perAgent })
   // Wake on THIS composer's transcript: a tile subscribed to the primary's
   // would never fire on its own replies (and would fire on someone else's).
   const { $messages } = useComposerScope()
@@ -48,7 +55,7 @@ export function useAutoSpeakReplies({
   latest.current = { conversationActive, failureLabel, markSpoken, pendingReply }
 
   useEffect(() => {
-    if (!enabled) {
+    if (!allowed) {
       return undefined
     }
 
@@ -87,5 +94,5 @@ export function useAutoSpeakReplies({
     const stops = [$messages.subscribe(speakLatest), $voicePlayback.listen(speakLatest)]
 
     return () => stops.forEach(f => f())
-  }, [$messages, enabled, sessionId])
+  }, [$messages, allowed, sessionId])
 }

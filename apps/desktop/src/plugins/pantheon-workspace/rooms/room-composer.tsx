@@ -3,6 +3,8 @@ import { useMemo, useState } from 'react'
 
 import type { BuzzAttachment, BuzzMember } from '@/pantheon/buzz-client'
 
+import { canDictate } from '@/pantheon/destination'
+
 import type { RoomMessage } from './types'
 
 export interface ComposerExtras {
@@ -17,7 +19,8 @@ export function RoomComposer({
   threadRootId,
   onSend,
   onRetry,
-  onRemove
+  onRemove,
+  onDictate
 }: {
   members: BuzzMember[]
   disabled?: boolean
@@ -26,6 +29,7 @@ export function RoomComposer({
   onSend: (content: string, mentions: string[], extras?: ComposerExtras) => void
   onRetry?: () => void
   onRemove?: () => void
+  onDictate?: () => void
 }) {
   const [draft, setDraft] = useState('')
   const [attachmentUrl, setAttachmentUrl] = useState('')
@@ -110,6 +114,11 @@ export function RoomComposer({
           }
         }}
       />
+      {canDictate('room-composer') ? (
+        <Button type="button" aria-label="Dictate" disabled={disabled} onClick={onDictate}>
+          Dictate
+        </Button>
+      ) : null}
     </div>
   )
 }

@@ -15,7 +15,8 @@ import {
   resolveDurableRowId,
   runRewindSubmit,
   survivorRowIdsFrom,
-  truncateSubmitParams
+  truncateSubmitParams,
+  previewRollback
 } from './rewind'
 
 const row = (id: string, role: ChatMessage['role'], text: string, extra: Partial<ChatMessage> = {}): ChatMessage => ({
@@ -594,5 +595,48 @@ describe('optimistic rewind/reload turn-clock seeding (#86795)', () => {
     expect(next.busy).toBe(true)
     expect(next.turnLive).toBe(false)
     expect(next.turnStartedAt).toBeGreaterThanOrEqual(before)
+  })
+})
+
+describe('rollback preview', () => {
+  it('names session, worktree, and machine and refuses until approved', () => {
+    const preview = previewRollback({
+      sessionId: 'sess-1',
+      worktree: '/tmp/wt',
+      machine: 'lab-1'
+    })
+
+    expect(preview.summary).toContain('sess-1')
+    expect(preview.summary).toContain('/tmp/wt')
+    expect(preview.summary).toContain('lab-1')
+    expect(preview.requiresApproval).toBe(true)
+    expect(preview.allowed).toBe(false)
+    expect(previewRollback({ sessionId: 'sess-1', worktree: '/tmp/wt', machine: 'lab-1', approved: true }).allowed).toBe(
+      true
+    )
+  })
+
+  it('blocks the live rewind submit until the named rollback preview is approved', async () => {
+    const calls: { method: string }[] = []
+    const gateway = (async (method: string) => {
+      calls.push({ method })
+
+      return { status: 'streaming' }
+    }) as <T>(method: string, params?: Record<string, unknown>, timeoutMs?: number) => Promise<T>
+
+    await expect(
+      runRewindSubmit(gateway, 'sess-1', 'prompt', 0, 'u1', false, undefined, undefined, 'prompt', {
+        worktree: '/tmp/wt',
+        machine: 'lab-1'
+      })
+    ).rejects.toThrow('Restore sess-1 on /tmp/wt @ lab-1')
+    expect(calls).toEqual([])
+
+    await runRewindSubmit(gateway, 'sess-1', 'prompt', 0, 'u1', false, undefined, undefined, 'prompt', {
+      worktree: '/tmp/wt',
+      machine: 'lab-1',
+      approved: true
+    })
+    expect(calls.some(call => call.method === 'prompt.submit')).toBe(true)
   })
 })
