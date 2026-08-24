@@ -163,22 +163,25 @@ test('sanitizeBridgeEnv allowlists PATH and drops secret-bearing keys', () => {
 })
 
 test('workspace config supplies relay URL and ignores env escape hatches', () => {
-  const homeDir = path.join('home', 'user', '.hermes')
-  const workspacePath = path.join(homeDir, 'pantheon', 'workspace.json')
-  const files: Record<string, string> = {
-    [workspacePath]: JSON.stringify({
-      buzz: { relayUrl: 'https://community.example.test' }
-    })
+  const homeDir = fs.mkdtempSync(path.join(os.tmpdir(), 'pantheon-buzz-home-'))
+  try {
+    const workspacePath = path.join(homeDir, 'pantheon', 'workspace.json')
+    fs.mkdirSync(path.dirname(workspacePath), { recursive: true })
+    fs.writeFileSync(
+      workspacePath,
+      JSON.stringify({ buzz: { relayUrl: 'https://community.example.test' } })
+    )
+    process.env.PANTHEON_BUZZ_RELAY_URL = 'https://env-escape.example.test'
+    assert.equal(resolveBuzzRelayUrl({ homeDir }), 'https://community.example.test')
+    assert.equal(
+      parseBuzzRelayUrlFromWorkspaceConfig('relay_url: https://from-yaml.example.test'),
+      'https://from-yaml.example.test'
+    )
+    assert.equal(resolveBuzzRelayUrl({ homeDir: undefined }), undefined)
+  } finally {
+    delete process.env.PANTHEON_BUZZ_RELAY_URL
+    fs.rmSync(homeDir, { recursive: true, force: true })
   }
-  assert.equal(
-    resolveBuzzRelayUrl({
-      homeDir,
-      readFile: filePath => files[filePath]
-    }),
-    'https://community.example.test'
-  )
-  assert.equal(parseBuzzRelayUrlFromWorkspaceConfig('relay_url: https://from-yaml.example.test'), 'https://from-yaml.example.test')
-  assert.equal(resolveBuzzRelayUrl({ homeDir: undefined }), undefined)
 })
 
 test('spawn error is swallowed so the desktop shell stays up', () => {
