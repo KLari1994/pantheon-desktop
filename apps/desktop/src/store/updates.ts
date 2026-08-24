@@ -664,6 +664,80 @@ export async function applyUpdates(opts: DesktopUpdateApplyOptions = {}): Promis
   }
 }
 
+export async function rollbackUpdate(): Promise<DesktopUpdateApplyResult> {
+  const blocked = await refuseIfPantheonBusy('client')
+
+  if (blocked) {
+    return blocked
+  }
+
+  const rollback = window.hermesDesktop?.updates?.rollback
+
+  if (typeof rollback !== 'function') {
+    const message = translateNow('updates.rollbackFailed')
+    $updateApply.set({ ...IDLE, applying: false, stage: 'error', error: 'unavailable', message })
+
+    return { ok: false, error: 'unavailable', message }
+  }
+
+  $updateApply.set({
+    ...IDLE,
+    applying: true,
+    stage: 'prepare',
+    message: translateNow('updates.rollbackTitle')
+  })
+
+  try {
+    const result = await rollback()
+
+    if (result?.handedOff) {
+      $updateApply.set({
+        ...$updateApply.get(),
+        applying: true,
+        stage: 'restart',
+        message: result.message ?? translateNow('updates.rollbackTitle')
+      })
+
+      return result
+    }
+
+    if (result?.ok) {
+      $updateApply.set({
+        ...IDLE,
+        applying: false,
+        stage: 'idle',
+        message: result.message ?? translateNow('updates.rollbackDone')
+      })
+      notify({
+        durationMs: 8000,
+        id: UPDATE_TOAST_ID,
+        kind: 'success',
+        message: result.message ?? translateNow('updates.rollbackDone'),
+        placement: 'default',
+        title: translateNow('updates.rollbackTitle')
+      })
+
+      return result
+    }
+
+    const message = result?.message ?? translateNow('updates.rollbackFailed')
+    $updateApply.set({
+      ...IDLE,
+      applying: false,
+      stage: 'error',
+      error: result?.error ?? 'rollback-failed',
+      message
+    })
+
+    return result ?? { ok: false, error: 'rollback-failed', message }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error)
+    $updateApply.set({ ...IDLE, applying: false, stage: 'error', error: 'rollback-failed', message })
+
+    return { ok: false, error: 'rollback-failed', message }
+  }
+}
+
 const BACKEND_ACTION_POLL_MS = 1500
 const BACKEND_ACTION_MAX_MS = 6 * 60 * 1000
 const BACKEND_RETURN_MAX_MS = 4 * 60 * 1000

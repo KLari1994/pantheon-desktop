@@ -7,9 +7,11 @@ import { describe, expect, it } from 'vitest'
 import { secretShapedValue } from './hardening'
 import {
   createPantheonUpdateBackup,
+  markRollbackPending,
   readLatestBackupReceipt,
   readRollbackMarker,
   restorePantheonBackup,
+  restorePantheonRollbackAtBoot,
   writeRollbackMarker
 } from './pantheon-backup'
 
@@ -98,6 +100,83 @@ describe('createPantheonUpdateBackup', () => {
 
     fs.rmSync(receipt.backupDir, { recursive: true, force: true })
     expect(readRollbackMarker(home)).toBeNull()
+  })
+
+  it('does not restore at boot unless pendingRestore is set', () => {
+    const home = tmpHome('boot-intent')
+    seed(home, 'pantheon/workspace.json', '{"buzz":{"relayUrl":"https://r"}}')
+    const receipt = createPantheonUpdateBackup(home, { now: () => T0 })
+    writeRollbackMarker(home, {
+      schemaVersion: 1,
+      createdAt: receipt.createdAt,
+      previousCommit: 'abc',
+      backupDir: receipt.backupDir,
+      binderSchemaVersion: 1,
+      pendingRestore: false
+    })
+    fs.writeFileSync(path.join(home, 'pantheon', 'workspace.json'), '{"mutated":true}')
+
+    const ignored = restorePantheonRollbackAtBoot(home)
+    expect(ignored).toEqual({ restored: false, message: 'no-pending-restore' })
+    expect(JSON.parse(fs.readFileSync(path.join(home, 'pantheon', 'workspace.json'), 'utf8'))).toEqual({
+      mutated: true
+    })
+    expect(readRollbackMarker(home)?.pendingRestore).toBe(false)
+
+    expect(markRollbackPending(home)?.pendingRestore).toBe(true)
+    const restored = restorePantheonRollbackAtBoot(home)
+    expect(restored).toEqual({ restored: true, message: 'restored' })
+    expect(JSON.parse(fs.readFileSync(path.join(home, 'pantheon', 'workspace.json'), 'utf8'))).toEqual({
+      buzz: { relayUrl: 'https://r' }
+    })
+    expect(readRollbackMarker(home)).toBeNull()
+  })
+
+  it('restores the marker backup, not a later backup', () => {
+    const home = tmpHome('exact-backup')
+    seed(home, 'pantheon/workspace.json', '{"generation":1}')
+    const first = createPantheonUpdateBackup(home, { now: () => T0 })
+    seed(home, 'pantheon/workspace.json', '{"generation":2}')
+    createPantheonUpdateBackup(home, { now: () => T0 + 60_000 })
+    writeRollbackMarker(home, {
+      schemaVersion: 1,
+      createdAt: first.createdAt,
+      previousCommit: 'abc',
+      backupDir: first.backupDir,
+      binderSchemaVersion: 1,
+      pendingRestore: true
+    })
+    seed(home, 'pantheon/workspace.json', '{"generation":3}')
+
+    const restored = restorePantheonRollbackAtBoot(home)
+    expect(restored).toEqual({ restored: true, message: 'restored' })
+    expect(JSON.parse(fs.readFileSync(path.join(home, 'pantheon', 'workspace.json'), 'utf8'))).toEqual({
+      generation: 1
+    })
+  })
+
+  it('excludes files with sensitive field names and common provider key shapes', () => {
+    const home = tmpHome('sensitive-fields')
+    seed(home, 'pantheon/workspace.json', '{"ok":true}')
+    seed(
+      home,
+      'config.yaml',
+      [
+        'openai_api_key: harmless-looking',
+        'relay_url: https://user:gsk_live_abc1234567890@relay.example/path?token=1',
+        'note: prefix xai-abc1234567890def and AIzaSyDummyProviderKey123456'
+      ].join('\n')
+    )
+
+    const receipt = createPantheonUpdateBackup(home, { now: () => T0 })
+    expect(receipt.excluded).toContainEqual(
+      expect.objectContaining({ source: path.join(home, 'config.yaml'), reason: 'secret-shaped-content' })
+    )
+    const copied = readdirRecursive(receipt.backupDir)
+      .filter(file => path.basename(file) !== 'receipt.json')
+      .map(file => fs.readFileSync(file, 'utf8'))
+      .join('\n')
+    expect(copied).not.toMatch(/gsk_|xai-|AIza|openai_api_key|user:/)
   })
 })
 

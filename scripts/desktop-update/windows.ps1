@@ -1063,19 +1063,51 @@ try {
     # posix.sh is deliberately left alone: unlinking a running executable is
     # legal there, so the equivalent call is harmless.
     $pythonExe = Join-Path $InstallRoot "venv\Scripts\python.exe"
-    if (-not (Test-Path -LiteralPath $pythonExe)) {
+    if (-not $Rollback -and -not (Test-Path -LiteralPath $pythonExe)) {
         $finalCode = 3
         $finalMsg = "Update aborted: $pythonExe is missing. The install needs repair (run the Hermes installer or `hermes doctor`)."
         Write-HandoffLog $finalMsg
         exit $finalCode
     }
     if ($Rollback) {
-        Write-HandoffLog "rollback requested; skipping hermes update (backup-dir=$BackupDir)"
+        Write-HandoffLog "rollback requested; restoring previous working build (backup-dir=$BackupDir)"
         if ($PreviousCommit) {
             & git -C $InstallRoot checkout --force $PreviousCommit
             if ($LASTEXITCODE -ne 0) {
                 $finalCode = 3
                 $finalMsg = "Rollback aborted: cannot restore previous commit $PreviousCommit."
+                Write-HandoffLog $finalMsg
+                exit $finalCode
+            }
+        }
+        $restoredBak = $false
+        $releaseRoot = Join-Path $InstallRoot 'apps/desktop/release'
+        if (Test-Path -LiteralPath $releaseRoot) {
+            Get-ChildItem -LiteralPath $releaseRoot -Directory -ErrorAction SilentlyContinue | ForEach-Object {
+                $bak = "$($_.FullName).bak"
+                if (Test-Path -LiteralPath $bak) {
+                    Write-HandoffLog "restoring previous unpacked build from $bak"
+                    Remove-Item -LiteralPath $_.FullName -Recurse -Force -ErrorAction SilentlyContinue
+                    Rename-Item -LiteralPath $bak -NewName $_.Name
+                    $restoredBak = $true
+                }
+            }
+        }
+        if (-not $restoredBak) {
+            if (-not (Test-Path -LiteralPath $pythonExe)) {
+                $pythonExe = (Get-Command python -ErrorAction SilentlyContinue)?.Source
+            }
+            if (-not $pythonExe) {
+                $finalCode = 6
+                $finalMsg = "Rollback restored the previous source, but no Python runtime was available to rebuild Desktop."
+                Write-HandoffLog $finalMsg
+                exit $finalCode
+            }
+            Publish-UiProgress "Rebuilding previous Desktop"
+            $rebuild = Invoke-HermesStep $pythonExe @("-m", "hermes_cli.main", "desktop", "--force-build", "--build-only") "rebuild"
+            if ($rebuild.Code -ne 0) {
+                $finalCode = 6
+                $finalMsg = "Rollback restored the previous source, but the Desktop app rebuild failed. Run `hermes desktop --force-build` from a terminal to retry."
                 Write-HandoffLog $finalMsg
                 exit $finalCode
             }

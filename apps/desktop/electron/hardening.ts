@@ -313,22 +313,58 @@ function secretShapedValue(value: string): boolean {
     return true
   }
 
-  if (/^sk-[A-Za-z0-9_-]{8,}$/.test(trimmed)) {
+  if (/(?:^|[\s"'=:{},[\]])sk-[A-Za-z0-9_-]{8,}/.test(trimmed)) {
     return true
   }
 
-  if (/^Bearer\s+\S{16,}$/i.test(trimmed)) {
+  if (/Bearer\s+\S{16,}/i.test(trimmed)) {
     return true
   }
 
-  if (/^eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/.test(trimmed)) {
+  if (/(?:^|[\s"'=:{},[\]])gsk_[A-Za-z0-9_-]{8,}/.test(trimmed)) {
+    return true
+  }
+
+  if (/(?:^|[\s"'=:{},[\]])xai-[A-Za-z0-9_-]{8,}/.test(trimmed)) {
+    return true
+  }
+
+  if (/(?:^|[\s"'=:{},[\]])AIza[0-9A-Za-z_-]{10,}/.test(trimmed)) {
+    return true
+  }
+
+  if (/eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+/.test(trimmed)) {
     return true
   }
 
   return false
 }
 
+function sensitiveConfigFieldName(name: string): boolean {
+  return /^(?:openai_|anthropic_|groq_|xai_|google_)?(?:api[_-]?key|relay[_-]?key|authorization|password|secret|token|nsec|private[_-]?key|access[_-]?token)$/i.test(
+    String(name || '').trim()
+  )
+}
+
 const PACKAGED_ADAPTER_NAMES = ['buzz-bridge', 'pantheon-buzz', 'pantheon-acp', 'acp-binder']
+const PACKAGED_ADAPTER_BLOCK =
+  'Pantheon adapters must be packaged local resources; remote-fetched plugin code is rejected.'
+
+function pantheonAdapterContentsBlockReason(identifier: string): string | null {
+  const raw = String(identifier || '').trim().toLowerCase()
+
+  if (!raw) {
+    return null
+  }
+
+  const leaf = raw.split(/[/\\]/).filter(Boolean).pop() || raw
+
+  if (PACKAGED_ADAPTER_NAMES.some(name => leaf === name || leaf.includes(name))) {
+    return PACKAGED_ADAPTER_BLOCK
+  }
+
+  return null
+}
 
 function pantheonAdapterInstallBlockReason(identifier: string): string | null {
   const raw = String(identifier || '').trim()
@@ -344,13 +380,7 @@ function pantheonAdapterInstallBlockReason(identifier: string): string | null {
     return null
   }
 
-  const lowered = raw.toLowerCase()
-
-  if (PACKAGED_ADAPTER_NAMES.some(name => lowered.includes(name))) {
-    return 'Pantheon adapters must be packaged local resources; remote-fetched plugin code is rejected.'
-  }
-
-  return null
+  return pantheonAdapterContentsBlockReason(raw)
 }
 
 function sensitiveFileBlockReason(filePath: any) {
@@ -634,9 +664,11 @@ export {
   resolveTimeoutMs,
   SAFE_STORAGE_ENCODING,
   SECRET_FILE_MODE,
+  pantheonAdapterContentsBlockReason,
   pantheonAdapterInstallBlockReason,
   secretShapedValue,
   sha256File,
+  sensitiveConfigFieldName,
   sensitiveFileBlockReason,
   TEXT_PREVIEW_SOURCE_MAX_BYTES,
   verifyPinnedArtifacts,

@@ -3,6 +3,7 @@ import path from 'node:path'
 
 import {
   secretShapedValue,
+  sensitiveConfigFieldName,
   sensitiveFileBlockReason,
   sha256File
 } from './hardening'
@@ -26,6 +27,8 @@ export interface PantheonRollbackMarker {
   previousCommit: string | null
   backupDir: string
   binderSchemaVersion: number | null
+  /** Set only for an explicit user rollback or a failed apply that must restore. */
+  pendingRestore?: boolean
 }
 
 export interface PantheonBackupDeps {
@@ -51,11 +54,24 @@ function receiptStamp(createdAt: string): string {
 }
 
 function textContainsSecret(text: string): boolean {
-  if (secretShapedValue(text)) {
+  if (secretShapedValue(text) || textContainsSensitiveConfigFields(text)) {
     return true
   }
 
   return text.split(/[\s"'=:{},[\]]+/).some(token => token.length > 0 && secretShapedValue(token))
+}
+
+function textContainsSensitiveConfigFields(text: string): boolean {
+  const keyPattern = /(?:^|[\s,{])["']?([A-Za-z0-9_-]+)["']?\s*[:=]/g
+  let match: RegExpExecArray | null
+
+  while ((match = keyPattern.exec(text))) {
+    if (sensitiveConfigFieldName(match[1] || '')) {
+      return true
+    }
+  }
+
+  return false
 }
 
 function isCredentialSource(source: string): boolean {
@@ -195,6 +211,25 @@ export function createPantheonUpdateBackup(
   return receipt
 }
 
+export function readBackupReceipt(
+  backupDir: string,
+  deps: PantheonBackupDeps = {}
+): PantheonBackupReceipt | null {
+  const fsImpl = deps.fs ?? fs
+
+  try {
+    const parsed = JSON.parse(fsImpl.readFileSync(path.join(backupDir, 'receipt.json'), 'utf8')) as PantheonBackupReceipt
+
+    if (!parsed || parsed.schemaVersion !== 1 || typeof parsed.backupDir !== 'string') {
+      return null
+    }
+
+    return parsed
+  } catch {
+    return null
+  }
+}
+
 export function readLatestBackupReceipt(
   hermesHome: string,
   deps: PantheonBackupDeps = {}
@@ -211,13 +246,7 @@ export function readLatestBackupReceipt(
   }
 
   const receipts = names
-    .map(name => {
-      try {
-        return JSON.parse(fsImpl.readFileSync(path.join(root, name, 'receipt.json'), 'utf8')) as PantheonBackupReceipt
-      } catch {
-        return null
-      }
-    })
+    .map(name => readBackupReceipt(path.join(root, name), deps))
     .filter((item): item is PantheonBackupReceipt => Boolean(item?.createdAt))
     .sort((left, right) => right.createdAt.localeCompare(left.createdAt))
 
@@ -265,6 +294,33 @@ export function writeRollbackMarker(
   const dest = rollbackMarkerPath(hermesHome)
   fsImpl.mkdirSync(path.dirname(dest), { recursive: true })
   fsImpl.writeFileSync(dest, `${JSON.stringify(marker, null, 2)}\n`, 'utf8')
+}
+
+export function clearRollbackMarker(hermesHome: string, deps: PantheonBackupDeps = {}): void {
+  const fsImpl = deps.fs ?? fs
+  const dest = rollbackMarkerPath(hermesHome)
+
+  try {
+    fsImpl.unlinkSync(dest)
+  } catch {
+    void 0
+  }
+}
+
+export function markRollbackPending(
+  hermesHome: string,
+  deps: PantheonBackupDeps = {}
+): PantheonRollbackMarker | null {
+  const marker = readRollbackMarker(hermesHome, deps)
+
+  if (!marker) {
+    return null
+  }
+
+  const next = { ...marker, pendingRestore: true }
+  writeRollbackMarker(hermesHome, next, deps)
+
+  return next
 }
 
 export function readRollbackMarker(
@@ -321,13 +377,21 @@ export function restorePantheonRollbackAtBoot(
     return { restored: false, message: 'no-rollback-marker' }
   }
 
-  const receipt = readLatestBackupReceipt(hermesHome, deps)
+  if (marker.pendingRestore !== true) {
+    return { restored: false, message: 'no-pending-restore' }
+  }
+
+  const receipt = readBackupReceipt(marker.backupDir, deps)
 
   if (!receipt) {
     return { restored: false, message: 'no-backup-receipt' }
   }
 
   const result = restorePantheonBackup(hermesHome, receipt, deps)
+
+  if (result.failed.length === 0) {
+    clearRollbackMarker(hermesHome, deps)
+  }
 
   return {
     restored: result.failed.length === 0,

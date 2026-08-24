@@ -82,6 +82,7 @@ const {
   applyEverythingUpdate,
   gatherPantheonActivity,
   hasMultipleUpdateTargets,
+  rollbackUpdate,
   $updateApply,
   $updateEverything,
   $updateOverlayOpen,
@@ -1293,5 +1294,41 @@ describe('pantheon preflight', () => {
     const result = await applyUpdates()
     expect(result.error).toBe('pantheon-preflight-blocked')
     expect(applyMock).not.toHaveBeenCalled()
+  })
+})
+
+describe('rollbackUpdate', () => {
+  const rollbackMock = vi.fn()
+
+  beforeEach(() => {
+    rollbackMock.mockReset()
+    resetUpdateApplyState()
+    $mockWorkingSessionIds.set([])
+    $mockComposerDraft.set('')
+    $mockDraftTitles.set({})
+    $mockTerminals.set([])
+    ;(globalThis as unknown as { window: unknown }).window = {
+      hermesDesktop: { updates: { rollback: rollbackMock } }
+    }
+  })
+
+  afterEach(() => {
+    delete (globalThis as unknown as { window?: unknown }).window
+  })
+
+  it('calls the desktop rollback bridge and holds restart when handed off', async () => {
+    rollbackMock.mockResolvedValue({ ok: true, handedOff: true, message: 'Previous working build restore started.' })
+    const result = await rollbackUpdate()
+    expect(rollbackMock).toHaveBeenCalledTimes(1)
+    expect(result).toMatchObject({ ok: true, handedOff: true })
+    expect($updateApply.get().stage).toBe('restart')
+    expect($updateApply.get().applying).toBe(true)
+  })
+
+  it('defers rollback when a working session is active', async () => {
+    $mockWorkingSessionIds.set(['sess-1'])
+    const result = await rollbackUpdate()
+    expect(result).toMatchObject({ ok: false, error: 'pantheon-preflight-blocked' })
+    expect(rollbackMock).not.toHaveBeenCalled()
   })
 })

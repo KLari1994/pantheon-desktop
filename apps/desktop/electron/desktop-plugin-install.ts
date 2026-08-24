@@ -10,7 +10,7 @@ import fsp from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 
-import { pantheonAdapterInstallBlockReason } from './hardening'
+import { pantheonAdapterContentsBlockReason, pantheonAdapterInstallBlockReason } from './hardening'
 
 const GITHUB_BROWSER_SEGMENTS = new Set(['tree', 'blob', 'commit'])
 
@@ -399,6 +399,12 @@ export async function installDesktopPluginFromGit(
   desktopPluginsRoot: string,
   force = false
 ): Promise<DesktopPluginInstallResult> {
+  const adapterBlock = pantheonAdapterInstallBlockReason(identifier)
+
+  if (adapterBlock) {
+    return { ok: false, error: adapterBlock }
+  }
+
   try {
     const { gitUrl, subdir } = resolvePluginGitUrl(identifier)
     const cloneRoot = await cloneToTemp(gitBin, gitUrl)
@@ -406,6 +412,13 @@ export async function installDesktopPluginFromGit(
     try {
       const pluginRoot = await resolvePluginRoot(cloneRoot, subdir)
       const detected = await detectPluginComponents(pluginRoot)
+      const contentsBlock = [identifier, detected.agentName, detected.desktopName, desktopPluginFolderName(gitUrl, subdir)]
+        .map(name => pantheonAdapterContentsBlockReason(String(name || '')))
+        .find(Boolean)
+
+      if (contentsBlock) {
+        return { ok: false, error: contentsBlock }
+      }
 
       if (!detected.desktop || !detected.desktopSourceSubdir) {
         return { ok: false, error: 'No desktop plugin.js found in this repository.' }
