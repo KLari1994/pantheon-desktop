@@ -1,3 +1,5 @@
+use std::sync::Mutex;
+
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use thiserror::Error;
@@ -25,26 +27,45 @@ pub struct BuzzStatus {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct BuzzMember {
     pub pubkey: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub name: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub role: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct BuzzRoom {
     pub id: String,
     pub name: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub about: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub kind: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub visibility: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub ttl_seconds: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub expires_at: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub self_role: Option<String>,
     #[serde(default)]
     pub members: Vec<BuzzMember>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct BuzzRoomPage {
-    pub rooms: Vec<BuzzRoom>,
+pub struct BuzzAttachment {
+    pub url: String,
+    pub mime_type: String,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub next_cursor: Option<String>,
+    pub name: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub size_bytes: Option<u64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -55,11 +76,43 @@ pub struct BuzzMessage {
     pub content: String,
     pub created_at: u64,
     pub author: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub thread_root_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub reply_to_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub attachments: Option<Vec<BuzzAttachment>>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BuzzReaction {
+    pub id: String,
+    pub target_event_id: String,
+    pub emoji: String,
+    pub author: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BuzzMessageWindow {
     pub messages: Vec<BuzzMessage>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub reactions: Vec<BuzzReaction>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PublishResult {
+    pub event_id: String,
+    pub created_at: u64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BuzzRoomPage {
+    pub rooms: Vec<BuzzRoom>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub next_cursor: Option<String>,
 }
 
 pub trait RelayAdapter: Send + Sync {
@@ -72,6 +125,12 @@ pub trait RelayAdapter: Send + Sync {
         before: Option<&str>,
         limit: u32,
     ) -> Result<BuzzMessageWindow, RelayError>;
+    fn publish(&self, _event: &Value) -> Result<PublishResult, RelayError> {
+        Err(RelayError::Unavailable("publish unsupported".into()))
+    }
+    fn events_since(&self, _room_ids: &[String], _since: u64) -> Result<Vec<Value>, RelayError> {
+        Err(RelayError::Unavailable("events_since unsupported".into()))
+    }
 }
 
 /// Production fail-closed adapter. Used when the sidecar has no relay URL
@@ -126,12 +185,20 @@ impl RelayAdapter for ClosedRelay {
     ) -> Result<BuzzMessageWindow, RelayError> {
         Err(RelayError::Unavailable(self.reason.clone()))
     }
+
+    fn publish(&self, _event: &Value) -> Result<PublishResult, RelayError> {
+        Err(RelayError::Unavailable(self.reason.clone()))
+    }
+
+    fn events_since(&self, _room_ids: &[String], _since: u64) -> Result<Vec<Value>, RelayError> {
+        Err(RelayError::Unavailable(self.reason.clone()))
+    }
 }
 
-#[derive(Clone)]
 pub struct FakeRelay {
     rooms: Vec<BuzzRoom>,
     messages: Vec<BuzzMessage>,
+    published: Mutex<Vec<Value>>,
 }
 
 impl Default for FakeRelay {
@@ -140,9 +207,16 @@ impl Default for FakeRelay {
             rooms: vec![BuzzRoom {
                 id: "room-a".into(),
                 name: "General".into(),
+                about: None,
+                kind: Some("office".into()),
+                visibility: Some("private".into()),
+                ttl_seconds: None,
+                expires_at: None,
+                self_role: Some("owner".into()),
                 members: vec![BuzzMember {
                     pubkey: "alice".into(),
                     name: Some("Alice".into()),
+                    role: Some("owner".into()),
                 }],
             }],
             messages: vec![BuzzMessage {
@@ -151,7 +225,11 @@ impl Default for FakeRelay {
                 content: "hello".into(),
                 created_at: 1,
                 author: "alice".into(),
+                thread_root_id: None,
+                reply_to_id: None,
+                attachments: None,
             }],
+            published: Mutex::new(Vec::new()),
         }
     }
 }
@@ -194,7 +272,49 @@ impl RelayAdapter for FakeRelay {
             .take(limit as usize)
             .cloned()
             .collect();
-        Ok(BuzzMessageWindow { messages })
+        Ok(BuzzMessageWindow { messages, reactions: vec![] })
+    }
+
+    fn publish(&self, event: &Value) -> Result<PublishResult, RelayError> {
+        let created_at = event
+            .get("created_at")
+            .and_then(Value::as_u64)
+            .unwrap_or_else(crate::protocol::unix_now);
+        let event_id = event
+            .get("id")
+            .and_then(Value::as_str)
+            .map(str::to_string)
+            .unwrap_or_else(|| format!("evt-{created_at}"));
+        if let Ok(mut published) = self.published.lock() {
+            published.push(event.clone());
+        }
+        Ok(PublishResult {
+            event_id,
+            created_at,
+        })
+    }
+
+    fn events_since(&self, room_ids: &[String], _since: u64) -> Result<Vec<Value>, RelayError> {
+        let published = self
+            .published
+            .lock()
+            .map_err(|_| RelayError::Unavailable("lock".into()))?
+            .clone();
+        Ok(published
+            .into_iter()
+            .filter(|event| {
+                event
+                    .get("tags")
+                    .and_then(Value::as_array)
+                    .into_iter()
+                    .flatten()
+                    .any(|tag| {
+                        let parts = tag.as_array();
+                        matches!(parts, Some(parts) if parts.first().and_then(Value::as_str) == Some("h")
+                            && parts.get(1).and_then(Value::as_str).is_some_and(|id| room_ids.iter().any(|room| room == id)))
+                    })
+            })
+            .collect())
     }
 }
 
@@ -295,7 +415,11 @@ impl RelayAdapter for StockBuzzRelay {
             if let Some(event) = members.first() {
                 room.members = p_tags(event)
                     .into_iter()
-                    .map(|pubkey| BuzzMember { pubkey, name: None })
+                    .map(|(pubkey, role)| BuzzMember {
+                        pubkey,
+                        name: None,
+                        role,
+                    })
                     .collect();
             }
         }
@@ -322,7 +446,53 @@ impl RelayAdapter for StockBuzzRelay {
                 .iter()
                 .filter_map(|event| message_from_event(event, room_id))
                 .collect(),
+            reactions: events.iter().filter_map(reaction_from_event).collect(),
         })
+    }
+
+    fn publish(&self, event: &Value) -> Result<PublishResult, RelayError> {
+        let signed = match self.secret_hex {
+            Some(secret) => sign_nostr_event(&secret, event)?,
+            None => event.clone(),
+        };
+        let url = format!("{}/events", self.relay_url);
+        let body = serde_json::to_vec(&signed).map_err(|e| RelayError::Unavailable(e.to_string()))?;
+        let mut request = self
+            .http
+            .post(&url)
+            .header("Content-Type", "application/json")
+            .body(body.clone());
+        if let Some(secret) = self.secret_hex {
+            let auth = sign_nip98(&secret, "POST", &url, Some(&body))?;
+            request = request.header("Authorization", auth);
+        }
+        let response = request.send().map_err(|e| RelayError::Unavailable(e.to_string()))?;
+        if !response.status().is_success() {
+            return Err(RelayError::Unavailable(format!("http {}", response.status())));
+        }
+        Ok(PublishResult {
+            event_id: signed
+                .get("id")
+                .and_then(Value::as_str)
+                .unwrap_or("unpublished")
+                .to_string(),
+            created_at: signed
+                .get("created_at")
+                .and_then(Value::as_u64)
+                .unwrap_or_else(crate::protocol::unix_now),
+        })
+    }
+
+    fn events_since(&self, room_ids: &[String], since: u64) -> Result<Vec<Value>, RelayError> {
+        if room_ids.is_empty() {
+            return Ok(vec![]);
+        }
+        self.query(json!({
+            "kinds": [9, 7, 5, 9000, 9001, KIND_CHANNEL_METADATA, KIND_CHANNEL_MEMBERS],
+            "#h": room_ids,
+            "since": since,
+            "limit": 200
+        }))
     }
 }
 
@@ -330,6 +500,10 @@ fn room_from_event(event: &Value) -> Option<BuzzRoom> {
     let tags = event.get("tags")?.as_array()?;
     let mut id = None;
     let mut name = None;
+    let mut about = None;
+    let mut visibility = None;
+    let mut ttl_seconds = None;
+    let mut kind = None;
     for tag in tags {
         let Some(parts) = tag.as_array() else { continue };
         let key = parts.first().and_then(Value::as_str).unwrap_or("");
@@ -337,17 +511,32 @@ fn room_from_event(event: &Value) -> Option<BuzzRoom> {
         match key {
             "d" => id = value,
             "name" => name = value,
+            "about" => about = value,
+            "visibility" | "public" => visibility = value.or(Some(key.to_string())),
+            "ttl" => ttl_seconds = value.and_then(|raw| raw.parse().ok()),
+            "kind" => kind = value,
             _ => {}
         }
     }
+    let created_at = event.get("created_at").and_then(Value::as_u64);
+    let expires_at = match (created_at, ttl_seconds) {
+        (Some(created), Some(ttl)) => Some(created + ttl),
+        _ => None,
+    };
     Some(BuzzRoom {
         id: id?,
         name: name.unwrap_or_else(|| "Room".into()),
+        about,
+        kind,
+        visibility,
+        ttl_seconds,
+        expires_at,
+        self_role: None,
         members: Vec::new(),
     })
 }
 
-fn p_tags(event: &Value) -> Vec<String> {
+fn p_tags(event: &Value) -> Vec<(String, Option<String>)> {
     event
         .get("tags")
         .and_then(Value::as_array)
@@ -356,7 +545,15 @@ fn p_tags(event: &Value) -> Vec<String> {
         .filter_map(|tag| {
             let parts = tag.as_array()?;
             if parts.first().and_then(Value::as_str) == Some("p") {
-                parts.get(1).and_then(Value::as_str).map(str::to_string)
+                let pubkey = parts.get(1).and_then(Value::as_str).map(str::to_string)?;
+                let role = parts
+                    .get(3)
+                    .and_then(Value::as_str)
+                    .or_else(|| parts.get(2).and_then(Value::as_str).filter(|value| {
+                        matches!(*value, "owner" | "admin" | "member" | "guest" | "bot")
+                    }))
+                    .map(str::to_string);
+                Some((pubkey, role))
             } else {
                 None
             }
@@ -365,13 +562,90 @@ fn p_tags(event: &Value) -> Vec<String> {
 }
 
 fn message_from_event(event: &Value, room_id: &str) -> Option<BuzzMessage> {
+    let kind = event.get("kind").and_then(Value::as_u64).unwrap_or(9);
+    if kind != 9 && !MESSAGE_KINDS.contains(&(kind as u16)) {
+        return None;
+    }
+    if kind == 7 || kind == 5 {
+        return None;
+    }
     Some(BuzzMessage {
         id: event.get("id")?.as_str()?.to_string(),
         room_id: room_id.to_string(),
         content: event.get("content").and_then(Value::as_str).unwrap_or("").to_string(),
         created_at: event.get("created_at").and_then(Value::as_u64).unwrap_or(0),
         author: event.get("pubkey").and_then(Value::as_str).unwrap_or("").to_string(),
+        thread_root_id: tag_value(event, "E").or_else(|| tag_value(event, "e")),
+        reply_to_id: tag_value(event, "e"),
+        attachments: imeta_attachments(event),
     })
+}
+
+fn reaction_from_event(event: &Value) -> Option<BuzzReaction> {
+    if event.get("kind").and_then(Value::as_u64) != Some(7) {
+        return None;
+    }
+    Some(BuzzReaction {
+        id: event.get("id")?.as_str()?.to_string(),
+        target_event_id: tag_value(event, "e")?,
+        emoji: event.get("content").and_then(Value::as_str).unwrap_or("").to_string(),
+        author: event.get("pubkey").and_then(Value::as_str).unwrap_or("").to_string(),
+    })
+}
+
+fn tag_value(event: &Value, key: &str) -> Option<String> {
+    event
+        .get("tags")
+        .and_then(Value::as_array)?
+        .iter()
+        .find_map(|tag| {
+            let parts = tag.as_array()?;
+            if parts.first().and_then(Value::as_str) == Some(key) {
+                parts.get(1).and_then(Value::as_str).map(str::to_string)
+            } else {
+                None
+            }
+        })
+}
+
+fn imeta_attachments(event: &Value) -> Option<Vec<BuzzAttachment>> {
+    let tags = event.get("tags")?.as_array()?;
+    let attachments: Vec<BuzzAttachment> = tags
+        .iter()
+        .filter_map(|tag| {
+            let parts = tag.as_array()?;
+            if parts.first().and_then(Value::as_str) != Some("imeta") {
+                return None;
+            }
+            let mut url = None;
+            let mut mime = None;
+            let mut name = None;
+            let mut size = None;
+            for part in parts.iter().skip(1) {
+                let Some(raw) = part.as_str() else { continue };
+                if let Some(value) = raw.strip_prefix("url ") {
+                    url = Some(value.to_string());
+                } else if let Some(value) = raw.strip_prefix("m ") {
+                    mime = Some(value.to_string());
+                } else if let Some(value) = raw.strip_prefix("alt ") {
+                    name = Some(value.to_string());
+                } else if let Some(value) = raw.strip_prefix("size ") {
+                    size = value.parse().ok();
+                }
+            }
+            Some(BuzzAttachment {
+                url: url?,
+                mime_type: mime.unwrap_or_else(|| "application/octet-stream".into()),
+                name,
+                size_bytes: size,
+            })
+        })
+        .collect();
+    if attachments.is_empty() {
+        None
+    } else {
+        Some(attachments)
+    }
 }
 
 /// Build the production relay. FakeRelay is never selected here.
@@ -445,6 +719,33 @@ fn decode_nsec(data: &str) -> Result<[u8; 32], String> {
 
 fn xonly_public_key(secret: &[u8; 32]) -> Option<[u8; 32]> {
     Some(keypair_from_secret(secret)?.x_only_public_key().0.serialize())
+}
+
+fn sign_nostr_event(secret: &[u8; 32], event: &Value) -> Result<Value, RelayError> {
+    use sha2::{Digest, Sha256};
+
+    let keypair = keypair_from_secret(secret)
+        .ok_or_else(|| RelayError::Unavailable("invalid credential".into()))?;
+    let pubkey = hex::encode(keypair.x_only_public_key().0.serialize());
+    let created_at = event
+        .get("created_at")
+        .and_then(Value::as_u64)
+        .unwrap_or_else(crate::protocol::unix_now);
+    let kind = event.get("kind").and_then(Value::as_u64).unwrap_or(9);
+    let tags = event.get("tags").cloned().unwrap_or_else(|| json!([]));
+    let content = event.get("content").and_then(Value::as_str).unwrap_or("");
+    let serialized = json!([0, pubkey, created_at, kind, tags, content]);
+    let id_bytes = Sha256::digest(serialized.to_string().as_bytes());
+    let signature = keypair.sign_schnorr_no_aux_rand(id_bytes.as_slice());
+    Ok(json!({
+        "id": hex::encode(id_bytes),
+        "pubkey": pubkey,
+        "created_at": created_at,
+        "kind": kind,
+        "tags": tags,
+        "content": content,
+        "sig": hex::encode(signature.to_byte_array())
+    }))
 }
 
 fn sign_nip98(
