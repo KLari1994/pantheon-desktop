@@ -3,7 +3,7 @@ import { type ReactNode, useState } from 'react'
 import { projectEnglish } from './i18n'
 import { MachineTargetBanner } from './machine-target'
 import { deriveMergeAuthority } from './pr-lifecycle'
-import type { MachineAvailability, ProjectRoomBinding, PrRoomTab } from './types'
+import type { MachineAvailability, ProjectRoomBinding, PrRoomTab, ReadOnlyReviewSnapshot } from './types'
 
 const TABS: Array<{ id: PrRoomTab; label: string; operational: boolean }> = [
   { id: 'conversation', label: projectEnglish.conversation, operational: false },
@@ -42,12 +42,14 @@ export function PrRoom({
   binding,
   machine,
   conversation,
-  onActivateTab
+  onActivateTab,
+  review
 }: {
   binding: ProjectRoomBinding
   machine: MachineAvailability
   conversation?: ReactNode
   onActivateTab?: (tab: PrRoomTab) => void
+  review?: ReadOnlyReviewSnapshot | null
 }) {
   const [tab, setTab] = useState<PrRoomTab>('conversation')
   const blocked = machine.status !== 'available'
@@ -83,7 +85,16 @@ export function PrRoom({
       </div>
       <div className="min-h-0 flex-1 overflow-auto">
         {tab === 'conversation' ? conversation : null}
-        {tab === 'review' ? <p>Read-only review for {binding.worktreePath}</p> : null}
+        {tab === 'review' ? (
+          <div>
+            <p>Read-only review for {binding.worktreePath}</p>
+            <ul>
+              {(review?.files || []).map(file => (
+                <li key={file.path}>{file.path}</li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
         {tab === 'preview' ? <p>Preview stays closed until this tab is opened.</p> : null}
         {tab === 'files' ? <p>Files stay closed until this tab is opened.</p> : null}
         {tab === 'terminal' ? <p>Terminal stays closed until this tab is opened.</p> : null}

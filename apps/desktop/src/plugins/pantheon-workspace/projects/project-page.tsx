@@ -6,7 +6,8 @@ import {
   type HermesGitWorktree,
   host,
   refreshProjects,
-  refreshProjectTree
+  refreshProjectTree,
+  useValue
 } from '@hermes/plugin-sdk'
 import { type ReactNode, useEffect, useMemo, useState } from 'react'
 
@@ -14,8 +15,15 @@ import { projectEnglish } from './i18n'
 import { observeMachineRoute, resolveMachineTarget, type RosterSource } from './machine-target'
 import { PrRoom } from './pr-room'
 import { joinProjectRooms, parseManifestBindings, preflightWorktree, ProjectStore } from './store'
-import type { MachineAvailability, ProjectRoomBinding, ProjectRoomRecord } from './types'
-import { activateWorkSurface } from './work-surfaces'
+import type {
+  LiveMachineRoute,
+  MachineAvailability,
+  ProjectRoomBinding,
+  ProjectRoomRecord,
+  ReadOnlyReviewSnapshot,
+  WorktreeProof
+} from './types'
+import { activateWorkSurface, loadReadOnlyReview } from './work-surfaces'
 
 export interface ProjectPageDeps {
   loadBindings: () => Promise<{
@@ -24,7 +32,8 @@ export interface ProjectPageDeps {
   }>
   activate: (route: { connectionId: string; profile: string }) => Promise<void>
   listWorktrees: (binding: ProjectRoomBinding) => Promise<HermesGitWorktree[]>
-  currentRoute?: () => { connectionId?: string; machineId?: string; profile?: string }
+  currentRoute: () => LiveMachineRoute
+  loadReview?: (binding: ProjectRoomBinding) => Promise<ReadOnlyReviewSnapshot>
 }
 
 async function defaultLoadBindings() {
@@ -56,6 +65,13 @@ async function defaultLoadBindings() {
   return { records: [...invalid, ...joined], sources }
 }
 
+function liveHostRoute(): LiveMachineRoute {
+  return {
+    connectionId: host.state.connectionId.get() ?? undefined,
+    profile: host.state.profile.get() || undefined
+  }
+}
+
 const defaultDeps: ProjectPageDeps = {
   loadBindings: defaultLoadBindings,
   activate: route => host.ensureAgent(route.connectionId, route.profile),
@@ -65,7 +81,9 @@ const defaultDeps: ProjectPageDeps = {
     if (!git) {throw new Error('git-unavailable')}
 
     return git.worktreeList(binding.repoPath)
-  }
+  },
+  currentRoute: liveHostRoute,
+  loadReview: loadReadOnlyReview
 }
 
 function recordLabel(record: ProjectRoomRecord): string {
@@ -74,6 +92,14 @@ function recordLabel(record: ProjectRoomRecord): string {
   }
 
   return 'Invalid binding'
+}
+
+function resolveLiveRoute(sampled: LiveMachineRoute, sources: readonly RosterSource[], hostRoute: LiveMachineRoute): LiveMachineRoute {
+  const connectionId = sampled.connectionId ?? hostRoute.connectionId
+  const profile = sampled.profile ?? hostRoute.profile
+  const machineId = sampled.machineId ?? sources.find(item => item.connectionId === connectionId)?.installId
+
+  return { connectionId, profile, machineId }
 }
 
 export function ProjectPage({
@@ -89,7 +115,16 @@ export function ProjectPage({
   const [records, setRecords] = useState<ProjectRoomRecord[]>([])
   const [sources, setSources] = useState<RosterSource[]>([])
   const [machine, setMachine] = useState<MachineAvailability | null>(null)
+  const [proof, setProof] = useState<WorktreeProof>('checking')
   const [preflightError, setPreflightError] = useState<string | null>(null)
+  const [review, setReview] = useState<ReadOnlyReviewSnapshot | null>(null)
+  const hostConnectionId = useValue(host.state.connectionId)
+  const hostProfile = useValue(host.state.profile)
+  const sampledRoute = deps.currentRoute()
+  const route = resolveLiveRoute(sampledRoute, sources, {
+    connectionId: hostConnectionId ?? undefined,
+    profile: hostProfile || undefined
+  })
 
   useEffect(() => {
     let cancelled = false
@@ -108,7 +143,7 @@ export function ProjectPage({
     return () => {
       cancelled = true
     }
-  }, [deps, store])
+  }, [deps.loadBindings, store])
 
   const selected = store.selected()
   const selectedBinding = selected?.status === 'valid' ? selected.binding : null
@@ -116,22 +151,26 @@ export function ProjectPage({
   useEffect(() => {
     if (!selectedBinding) {
       setMachine(null)
+      setProof('checking')
       setPreflightError(null)
+      setReview(null)
 
       return
     }
 
     let cancelled = false
     const resolved = resolveMachineTarget(selectedBinding.machine, sources)
-    const current = deps.currentRoute?.()
-    const observed = current ? observeMachineRoute(selectedBinding.machine, current) : resolved
+    const observed = observeMachineRoute(selectedBinding.machine, route)
     const next = resolved.status !== 'available' ? resolved : observed
     setMachine(next)
-    setPreflightError(null)
+    setProof(next.status === 'available' ? 'checking' : 'blocked')
+    setPreflightError(next.status === 'blocked' ? next.reason : null)
+    setReview(null)
 
     if (next.status !== 'available') {
       return
     }
+
     void (async () => {
       try {
         await deps.activate({
@@ -144,10 +183,17 @@ export function ProjectPage({
         const result = preflightWorktree(selectedBinding, worktrees)
 
         if (!result.ok) {
+          setProof('blocked')
           setPreflightError(result.reason)
+
+          return
         }
+
+        setProof('verified')
+        setPreflightError(null)
       } catch (err) {
         if (!cancelled) {
+          setProof('blocked')
           setPreflightError(err instanceof Error ? err.message : String(err))
         }
       }
@@ -156,7 +202,7 @@ export function ProjectPage({
     return () => {
       cancelled = true
     }
-  }, [deps, selectedBinding, sources])
+  }, [deps.activate, deps.listWorktrees, selectedBinding, sources, route.connectionId, route.machineId, route.profile])
 
   if (status === 'loading') {
     return <div className="p-4 text-sm text-(--ui-text-secondary)">{projectEnglish.loading}</div>
@@ -198,10 +244,10 @@ export function ProjectPage({
     return <div className="p-4 text-sm">{projectEnglish.invalidBinding}: {selected.reason}</div>
   }
 
-  if (!machine || machine.status !== 'available' || preflightError) {
+  if (!machine || machine.status !== 'available' || proof !== 'verified') {
     return (
       <div className="p-4 text-sm">
-        {projectEnglish.unavailableMachine}
+        {proof === 'checking' ? projectEnglish.checkingWorktree : projectEnglish.unavailableMachine}
         {preflightError ? <p>{preflightError}</p> : null}
         {machine ? <p>{machine.status === 'blocked' ? machine.reason : machine.status}</p> : null}
       </div>
@@ -214,8 +260,19 @@ export function ProjectPage({
       conversation={renderConversation?.(selected.binding.buzzRoomId)}
       machine={machine}
       onActivateTab={tab => {
+        if (tab === 'review') {
+          void (deps.loadReview ?? loadReadOnlyReview)(selected.binding).then(next => {
+            setReview(next)
+          }).catch(err => {
+            setReview({ files: [], base: err instanceof Error ? err.message : String(err) })
+          })
+
+          return
+        }
+
         activateWorkSurface(tab, selected.binding)
       }}
+      review={review}
     />
   )
 }

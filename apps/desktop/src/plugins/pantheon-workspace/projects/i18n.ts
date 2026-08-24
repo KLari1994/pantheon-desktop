@@ -8,6 +8,7 @@ type ProjectMessages = {
   empty: string
   invalidBinding: string
   unavailableMachine: string
+  checkingWorktree: string
   conversation: string
   review: string
   preview: string
@@ -31,6 +32,7 @@ const en: ProjectMessages = {
   empty: 'No project rooms',
   invalidBinding: 'This project room binding is invalid',
   unavailableMachine: 'The bound machine is unavailable',
+  checkingWorktree: 'Checking bound worktree',
   conversation: 'Conversation',
   review: 'Diff/Review',
   preview: 'Preview',
@@ -55,6 +57,7 @@ const ja: ProjectMessages = {
   empty: 'プロジェクトルームがありません',
   invalidBinding: 'このプロジェクトルームのバインドは無効です',
   unavailableMachine: 'バインドされたマシンは利用できません',
+  checkingWorktree: 'バインドされたワークツリーを確認中',
   conversation: '会話',
   review: '差分/レビュー',
   preview: 'プレビュー',
@@ -79,6 +82,7 @@ const zh: ProjectMessages = {
   empty: '没有项目房间',
   invalidBinding: '此项目房间绑定无效',
   unavailableMachine: '绑定的机器不可用',
+  checkingWorktree: '正在检查绑定的工作树',
   conversation: '会话',
   review: '差异/审查',
   preview: '预览',
@@ -103,6 +107,7 @@ const zhHant: ProjectMessages = {
   empty: '沒有專案房間',
   invalidBinding: '此專案房間綁定無效',
   unavailableMachine: '綁定的機器無法使用',
+  checkingWorktree: '正在檢查綁定的工作樹',
   conversation: '會話',
   review: '差異/審查',
   preview: '預覽',

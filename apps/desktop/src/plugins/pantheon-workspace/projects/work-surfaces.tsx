@@ -1,16 +1,59 @@
 import {
   $artifactRegistry,
   createTerminal,
+  desktopGit,
   findArtifact,
   openArtifact,
   openPreview,
-  openReview,
   revealFileInTree
 } from '@hermes/plugin-sdk'
 
-import type { ProjectRoomBinding, PrRoomTab } from './types'
+import type { ProjectRoomBinding, PrRoomTab, ReadOnlyReviewSnapshot } from './types'
 
-export function activateWorkSurface(tab: PrRoomTab, binding: ProjectRoomBinding): void {
+export interface ReadOnlyReviewGit {
+  review?: {
+    list?: (
+      repoPath: string,
+      scope: string,
+      baseRef?: string
+    ) => Promise<{ files?: Array<{ path: string }>; base?: null | string }>
+    diff?: (...args: never[]) => Promise<string>
+    stage?: (...args: never[]) => unknown
+    unstage?: (...args: never[]) => unknown
+    revert?: (...args: never[]) => unknown
+    commit?: (...args: never[]) => unknown
+    push?: (...args: never[]) => unknown
+    createPr?: (...args: never[]) => unknown
+  }
+}
+
+export interface WorkSurfaceHooks {
+  openReview?: (cwd: string, target: string) => void
+  git?: ReadOnlyReviewGit
+}
+
+export async function loadReadOnlyReview(
+  binding: ProjectRoomBinding,
+  git?: ReadOnlyReviewGit
+): Promise<ReadOnlyReviewSnapshot> {
+  const client =
+    git ?? desktopGit({ connectionId: binding.machine.connectionId, profile: binding.machine.profile })
+  const list = client?.review?.list
+
+  if (!list) {
+    throw new Error('git-unavailable')
+  }
+
+  const snapshot = await list(binding.worktreePath, 'branch', binding.baseBranch)
+
+  return { files: snapshot.files ?? [], base: snapshot.base ?? null }
+}
+
+export function activateWorkSurface(tab: PrRoomTab, binding: ProjectRoomBinding, hooks?: WorkSurfaceHooks): void {
+  if (tab === 'review' || tab === 'conversation' || tab === 'artifacts' || tab === 'merge-packet') {
+    return
+  }
+
   if (tab === 'preview') {
     openPreview({
       kind: 'url',
@@ -30,12 +73,6 @@ export function activateWorkSurface(tab: PrRoomTab, binding: ProjectRoomBinding)
 
   if (tab === 'terminal') {
     createTerminal(binding.worktreePath)
-
-    return
-  }
-
-  if (tab === 'review') {
-    openReview(binding.worktreePath, binding.targetBranch)
   }
 }
 

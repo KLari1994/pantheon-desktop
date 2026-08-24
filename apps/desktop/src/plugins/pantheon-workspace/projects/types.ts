@@ -72,6 +72,19 @@ export type MachineAvailability =
   | { status: 'available'; target: MachineTarget; installId?: string }
   | { status: 'blocked'; reason: string; target?: MachineTarget }
 
+export type WorktreeProof = 'checking' | 'verified' | 'blocked'
+
+export interface ReadOnlyReviewSnapshot {
+  files: Array<{ path: string }>
+  base?: null | string
+}
+
+export interface LiveMachineRoute {
+  connectionId?: string
+  machineId?: string
+  profile?: string
+}
+
 export interface GitRouteTarget {
   connectionId: string
   profile: string

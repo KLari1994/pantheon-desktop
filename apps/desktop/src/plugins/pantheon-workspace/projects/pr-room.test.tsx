@@ -108,6 +108,16 @@ test('Merge Packet has no merge action', () => {
   expect(screen.getByText(/no merge authority/i)).toBeTruthy()
 })
 
+test('Diff/Review exposes no stage, revert, commit, push, or create-PR action', () => {
+  renderRoom()
+  fireEvent.click(screen.getByRole('tab', { name: 'Diff/Review' }))
+  expect(screen.queryByRole('button', { name: /stage/i })).toBeNull()
+  expect(screen.queryByRole('button', { name: /revert/i })).toBeNull()
+  expect(screen.queryByRole('button', { name: /commit/i })).toBeNull()
+  expect(screen.queryByRole('button', { name: /push/i })).toBeNull()
+  expect(screen.queryByRole('button', { name: /create[- ]pr/i })).toBeNull()
+})
+
 test('machine label is textual and accessible', () => {
   renderRoom()
   expect(screen.getByLabelText(/machine target/i)).toBeTruthy()
