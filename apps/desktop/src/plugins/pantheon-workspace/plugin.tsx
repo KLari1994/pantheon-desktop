@@ -46,6 +46,7 @@ import { loadMutes, muteScope, mutesForCurrentScope, type MuteState } from './no
 import {
   deriveBindingHealth,
   diagnosticRuntimeForAgent,
+  liveDiagnosticRoute,
   loadRoomDiagnostics,
   type RoomDiagnosticRow
 } from './rooms/room-diagnostics'
@@ -107,7 +108,10 @@ function RoomsPage() {
           const roomId = event.roomId || event.room_id
 
           if (event.type === 'room.event' && roomId && event.event && typeof event.event === 'object') {
-            store.ingestEvent(roomId, event.event as RoomLiveEvent)
+            const result = store.ingestEvent(roomId, event.event as RoomLiveEvent)
+            if (result === 'refresh-room') {
+              void refreshSelectedRoom(store, roomId, setSelected)
+            }
           }
         })
 
@@ -137,13 +141,15 @@ function RoomsPage() {
     if (!selected) {return}
     let cancelled = false
     const agents = (manifest.agents || []) as Array<WorkspaceAgent & { pubkey?: string }>
-
-    const live = {
-      connectionId: host.state.connectionId.get(),
-      profile: host.state.profile.get(),
-      runtimeSessionId: host.state.focusedSessionId.get()
-    }
-
+    const owner = host.state.focusedSessionOwner.get()
+    const live = liveDiagnosticRoute(
+      owner,
+      {
+        connectionId: host.state.connectionId.get(),
+        profile: host.state.profile.get()
+      },
+      host.state.focusedSessionId.get()
+    )
     const lastEventAt = windows[selected.id]?.messages.at(-1)?.createdAt
     void Promise.all(
       selected.members.map(async member => {
@@ -229,7 +235,8 @@ function RoomsPage() {
               roomId: selected.id,
               content: failed.content,
               threadRootId: failed.threadRootId,
-              attachments: failed.attachments
+              attachments: failed.attachments,
+              mentions: failed.mentions
             })
             .then(result => store.ackOptimistic(nonce, result.eventId))
             .catch(() => store.failOptimistic(nonce))
@@ -237,8 +244,11 @@ function RoomsPage() {
         onSend={async (content, mentions, extras) => {
           const client = desktopBuzzClient()
           const nonce = `${Date.now()}`
-          store.queueOptimistic(selected.id, content, nonce)
-
+          store.queueOptimistic(selected.id, content, nonce, {
+            mentions,
+            threadRootId: extras?.threadRootId,
+            attachments: extras?.attachments
+          })
           try {
             const result = await client.sendMessage({
               roomId: selected.id,
@@ -276,7 +286,22 @@ async function selectRoom(
   const detail = await client.getRoom({ roomId })
   const window = await client.getMessages({ roomId, limit: 50 })
   store.applyWindow(roomId, window.messages, window.reactions || [])
+  store.upsertRoom(detail)
   setSelected(detail)
+}
+
+async function refreshSelectedRoom(
+  store: RoomsStore,
+  roomId: string,
+  setSelected: (room: BuzzRoom | ((current: BuzzRoom | null) => BuzzRoom | null)) => void
+): Promise<void> {
+  try {
+    const detail = await desktopBuzzClient().getRoom({ roomId })
+    store.upsertRoom(detail)
+    setSelected(current => (current && current.id === roomId ? detail : current))
+  } catch {
+    /* keep the last painted room if the refresh misses */
+  }
 }
 
 export function AgentEditorRoomsMount({
@@ -352,6 +377,7 @@ export function AgentEditorRoomsMount({
         const next = await applyRoomMembership(client, {
           roomId: input.roomId,
           pubkey,
+          agentId: agentRecord.id,
           memberAgentIds,
           add: input.add
         })
