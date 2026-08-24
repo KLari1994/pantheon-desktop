@@ -1,0 +1,61 @@
+name: Pantheon Windows CI
+
+on:
+  pull_request:
+    branches: [staging]
+  push:
+    branches: [staging]
+  workflow_dispatch:
+
+permissions:
+  contents: read   # read-only token: electron-builder cannot publish even accidentally
+
+concurrency:
+  group: pantheon-windows-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 26
+          cache: npm
+
+      - name: grab npm 12
+        run: npm i -g npm@12
+
+      - name: Install
+        run: npm ci
+
+      - name: Typecheck
+        run: npm -w apps/desktop run typecheck
+
+      - name: Pantheon contract tests
+        run: npm -w apps/desktop exec vitest run src/pantheon/brand.test.ts src/pantheon/parity-contract.test.ts electron/update-remote.test.ts
+
+      - name: UI tests
+        run: npm -w apps/desktop run test:ui
+
+      - name: Electron platform tests
+        run: npm -w apps/desktop run test:desktop:platforms
+
+      - name: Non-publishing Windows pack
+        run: npm -w apps/desktop run pack
+
+      - name: Desktop tests (NSIS + bundle validation)
+        run: npm -w apps/desktop run test:desktop:all
+
+      - name: Upload unsigned artifact (private to this run)
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: always()
+        with:
+          name: pantheon-windows-unsigned
+          path: |
+            apps/desktop/release/*.exe
+            apps/desktop/build/install-stamp.json
+          retention-days: 7
