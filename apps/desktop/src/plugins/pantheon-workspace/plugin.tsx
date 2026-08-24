@@ -57,6 +57,7 @@ import {
 import { RoomList } from './rooms/room-list'
 import { RoomWorkspace } from './rooms/room-workspace'
 import { type RoomLiveEvent, RoomsStore } from './rooms/store'
+import { GrokStatusPage } from './grok/grok-status'
 import { SearchPage } from './search/search-page'
 
 function useStoreValue<T>(store: { get: () => T; listen: (listener: (next: T) => void) => () => void }): T {
@@ -667,6 +668,18 @@ const plugin: HermesPlugin = {
         data: { codicon: 'type-hierarchy', label: 'Memory', path: '/memory' } satisfies SidebarNavContribution
       },
       {
+        id: 'grok-page',
+        area: ROUTES_AREA,
+        data: { path: '/grok' } satisfies RouteContribution,
+        render: () => <GrokStatusPage />
+      },
+      {
+        id: 'grok-nav',
+        area: SIDEBAR_NAV_AREA,
+        order: 30,
+        data: { codicon: 'comment', label: 'Grok Bot', path: '/grok' } satisfies SidebarNavContribution
+      },
+      {
         id: 'agent-rooms',
         area: ROUTES_AREA,
         data: { path: '/rooms/memberships' } satisfies RouteContribution,
@@ -679,7 +692,7 @@ const plugin: HermesPlugin = {
       delete (globalThis as { __PantheonAgentCapabilities?: typeof AgentEditorCapabilities }).__PantheonAgentCapabilities
       const path = window.location.pathname
 
-      if (typeof host.navigate === 'function' && (path.startsWith('/rooms') || path === '/home' || path.startsWith('/cron-center') || path.startsWith('/projects') || path.startsWith('/search') || path.startsWith('/memory'))) {
+      if (typeof host.navigate === 'function' && (path.startsWith('/rooms') || path === '/home' || path.startsWith('/cron-center') || path.startsWith('/projects') || path.startsWith('/search') || path.startsWith('/memory') || path.startsWith('/grok'))) {
         host.navigate('/')
       }
     })
