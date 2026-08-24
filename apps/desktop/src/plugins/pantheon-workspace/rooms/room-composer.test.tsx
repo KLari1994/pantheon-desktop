@@ -24,6 +24,11 @@ test('enter sends and failed sends offer retry/remove', () => {
   expect(onRetry).toHaveBeenCalled()
 })
 
+test('room composer exposes dictation without auto-speaking', () => {
+  render(<RoomComposer members={[{ pubkey: 'alice', name: 'Alice' }]} onSend={vi.fn()} />)
+  expect(screen.getByRole('button', { name: 'Dictate' })).toBeTruthy()
+})
+
 test('composer can attach a descriptor and keep thread root', () => {
   const onSend = vi.fn()
   render(

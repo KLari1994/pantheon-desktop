@@ -17,6 +17,18 @@
 
 import { atom } from 'nanostores'
 
+import {
+  decideDestinationSend,
+  destinationFromQuickTarget,
+  isPantheonDestination,
+  rememberDestination,
+  restoreQuickTarget,
+  ROOM_TARGET_PREFIX,
+  applyDestinationSelection,
+  type DestinationMemory,
+  type PantheonDestination
+} from '@/pantheon/destination'
+
 export interface QuickEntryState {
   enabled: boolean
   /** null before the first read; the settings row shows a skeleton until then. */
@@ -105,6 +117,11 @@ export interface QuickEntrySessionOption {
   title: string
 }
 
+export interface QuickEntryRoomOption {
+  id: string
+  title: string
+}
+
 /** Send into whatever chat the main window currently has in front. */
 export const QUICK_TARGET_CURRENT = 'current'
 /** Start a brand-new session for this prompt. */
@@ -119,13 +136,17 @@ export const QUICK_TARGET_NEW = 'new'
 export interface QuickEntryStatePush {
   connected: boolean
   sessions: QuickEntrySessionOption[]
+  rooms?: QuickEntryRoomOption[]
+  bridgeHealthy?: boolean
+  destinationMemory?: DestinationMemory
 }
 
 /** What a quick-window submit carries back to the primary renderer. */
 export interface QuickEntrySubmitPayload {
-  /** QUICK_TARGET_CURRENT, QUICK_TARGET_NEW, or a stored session id. */
+  /** QUICK_TARGET_CURRENT, QUICK_TARGET_NEW, a stored session id, or room:<id>. */
   target: string
   text: string
+  destination?: import('@/pantheon/destination').PantheonDestination
 }
 
 /**
@@ -142,10 +163,18 @@ export interface QuickComposerState {
   draft: string
   /** Recent sessions the picker offers, pushed by the primary renderer. */
   sessions: QuickEntrySessionOption[]
+  /** Recent rooms the picker offers. Empty until the primary pushes them. */
+  rooms: QuickEntryRoomOption[]
+  /** Buzz bridge health for room sends. Unknown/false fails closed at submit. */
+  bridgeHealthy: boolean
+  /** Ambient profile default — destination picks must never mutate this. */
+  profileDefaultAgentId: string
   /** True between a send and the window actually hiding. Blocks a double-send. */
   submitting: boolean
-  /** Where a submit lands: current / new / a stored session id. */
+  /** Where a submit lands: current / new / a stored session id / room:<id>. */
   target: string
+  /** Last bot/room destinations restored into the picker when still offered. */
+  destinationMemory: DestinationMemory
   /** Whether the window should be visible. False asks the shell to hide. */
   visible: boolean
 }
@@ -155,7 +184,14 @@ export type QuickComposerEvent =
   | { type: 'dismiss' }
   | { type: 'edit'; draft: string }
   | { type: 'shown' }
-  | { type: 'state'; connected: boolean; sessions: QuickEntrySessionOption[] }
+  | {
+      type: 'state'
+      connected: boolean
+      sessions: QuickEntrySessionOption[]
+      rooms?: QuickEntryRoomOption[]
+      bridgeHealthy?: boolean
+      destinationMemory?: DestinationMemory
+    }
   | { type: 'submit' }
   | { type: 'target'; target: string }
 
@@ -171,9 +207,52 @@ export const initialQuickComposerState: QuickComposerState = {
   connected: false,
   draft: '',
   sessions: [],
+  rooms: [],
+  bridgeHealthy: false,
+  profileDefaultAgentId: 'default',
   submitting: false,
   target: QUICK_TARGET_CURRENT,
+  destinationMemory: {},
   visible: true
+}
+
+function targetStillOffered(state: QuickComposerState, sessions: QuickEntrySessionOption[], rooms: QuickEntryRoomOption[]): boolean {
+  if (state.target === QUICK_TARGET_CURRENT || state.target === QUICK_TARGET_NEW) {
+    return true
+  }
+
+  if (state.target.startsWith(ROOM_TARGET_PREFIX)) {
+    const roomId = state.target.slice(ROOM_TARGET_PREFIX.length)
+
+    return rooms.some(room => room.id === roomId)
+  }
+
+  return sessions.some(session => session.id === state.target)
+}
+
+function destinationToRemember(destination: PantheonDestination): PantheonDestination | null {
+  if (destination.kind === 'room' || destination.kind === 'bot') {
+    return destination
+  }
+
+  if (
+    destination.kind === 'session' &&
+    destination.storedSessionId !== QUICK_TARGET_CURRENT &&
+    destination.storedSessionId !== QUICK_TARGET_NEW
+  ) {
+    return { kind: 'bot', storedSessionId: destination.storedSessionId, agentId: destination.agentId }
+  }
+
+  return null
+}
+
+function withRestoredTarget(
+  state: QuickComposerState,
+  memory: DestinationMemory,
+  sessions: QuickEntrySessionOption[],
+  rooms: QuickEntryRoomOption[]
+): string {
+  return restoreQuickTarget(memory, { sessions, rooms }) ?? QUICK_TARGET_CURRENT
 }
 
 export function quickComposerReducer(state: QuickComposerState, event: QuickComposerEvent): QuickComposerTransition {
@@ -193,22 +272,29 @@ export function quickComposerReducer(state: QuickComposerState, event: QuickComp
     }
 
     case 'shown': {
-      // Re-summoned: a fresh capture surface every time — never a stale draft or
-      // a leftover target — but the pushed gateway truth carries over.
+      // Re-summoned: a fresh draft every time, but restore last bot/room when
+      // the picker still offers it. Pushed gateway truth carries over.
       return {
         send: null,
-        state: { ...state, draft: '', submitting: false, target: QUICK_TARGET_CURRENT, visible: true }
+        state: {
+          ...state,
+          draft: '',
+          submitting: false,
+          target: withRestoredTarget(state, state.destinationMemory, state.sessions, state.rooms),
+          visible: true
+        }
       }
     }
 
     case 'state': {
-      // Adopt the pushed truth. A selected session that no longer exists in the
-      // pushed list must not silently swallow the prompt — fall back to current.
-      const targetStillValid =
-        event.connected &&
-        (state.target === QUICK_TARGET_CURRENT ||
-          state.target === QUICK_TARGET_NEW ||
-          event.sessions.some(session => session.id === state.target))
+      // Adopt the pushed truth. A selected session/room that no longer exists
+      // in the pushed lists must not silently swallow the prompt — fall back.
+      const rooms = event.rooms ?? state.rooms
+      const destinationMemory = event.destinationMemory ?? state.destinationMemory
+      const targetStillValid = event.connected && targetStillOffered(state, event.sessions, rooms)
+      const target = targetStillValid
+        ? state.target
+        : withRestoredTarget(state, destinationMemory, event.sessions, rooms)
 
       return {
         send: null,
@@ -216,7 +302,10 @@ export function quickComposerReducer(state: QuickComposerState, event: QuickComp
           ...state,
           connected: event.connected,
           sessions: event.sessions,
-          target: targetStillValid ? state.target : QUICK_TARGET_CURRENT
+          rooms,
+          bridgeHealthy: event.bridgeHealthy ?? state.bridgeHealthy,
+          destinationMemory,
+          target
         }
       }
     }
@@ -230,6 +319,33 @@ export function quickComposerReducer(state: QuickComposerState, event: QuickComp
         return { send: null, state }
       }
 
+      const destination = destinationFromQuickTarget(state.target, {
+        currentSessionId: QUICK_TARGET_CURRENT,
+        currentAgentId: state.profileDefaultAgentId
+      })
+
+      if (destination) {
+        const decision = decideDestinationSend(destination, { bridgeHealthy: state.bridgeHealthy })
+
+        if (!decision.allowed) {
+          return { send: null, state }
+        }
+
+        const remembered = destinationToRemember(decision.destination)
+        const destinationMemory = remembered
+          ? rememberDestination(state.destinationMemory, remembered)
+          : state.destinationMemory
+        const send: QuickEntrySubmitPayload =
+          decision.channel === 'buzz' || remembered
+            ? { target: state.target, text, destination: remembered ?? decision.destination }
+            : { target: state.target, text }
+
+        return {
+          send,
+          state: { ...state, draft: '', submitting: true, destinationMemory, visible: false }
+        }
+      }
+
       return {
         send: { target: state.target, text },
         state: { ...state, draft: '', submitting: true, visible: false }
@@ -237,7 +353,18 @@ export function quickComposerReducer(state: QuickComposerState, event: QuickComp
     }
 
     case 'target': {
-      return { send: null, state: { ...state, target: event.target } }
+      const selected = destinationFromQuickTarget(event.target, {
+        currentSessionId: QUICK_TARGET_CURRENT,
+        currentAgentId: state.profileDefaultAgentId
+      })
+      const ambient = selected
+        ? applyDestinationSelection(selected, { profileDefaultAgentId: state.profileDefaultAgentId })
+        : { profileDefaultAgentId: state.profileDefaultAgentId }
+
+      return {
+        send: null,
+        state: { ...state, target: event.target, profileDefaultAgentId: ambient.profileDefaultAgentId }
+      }
     }
 
     default: {
@@ -250,6 +377,21 @@ export function quickComposerReducer(state: QuickComposerState, event: QuickComp
 
 let submitHandler: ((payload: QuickEntrySubmitPayload) => void) | null = null
 let unsubscribeSubmit: (() => void) | null = null
+let destinationMemory: DestinationMemory = {}
+
+export function getQuickEntryDestinationMemory(): DestinationMemory {
+  return destinationMemory
+}
+
+export function rememberQuickEntryDestination(destination: PantheonDestination): DestinationMemory {
+  destinationMemory = rememberDestination(destinationMemory, destination)
+
+  return destinationMemory
+}
+
+export function resetQuickEntryDestinationMemory(): void {
+  destinationMemory = {}
+}
 
 /**
  * Register the handler that turns a quick-window submit into a real send. The
@@ -280,7 +422,8 @@ function normalizeSubmitPayload(raw: unknown): null | QuickEntrySubmitPayload {
 
   return {
     target: typeof record.target === 'string' && record.target ? record.target : QUICK_TARGET_CURRENT,
-    text
+    text,
+    ...(isPantheonDestination(record.destination) ? { destination: record.destination } : {})
   }
 }
 
@@ -299,6 +442,10 @@ export function initQuickEntryBridge(): () => void {
     const payload = normalizeSubmitPayload(raw)
 
     if (payload) {
+      if (payload.destination) {
+        rememberQuickEntryDestination(payload.destination)
+      }
+
       submitHandler?.(payload)
     }
   })

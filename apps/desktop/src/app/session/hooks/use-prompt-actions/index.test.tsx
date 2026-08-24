@@ -92,7 +92,10 @@ interface HarnessHandle {
   cancelRun: () => Promise<void>
   editMessage: (edited: Parameters<ReturnType<typeof usePromptActions>['editMessage']>[0]) => Promise<void>
   reloadFromMessage: (parentId: null | string) => Promise<void>
-  restoreToMessage: (messageId: string, target?: { text?: string; userOrdinal?: number | null }) => Promise<void>
+  restoreToMessage: (
+    messageId: string,
+    target?: { text?: string; userOrdinal?: number | null; approved?: boolean; worktree?: string; machine?: string }
+  ) => Promise<void>
   redirectPrompt: (text: string) => Promise<boolean>
   /** @deprecated Use `redirectPrompt`. */
   steerPrompt: (text: string) => Promise<boolean>
@@ -2515,7 +2518,7 @@ describe('usePromptActions restoreToMessage', () => {
       />
     )
 
-    await handle!.restoreToMessage('u1')
+    await handle!.restoreToMessage('u1', { approved: true })
 
     // Ordinal 0 = "truncate before the first visible user message": the gateway
     // drops that turn and everything after, then runs the same text again.
@@ -2551,7 +2554,7 @@ describe('usePromptActions restoreToMessage', () => {
       />
     )
 
-    await expect(handle!.restoreToMessage('u2')).rejects.toThrow('gateway exploded')
+    await expect(handle!.restoreToMessage('u2', { approved: true })).rejects.toThrow('gateway exploded')
     expect(lastState.busy).toBe(false)
   })
 
@@ -2584,7 +2587,7 @@ describe('usePromptActions restoreToMessage', () => {
       />
     )
 
-    await handle!.restoreToMessage('u1')
+    await handle!.restoreToMessage('u1', { approved: true })
 
     expect(requestGateway).toHaveBeenCalledWith('session.interrupt', { session_id: RUNTIME_SESSION_ID })
     expect(submitAttempts).toBe(2)
@@ -2632,7 +2635,8 @@ describe('usePromptActions restoreToMessage', () => {
 
     await handle!.restoreToMessage('runtime-user-id-not-in-store', {
       text: 'first prompt',
-      userOrdinal: 0
+      userOrdinal: 0,
+      approved: true
     })
 
     expect(requestGateway).toHaveBeenCalledWith(
@@ -5410,7 +5414,7 @@ describe('usePromptActions stale-closure session routing', () => {
       { id: 'u2', parts: [textPart('second prompt')], role: 'user', timestamp: 2 }
     ])
 
-    await handle.restoreToMessage('u2')
+    await handle.restoreToMessage('u2', { approved: true })
 
     // A rewind is destructive; the optimistic truncation must also be applied
     // to the session that actually receives the rewind.

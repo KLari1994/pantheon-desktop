@@ -11,7 +11,8 @@ import {
   modelVisibilityKey,
   resolveVisibleKeys,
   setProviderVisibility,
-  toggleModelVisibility
+  toggleModelVisibility,
+  showModelPicker
 } from './model-visibility'
 
 const provider = (slug: string, models: string[]): ModelOptionProvider => ({
@@ -325,5 +326,13 @@ describe('setProviderVisibility', () => {
     expect(next.has(modelVisibilityKey('nous', 'model'))).toBe(true)
     // The -fast sibling is represented by its base family, not its own key.
     expect(next.has(modelVisibilityKey('nous', 'model-fast'))).toBe(false)
+  })
+})
+
+describe('Grok runtime picker', () => {
+  it('has no model picker path on the Grok runtime', () => {
+    expect(showModelPicker('grok')).toBe(false)
+    expect(showModelPicker('grok-4.6')).toBe(false)
+    expect(showModelPicker('openai')).toBe(true)
   })
 })

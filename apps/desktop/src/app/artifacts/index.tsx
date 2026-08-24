@@ -35,6 +35,8 @@ import { normalize } from '@/lib/text'
 import { fmtDayTime } from '@/lib/time'
 import { cn } from '@/lib/utils'
 import { notify, notifyError } from '@/store/notifications'
+import { filterArtifactIndex, indexArtifact, type ArtifactIndexFilters } from '@/plugins/pantheon-workspace/artifacts/index-contract'
+import { openArtifactSource } from '@/plugins/pantheon-workspace/artifacts/provenance'
 
 import { useRefreshHotkey } from '../hooks/use-refresh-hotkey'
 import { useRouteEnumParam } from '../hooks/use-route-enum-param'
@@ -92,8 +94,8 @@ function paginationItems(page: number, pageCount: number): Array<number | 'ellip
 }
 
 type CellCtx = {
-  onOpen: (href: string) => void | Promise<void>
-  onOpenChat: (sessionId: string) => void
+  onOpen: (artifact: ArtifactRecord) => void | Promise<void>
+  onOpenChat: (artifact: ArtifactRecord) => void
 }
 
 interface ArtifactColumn {
@@ -117,6 +119,7 @@ export function ArtifactsView({ setStatusbarItemGroup: _setStatusbarItemGroup, .
   const navigate = useNavigate()
   const [artifacts, setArtifacts] = useState<ArtifactRecord[] | null>(null)
   const [query, setQuery] = useState('')
+  const [facetFilters, setFacetFilters] = useState<ArtifactIndexFilters>({})
 
   const [kindFilter, setKindFilter] = useRouteEnumParam('tab', ARTIFACT_FILTERS, 'all')
 
@@ -195,7 +198,7 @@ export function ArtifactsView({ setStatusbarItemGroup: _setStatusbarItemGroup, .
 
     const q = normalize(query)
 
-    return artifacts.filter(artifact => {
+    const kindFiltered = artifacts.filter(artifact => {
       if (kindFilter !== 'all' && artifact.kind !== kindFilter) {
         return false
       }
@@ -210,7 +213,11 @@ export function ArtifactsView({ setStatusbarItemGroup: _setStatusbarItemGroup, .
         artifact.sessionTitle.toLowerCase().includes(q)
       )
     })
-  }, [artifacts, kindFilter, query])
+
+    const allowed = new Set(filterArtifactIndex(kindFiltered.map(indexArtifact), facetFilters).map(item => item.id))
+
+    return kindFiltered.filter(artifact => allowed.has(artifact.id))
+  }, [artifacts, facetFilters, kindFilter, query])
 
   const visibleImageArtifacts = useMemo(
     () => visibleArtifacts.filter(artifact => artifact.kind === 'image'),
@@ -270,14 +277,39 @@ export function ArtifactsView({ setStatusbarItemGroup: _setStatusbarItemGroup, .
   }, [artifacts])
 
   const openArtifact = useCallback(
-    async (href: string) => {
+    async (artifact: ArtifactRecord) => {
       try {
+        if (artifact.connectionId && artifact.profile && artifact.kind !== 'link') {
+          openArtifactSource(
+            {
+              kind: 'file',
+              connectionId: artifact.connectionId,
+              profile: artifact.profile,
+              path: artifact.value
+            },
+            {
+              openRemotePath: (route, path) => {
+                void downloadGatewayMediaFile(path, route)
+              }
+            }
+          )
+
+          if (isRemoteGateway() || artifact.connectionId !== 'local') {
+            return
+          }
+        }
+
+        const href = artifact.href
+
         // A gateway-local file resolves to file:// in remote mode (the file
         // lives on the gateway, not this disk). Opening that locally fails —
         // and an OAuth remote connection has no query token to build a download
         // URL. Fetch the bytes over the authenticated fs bridge instead.
         if (isRemoteGateway() && /^file:/i.test(href)) {
-          await downloadGatewayMediaFile(href)
+          await downloadGatewayMediaFile(href, {
+            connectionId: artifact.connectionId,
+            profile: artifact.profile
+          })
 
           return
         }
@@ -308,7 +340,32 @@ export function ArtifactsView({ setStatusbarItemGroup: _setStatusbarItemGroup, .
   // every artifact cell re-render whenever the page did — and a link cell's
   // async title fetch re-rendered the page repeatedly. openArtifact is already
   // a useCallback; navigate is stable, so onOpenChat can be too.
-  const openChat = useCallback((sessionId: string) => openSession(sessionId, navigate), [navigate])
+  const openChat = useCallback(
+    (artifact: ArtifactRecord) => {
+      if (artifact.connectionId && artifact.profile) {
+        openArtifactSource(
+          {
+            kind: 'session',
+            connectionId: artifact.connectionId,
+            profile: artifact.profile,
+            storedSessionId: artifact.sessionId
+          },
+          {
+            openSession: (storedSessionId, route) => {
+              openSession(storedSessionId, navigate, 'in-place', {
+                ownerRoute: route,
+                workspaceMode: 'sessions'
+              })
+            }
+          }
+        )
+        return
+      }
+
+      openSession(artifact.sessionId, navigate)
+    },
+    [navigate]
+  )
   const cellCtx: CellCtx = useMemo(() => ({ onOpen: openArtifact, onOpenChat: openChat }), [openArtifact, openChat])
 
   return (
@@ -316,6 +373,33 @@ export function ArtifactsView({ setStatusbarItemGroup: _setStatusbarItemGroup, .
       {...props}
       activeTab={kindFilter}
       onSearchChange={setQuery}
+      filters={
+        <div className="flex flex-wrap gap-2 text-xs">
+          {(['agent', 'office', 'project', 'pr', 'room', 'session', 'machine', 'fileType'] as const).map(facet => (
+            <label className="flex items-center gap-1" key={facet}>
+              <span className="text-(--ui-text-secondary)">{facet}</span>
+              <input
+                className="w-28 rounded-md border border-(--ui-stroke-secondary) bg-transparent px-1.5 py-1"
+                onChange={event => {
+                  const value = event.target.value.trim()
+                  setFacetFilters(current => {
+                    const next = { ...current }
+
+                    if (value) {
+                      next[facet] = value
+                    } else {
+                      delete next[facet]
+                    }
+
+                    return next
+                  })
+                }}
+                value={facetFilters[facet] ?? ''}
+              />
+            </label>
+          ))}
+        </div>
+      }
       onTabChange={id => setKindFilter(id as typeof kindFilter)}
       searchHidden={counts.all === 0}
       searchHints={searchHints}
@@ -373,7 +457,7 @@ export function ArtifactsView({ setStatusbarItemGroup: _setStatusbarItemGroup, .
                       failedImage={failedImageIds.has(artifact.id)}
                       key={artifact.id}
                       onImageError={markImageFailed}
-                      onOpenChat={sessionId => openSession(sessionId, navigate)}
+                      onOpenChat={openChat}
                     />
                   ))}
                 </div>
@@ -461,7 +545,7 @@ interface ArtifactImageCardProps {
   artifact: ArtifactRecord
   failedImage: boolean
   onImageError: (id: string) => void
-  onOpenChat: (sessionId: string) => void
+  onOpenChat: (artifact: ArtifactRecord) => void
 }
 
 function ArtifactImageCard({ artifact, failedImage, onImageError, onOpenChat }: ArtifactImageCardProps) {
@@ -533,7 +617,7 @@ function ArtifactImageCard({ artifact, failedImage, onImageError, onOpenChat }: 
         </div>
 
         <div className="flex flex-wrap gap-1.5">
-          <Button onClick={() => onOpenChat(artifact.sessionId)} size="xs" type="button" variant="textStrong">
+          <Button onClick={() => onOpenChat(artifact)} size="xs" type="button" variant="textStrong">
             <FolderOpen className="size-3" />
             {a.chat}
           </Button>
@@ -590,7 +674,7 @@ const PrimaryCell = memo(function PrimaryCell({ artifact, ctx }: { artifact: Art
   return (
     <ArtifactCellAction
       href={isLink ? artifact.href : undefined}
-      onClick={isLink ? undefined : () => void ctx.onOpen(artifact.href)}
+      onClick={isLink ? undefined : () => void ctx.onOpen(artifact)}
       title={label}
     >
       <span className="mt-0.5 grid size-6 shrink-0 place-items-center self-start rounded-md bg-(--ui-bg-tertiary) text-(--ui-text-tertiary)">
@@ -637,7 +721,7 @@ const LocationCell = memo(function LocationCell({ artifact }: { artifact: Artifa
 
 const SessionCell = memo(function SessionCell({ artifact, ctx }: { artifact: ArtifactRecord; ctx: CellCtx }) {
   return (
-    <ArtifactCellAction onClick={() => ctx.onOpenChat(artifact.sessionId)} title={artifact.sessionTitle}>
+    <ArtifactCellAction onClick={() => ctx.onOpenChat(artifact)} title={artifact.sessionTitle}>
       <span className="flex min-w-0 flex-col">
         <span className="truncate">{artifact.sessionTitle}</span>
         <span className="truncate text-[0.6875rem] font-normal text-(--ui-text-tertiary)">

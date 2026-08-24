@@ -5,8 +5,12 @@ import {
   QUICK_TARGET_CURRENT,
   QUICK_TARGET_NEW,
   type QuickEntrySessionOption,
+  type QuickEntryRoomOption,
+  getQuickEntryDestinationMemory,
   setQuickEntrySubmitHandler
 } from '@/store/quick-entry'
+import { desktopBuzzClient } from '@/pantheon/buzz-client'
+import { decideDestinationSend } from '@/pantheon/destination'
 import { $gatewayState, $sessions } from '@/store/session'
 import { sessionTileDelegate } from '@/store/session-states'
 import { isAuxiliaryWindow } from '@/store/windows'
@@ -61,7 +65,30 @@ export function useQuickEntryBridge({ startFreshSessionDraft, submitText }: Quic
       return
     }
 
-    setQuickEntrySubmitHandler(({ target, text }) => {
+    setQuickEntrySubmitHandler(({ target, text, destination }) => {
+      if (destination?.kind === 'room') {
+        void (async () => {
+          try {
+            const status = await desktopBuzzClient().status()
+            const decision = decideDestinationSend(destination, { bridgeHealthy: status.state === 'open' })
+
+            if (!decision.allowed) {
+              return
+            }
+
+            await desktopBuzzClient().sendMessage({
+              roomId: destination.roomId,
+              content: text,
+              threadRootId: destination.threadRootId
+            })
+          } catch {
+            // Fail closed — the room send already refused to invent a Hermes path.
+          }
+        })()
+
+        return
+      }
+
       if (target === QUICK_TARGET_NEW) {
         // Same as the user clicking New Chat and typing: fresh draft, then the
         // normal submit creates the backend session.
@@ -112,7 +139,33 @@ export function useQuickEntryBridge({ startFreshSessionDraft, submitText }: Quic
     }
 
     const push = () => {
-      api.pushState({ connected: $gatewayState.get() === 'open', sessions: sessionOptions() })
+      void (async () => {
+        let rooms: QuickEntryRoomOption[] = []
+        let bridgeHealthy = false
+
+        try {
+          const status = await desktopBuzzClient().status()
+          bridgeHealthy = status.state === 'open'
+
+          if (bridgeHealthy) {
+            const page = await desktopBuzzClient().listRooms()
+            rooms = (page.rooms || []).slice(0, QUICK_ENTRY_SESSION_OPTIONS).map(room => ({
+              id: room.id,
+              title: room.name || room.id
+            }))
+          }
+        } catch {
+          bridgeHealthy = false
+        }
+
+        api.pushState({
+          connected: $gatewayState.get() === 'open',
+          sessions: sessionOptions(),
+          rooms,
+          bridgeHealthy,
+          destinationMemory: getQuickEntryDestinationMemory()
+        })
+      })()
     }
 
     push()

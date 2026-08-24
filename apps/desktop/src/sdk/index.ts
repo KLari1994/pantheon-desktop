@@ -1200,6 +1200,8 @@ export type { TitlebarTool } from '@/app/shell/titlebar-controls'
  *  registered gateway — probe `SkillsView.supportsFixedConnection` first;
  *  builds without it would route the pin to the ACTIVE gateway. Bot Mode's
  *  Advanced section is the reference consumer. */
+export { type ArtifactRecord } from '@/app/artifacts/artifact-utils'
+export { StarmapView, type StarmapViewProps } from '@/app/starmap'
 export { SkillsView } from '@/app/skills'
 /** THE full MCP tab core Settings renders — per-server enable + OAuth sign-in
  *  + API-key setup + live probes, not a checkbox list. Route-decoupled so it
@@ -1350,7 +1352,9 @@ export {
   type TranscriptDirectiveProps
 } from '@/lib/transcript-directives'
 export { cn } from '@/lib/utils'
+export { getStarmapGraph, listAllProfileSessions } from '@/hermes'
 export { desktopBuzzClient } from '@/pantheon/buzz-client'
+export type { StarmapGraph } from '@/types/hermes'
 export { $artifactRegistry, findArtifact, openArtifact } from '@/store/artifacts'
 
 export const PANES_AREA = 'panes'

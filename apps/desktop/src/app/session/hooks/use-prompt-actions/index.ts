@@ -61,7 +61,9 @@ import {
   planEdit,
   planReload,
   planRestore,
+  previewRollback,
   rebindSurvivorRowIds,
+  rollbackMachineName,
   runRewindSubmit,
   type SurvivorUserRowIds
 } from './rewind'
@@ -254,6 +256,9 @@ interface PromptActionsOptions {
 interface RestoreMessageTarget {
   text?: string
   userOrdinal?: number | null
+  approved?: boolean
+  worktree?: string
+  machine?: string
 }
 
 export function usePromptActions({
@@ -847,7 +852,8 @@ export function usePromptActions({
       truncateMessageId: string | undefined,
       interruptFirst: boolean,
       truncateRowId?: number,
-      sourceText?: string
+      sourceText?: string,
+      rollback?: { worktree: string; machine: string; approved?: boolean }
     ) =>
       runRewindSubmit(
         requestGateway,
@@ -864,7 +870,8 @@ export function usePromptActions({
           }
         },
         truncateRowId,
-        sourceText
+        sourceText,
+        rollback
       ),
     [activeSessionIdRef, requestGateway, selectedStoredSessionIdRef]
   )
@@ -935,6 +942,18 @@ export function usePromptActions({
 
       const messages = $messages.get()
       const plan = planRestore(messages, messageId, target)
+      const worktree = target?.worktree || $currentCwd.get() || '(no worktree)'
+      const machine = target?.machine || rollbackMachineName()
+      const preview = previewRollback({
+        sessionId,
+        worktree,
+        machine,
+        approved: target?.approved
+      })
+
+      if (!preview.allowed) {
+        throw new Error(preview.summary)
+      }
 
       // The turns we're discarding may have spawned todos and background
       // processes; they belong to the abandoned timeline, so wipe their status
@@ -964,7 +983,8 @@ export function usePromptActions({
           plan.truncateMessageId,
           interruptFirst,
           plan.truncateRowId,
-          plan.sourceText
+          plan.sourceText,
+          { worktree, machine, approved: true }
         )
 
         applySurvivorRowIds(sessionId, survivorRowIds)

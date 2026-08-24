@@ -4,7 +4,7 @@ import { $activeGatewayProfile } from '@/store/profile'
 import { $sessions } from '@/store/session'
 import type { SessionInfo } from '@/types/hermes'
 
-import { $hudActive, $hudSession, openHud } from './hud'
+import { $hudActive, $hudSession, openDestination, openHud } from './hud'
 
 const desktopWindow = window as unknown as { hermesDesktop?: Window['hermesDesktop'] }
 const initialHermesDesktop = desktopWindow.hermesDesktop
@@ -77,5 +77,22 @@ describe('openHud profile targeting (#82285)', () => {
     openHud('unknown-session')
 
     expect(open).toHaveBeenCalledWith({ sessionId: 'unknown-session', profile: 'work' })
+  })
+})
+
+describe('HUD destination handoff', () => {
+  it('keeps bot/session destinations on the real HUD and hands rooms to the main window', () => {
+    expect(openDestination({ kind: 'session', storedSessionId: 'abc', agentId: 'hermes' })).toEqual({
+      surface: 'hud',
+      storedSessionId: 'abc'
+    })
+    expect(open).toHaveBeenCalledWith({ sessionId: 'abc', profile: 'default' })
+
+    open.mockClear()
+    expect(openDestination({ kind: 'room', roomId: 'room-ops' })).toEqual({
+      surface: 'main-window',
+      href: '/rooms?room=room-ops'
+    })
+    expect(open).not.toHaveBeenCalled()
   })
 })

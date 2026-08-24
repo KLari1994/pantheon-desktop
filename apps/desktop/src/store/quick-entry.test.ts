@@ -44,8 +44,12 @@ describe('quickComposerReducer', () => {
       connected: false,
       draft: '',
       sessions: [],
+      rooms: [],
+      bridgeHealthy: false,
+      profileDefaultAgentId: 'default',
       submitting: false,
       target: QUICK_TARGET_CURRENT,
+      destinationMemory: {},
       visible: true
     })
   })
@@ -111,7 +115,13 @@ describe('quickComposerReducer', () => {
       { type: 'submit' }
     ])
 
-    expect(sent).toEqual([{ target: 's2', text: 'send this there' }])
+    expect(sent).toEqual([
+      {
+        target: 's2',
+        text: 'send this there',
+        destination: { kind: 'bot', storedSessionId: 's2', agentId: 'default' }
+      }
+    ])
   })
 
   it('the new-session target rides the submit payload', () => {
@@ -185,6 +195,49 @@ describe('quickComposerReducer', () => {
     expect(state.sessions).toHaveLength(2)
   })
 
+  it('reopening after a room or bot submit restores that destination when still offered', () => {
+    const afterRoom = run([
+      {
+        connected: true,
+        sessions: [{ id: 'bot-sess-1', title: 'Daedalus' }],
+        rooms: [{ id: 'room-ops', title: 'Ops' }],
+        bridgeHealthy: true,
+        type: 'state'
+      },
+      { target: 'room:room-ops', type: 'target' },
+      { draft: 'hello room', type: 'edit' },
+      { type: 'submit' }
+    ])
+
+    expect(afterRoom.state.destinationMemory.lastRoom).toEqual({ kind: 'room', roomId: 'room-ops' })
+
+    const reopenedRoom = run([{ type: 'shown' }], afterRoom.state)
+    expect(reopenedRoom.state.target).toBe('room:room-ops')
+    expect(reopenedRoom.state.draft).toBe('')
+
+    const afterBot = run(
+      [{ type: 'shown' }, { target: 'bot-sess-1', type: 'target' }, { draft: 'hello bot', type: 'edit' }, { type: 'submit' }],
+      reopenedRoom.state
+    )
+    const reopenedBot = run(
+      [
+        {
+          connected: true,
+          sessions: [{ id: 'bot-sess-1', title: 'Daedalus' }],
+          rooms: [{ id: 'room-ops', title: 'Ops' }],
+          bridgeHealthy: true,
+          destinationMemory: afterBot.state.destinationMemory,
+          type: 'state'
+        },
+        { type: 'shown' }
+      ],
+      afterBot.state
+    )
+
+    expect(reopenedBot.state.target).toBe('bot-sess-1')
+    expect(reopenedBot.state.profileDefaultAgentId).toBe('default')
+  })
+
   it('re-summoning after a dismiss never carries the old draft back', () => {
     const dismissed = run([connect, { draft: 'stale text', type: 'edit' }, { type: 'dismiss' }]).state
     const reopened = quickComposerReducer(dismissed, { type: 'shown' }).state
@@ -212,5 +265,48 @@ describe('quickComposerReducer', () => {
 
     expect(first.sent).toEqual([{ target: QUICK_TARGET_CURRENT, text: 'one' }])
     expect(second.sent).toEqual([{ target: QUICK_TARGET_CURRENT, text: 'two' }])
+  })
+
+  it('a room target only becomes destination-aware at submit and fails closed without bridge health', () => {
+    const picked = run([
+      {
+        connected: true,
+        sessions: [],
+        rooms: [{ id: 'room-ops', title: 'Ops' }],
+        bridgeHealthy: false,
+        type: 'state'
+      },
+      { target: 'room:room-ops', type: 'target' },
+      { draft: 'hello room', type: 'edit' },
+      { type: 'submit' }
+    ])
+
+    expect(picked.state.target).toBe('room:room-ops')
+    expect(picked.sent).toEqual([])
+    expect(picked.state.visible).toBe(true)
+    expect(picked.state.draft).toBe('hello room')
+
+    const healthy = run(
+      [{ connected: true, sessions: [], rooms: [{ id: 'room-ops', title: 'Ops' }], bridgeHealthy: true, type: 'state' }, { type: 'submit' }],
+      picked.state
+    )
+
+    expect(healthy.sent).toEqual([
+      {
+        target: 'room:room-ops',
+        text: 'hello room',
+        destination: { kind: 'room', roomId: 'room-ops' }
+      }
+    ])
+  })
+
+  it('selecting a room destination does not mutate the ambient profile default', () => {
+    const { state } = run([
+      connect,
+      { target: 'room:room-ops', type: 'target' }
+    ])
+
+    expect(state.target).toBe('room:room-ops')
+    expect(state.profileDefaultAgentId).toBe(initialQuickComposerState.profileDefaultAgentId)
   })
 })
