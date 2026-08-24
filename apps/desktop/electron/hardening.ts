@@ -1,7 +1,10 @@
+import { createHash } from 'node:crypto'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+
+import { isPrivateKeyShaped } from './pantheon-buzz-process'
 
 // Relative, not `@hermes/shared`: the electron bundle is built by esbuild with
 // no tsconfig path resolution (see scripts/bundle-electron-main.mjs), so a bare
@@ -20,7 +23,7 @@ const DEFAULT_FETCH_TIMEOUT_MS = 30_000
 const ATTACHMENT_UPLOAD_DEFAULT_MAX_BYTES = 256 * 1024 * 1024
 const TEXT_PREVIEW_SOURCE_MAX_BYTES = 64 * 1024 * 1024
 
-function dataUrlReadMaxBytesFromMb(maxMb) {
+function dataUrlReadMaxBytesFromMb(maxMb: any) {
   return clampDataUrlReadMaxMb(maxMb) * 1024 * 1024
 }
 
@@ -80,7 +83,7 @@ interface SecretFileOptions {
  * another user), and failing to tighten a file is not a reason to lose the
  * user's configured gateway.
  */
-function tightenSecretFileMode(filePath, options: SecretFileOptions = {}) {
+function tightenSecretFileMode(filePath: any, options: SecretFileOptions = {}) {
   const fsImpl = options.fs || fs
   const platform = options.platform || process.platform
 
@@ -130,7 +133,7 @@ function tightenSecretFileMode(filePath, options: SecretFileOptions = {}) {
  * cannot be redirected), the create-time `mode`, and the chmod before the
  * rename.
  */
-function writeSecretFileAtomic(targetPath, data, options: SecretFileOptions = {}) {
+function writeSecretFileAtomic(targetPath: any, data: any, options: SecretFileOptions = {}) {
   const fsImpl = options.fs || fs
   const tmp = targetPath + '.tmp'
 
@@ -140,7 +143,7 @@ function writeSecretFileAtomic(targetPath, data, options: SecretFileOptions = {}
   fsImpl.renameSync(tmp, targetPath)
 }
 
-function resolveTimeoutMs(timeoutMs, fallbackMs = DEFAULT_FETCH_TIMEOUT_MS) {
+function resolveTimeoutMs(timeoutMs: any, fallbackMs = DEFAULT_FETCH_TIMEOUT_MS) {
   const fallback =
     Number.isFinite(fallbackMs) && Number(fallbackMs) > 0 ? Math.round(Number(fallbackMs)) : DEFAULT_FETCH_TIMEOUT_MS
 
@@ -153,7 +156,7 @@ function resolveTimeoutMs(timeoutMs, fallbackMs = DEFAULT_FETCH_TIMEOUT_MS) {
   return fallback
 }
 
-function encryptDesktopSecret(value, safeStorageApi, options: { allowPlainText?: boolean } = {}) {
+function encryptDesktopSecret(value: any, safeStorageApi: any, options: { allowPlainText?: boolean } = {}) {
   const raw = String(value || '')
 
   if (!raw) {
@@ -266,7 +269,91 @@ function resolvePersistedRemoteToken({
   return encryptSecret(incomingToken, { allowPlainText: allowPlainText === true })
 }
 
-function sensitiveFileBlockReason(filePath) {
+export interface PinnedArtifact {
+  relPath: string
+  sha256: string
+}
+
+function sha256File(filePath: string, fsImpl: Pick<typeof fs, 'readFileSync'> = fs): string {
+  return createHash('sha256').update(fsImpl.readFileSync(filePath)).digest('hex')
+}
+
+function verifyPinnedArtifacts(
+  rootDir: string,
+  manifest: PinnedArtifact[],
+  fsImpl: Pick<typeof fs, 'readFileSync'> = fs
+): { ok: boolean; failures: Array<{ relPath: string; reason: 'missing' | 'hash-mismatch' }> } {
+  const failures: Array<{ relPath: string; reason: 'missing' | 'hash-mismatch' }> = []
+
+  for (const item of manifest) {
+    const fullPath = path.join(rootDir, item.relPath)
+
+    try {
+      const digest = sha256File(fullPath, fsImpl)
+
+      if (digest !== item.sha256) {
+        failures.push({ relPath: item.relPath, reason: 'hash-mismatch' })
+      }
+    } catch {
+      failures.push({ relPath: item.relPath, reason: 'missing' })
+    }
+  }
+
+  return { ok: failures.length === 0, failures }
+}
+
+function secretShapedValue(value: string): boolean {
+  const trimmed = String(value || '').trim()
+
+  if (!trimmed) {
+    return false
+  }
+
+  if (isPrivateKeyShaped(trimmed)) {
+    return true
+  }
+
+  if (/^sk-[A-Za-z0-9_-]{8,}$/.test(trimmed)) {
+    return true
+  }
+
+  if (/^Bearer\s+\S{16,}$/i.test(trimmed)) {
+    return true
+  }
+
+  if (/^eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/.test(trimmed)) {
+    return true
+  }
+
+  return false
+}
+
+const PACKAGED_ADAPTER_NAMES = ['buzz-bridge', 'pantheon-buzz', 'pantheon-acp', 'acp-binder']
+
+function pantheonAdapterInstallBlockReason(identifier: string): string | null {
+  const raw = String(identifier || '').trim()
+
+  if (!raw) {
+    return null
+  }
+
+  const remote =
+    /^(https?:\/\/|git@|ssh:\/\/|file:\/\/)/i.test(raw) || /^[\w.-]+\/[\w.-]+/.test(raw)
+
+  if (!remote) {
+    return null
+  }
+
+  const lowered = raw.toLowerCase()
+
+  if (PACKAGED_ADAPTER_NAMES.some(name => lowered.includes(name))) {
+    return 'Pantheon adapters must be packaged local resources; remote-fetched plugin code is rejected.'
+  }
+
+  return null
+}
+
+function sensitiveFileBlockReason(filePath: any) {
   const normalized = String(filePath || '')
     .replace(/\\/g, '/')
     .toLowerCase()
@@ -325,7 +412,7 @@ function ipcPathError(code: any, message: string): Error & { code: any } {
   return error
 }
 
-function rejectUnsafePathSyntax(filePath, purpose = 'File read') {
+function rejectUnsafePathSyntax(filePath: any, purpose = 'File read') {
   if (typeof filePath !== 'string') {
     throw ipcPathError('invalid-path', `${purpose} failed: file path is required.`)
   }
@@ -354,7 +441,7 @@ function rejectUnsafePathSyntax(filePath, purpose = 'File read') {
   return raw
 }
 
-function resolveRequestedPathForIpc(filePath, options: { purpose?: string; baseDir?: fs.PathOrFileDescriptor } = {}) {
+function resolveRequestedPathForIpc(filePath: any, options: { purpose?: string; baseDir?: fs.PathOrFileDescriptor } = {}) {
   const purpose = String(options.purpose || 'File read')
   let raw = rejectUnsafePathSyntax(filePath, purpose)
 
@@ -395,11 +482,11 @@ function resolveRequestedPathForIpc(filePath, options: { purpose?: string; baseD
   return resolvedPath
 }
 
-async function statForIpc(fsImpl: { promises: { stat: typeof fs.promises.stat } }, resolvedPath, purpose, typeLabel) {
+async function statForIpc(fsImpl: { promises: { stat: typeof fs.promises.stat } }, resolvedPath: any, purpose: any, typeLabel: any) {
   try {
     return await fsImpl.promises.stat(resolvedPath)
   } catch (error) {
-    const code = error && typeof error === 'object' ? error.code : ''
+    const code = error && typeof error === 'object' ? (error as { code?: string }).code : ''
 
     if (code === 'ENOENT' || code === 'ENOTDIR') {
       throw ipcPathError(code || 'ENOENT', `${purpose} failed: ${typeLabel} does not exist.`)
@@ -412,7 +499,7 @@ async function statForIpc(fsImpl: { promises: { stat: typeof fs.promises.stat } 
   }
 }
 
-async function realpathForIpc(fsImpl, resolvedPath, purpose) {
+async function realpathForIpc(fsImpl: any, resolvedPath: any, purpose: any) {
   if (typeof fsImpl.promises.realpath !== 'function') {
     return resolvedPath
   }
@@ -423,7 +510,7 @@ async function realpathForIpc(fsImpl, resolvedPath, purpose) {
 
     return realPath
   } catch (error) {
-    const code = error && typeof error === 'object' ? error.code : ''
+    const code = error && typeof error === 'object' ? (error as { code?: string }).code : ''
     throw ipcPathError(
       code || 'read-error',
       `${purpose} failed: ${error instanceof Error ? error.message : String(error)}`
@@ -431,7 +518,7 @@ async function realpathForIpc(fsImpl, resolvedPath, purpose) {
   }
 }
 
-function rejectSensitiveFilePath(filePath, purpose) {
+function rejectSensitiveFilePath(filePath: any, purpose: any) {
   const blockReason = sensitiveFileBlockReason(filePath)
 
   if (blockReason) {
@@ -440,7 +527,7 @@ function rejectSensitiveFilePath(filePath, purpose) {
 }
 
 async function resolveDirectoryForIpc(
-  dirPath,
+  dirPath: any,
   options: {
     purpose?: string
     baseDir?: fs.PathOrFileDescriptor
@@ -462,7 +549,7 @@ async function resolveDirectoryForIpc(
 }
 
 async function resolveReadableFileForIpc(
-  filePath,
+  filePath: any,
   options: {
     purpose?: string
     baseDir?: fs.PathOrFileDescriptor
@@ -511,7 +598,7 @@ async function resolveReadableFileForIpc(
 }
 
 async function readFileDataUrlForIpc(
-  filePath,
+  filePath: any,
   options: {
     purpose?: string
     baseDir?: fs.PathOrFileDescriptor
@@ -547,8 +634,12 @@ export {
   resolveTimeoutMs,
   SAFE_STORAGE_ENCODING,
   SECRET_FILE_MODE,
+  pantheonAdapterInstallBlockReason,
+  secretShapedValue,
+  sha256File,
   sensitiveFileBlockReason,
   TEXT_PREVIEW_SOURCE_MAX_BYTES,
+  verifyPinnedArtifacts,
   tightenSecretFileMode,
   writeSecretFileAtomic
 }

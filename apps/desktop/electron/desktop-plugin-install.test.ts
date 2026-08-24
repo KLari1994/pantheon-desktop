@@ -9,6 +9,7 @@ import {
   desktopPluginFolderName,
   detectPluginComponents,
   findDesktopEntry,
+  probePluginRepo,
   repoNameFromUrl,
   resolvePluginGitUrl,
   resolveSubdirWithin
@@ -123,6 +124,15 @@ describe('detectPluginComponents', () => {
       desktop: true,
       agentName: 'dual',
       desktopName: 'desktop'
+    })
+  })
+})
+
+describe('probePluginRepo packaged adapters', () => {
+  it('rejects remote identifiers that claim a Pantheon adapter name', async () => {
+    await expect(probePluginRepo('git', 'https://github.com/acme/buzz-bridge')).resolves.toMatchObject({
+      ok: false,
+      error: expect.stringMatching(/packaged local resources/)
     })
   })
 })

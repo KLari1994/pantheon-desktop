@@ -2199,6 +2199,21 @@ export interface Translations {
       failed: string
       noReturn: string
     }
+    pantheonDeferredTitle: string
+    pantheonDeferredBody: string
+    pantheonBlockers: {
+      statusUnavailable: string
+      activeAgent: string
+      streamingSession: string
+      activeTerminalProcess: string
+      computerUseActive: string
+      unsavedDraft: string
+      bridgeUnhealthy: string
+    }
+    rollbackTitle: string
+    rollbackAction: string
+    rollbackDone: string
+    rollbackFailed: string
   }
 
   install: {

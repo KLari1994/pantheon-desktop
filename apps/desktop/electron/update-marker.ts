@@ -23,6 +23,16 @@
 import fs from 'fs'
 import path from 'path'
 
+import {
+  createPantheonUpdateBackup,
+  writeRollbackMarker
+} from './pantheon-backup'
+import {
+  buildCompatibilityReceipt,
+  evaluateCompatibility,
+  writeCompatibilityReceipt
+} from './pantheon-compatibility'
+
 // Even with a live-looking PID, never treat a marker older than this as a live
 // update. A full update (git pull + pip + desktop rebuild) is minutes, not tens
 // of minutes; past this the marker is almost certainly stale (e.g. the OS
@@ -179,27 +189,83 @@ export function writeUpdateMarker(
  * or the existing one is stale/dead and self-heals via
  * `readLiveUpdateMarker`.
  */
+export interface PantheonPreApplyDeps {
+  createBackup?: typeof createPantheonUpdateBackup
+  buildReceipt?: typeof buildCompatibilityReceipt
+  evaluate?: typeof evaluateCompatibility
+  writeReceipt?: typeof writeCompatibilityReceipt
+  writeMarker?: typeof writeRollbackMarker
+  updateRoot?: string
+  userDataDir?: string
+}
+
 export function updateHandoffConflict(
   hermesHome,
   opts: {
     now?: () => number
     maxAgeMs?: number
     kill?: typeof process.kill
+    pantheon?: PantheonPreApplyDeps | false
   } = {}
 ) {
   const owner = readLiveUpdateMarker(hermesHome, opts)
 
-  if (!owner) {
+  if (owner) {
+    const mins = Math.floor(owner.ageMs / 60_000)
+    const secs = Math.floor((owner.ageMs % 60_000) / 1000)
+    const elapsed = mins > 0 ? `${mins}m ${secs}s` : `${secs}s`
+
+    return {
+      pid: owner.pid,
+      ageMs: owner.ageMs,
+      message: `An update is already running (PID ${owner.pid}, started ${elapsed} ago). Wait for it to finish, then try again.`
+    }
+  }
+
+  if (opts.pantheon === false) {
     return null
   }
 
-  const mins = Math.floor(owner.ageMs / 60_000)
-  const secs = Math.floor((owner.ageMs % 60_000) / 1000)
-  const elapsed = mins > 0 ? `${mins}m ${secs}s` : `${secs}s`
+  return runPantheonPreApply(hermesHome, opts.pantheon ?? {})
+}
 
-  return {
-    pid: owner.pid,
-    ageMs: owner.ageMs,
-    message: `An update is already running (PID ${owner.pid}, started ${elapsed} ago). Wait for it to finish, then try again.`
+function runPantheonPreApply(hermesHome: string, deps: PantheonPreApplyDeps) {
+  const createBackup = deps.createBackup ?? createPantheonUpdateBackup
+  const buildReceipt = deps.buildReceipt ?? buildCompatibilityReceipt
+  const evaluate = deps.evaluate ?? evaluateCompatibility
+  const writeReceipt = deps.writeReceipt ?? writeCompatibilityReceipt
+  const writeMarker = deps.writeMarker ?? writeRollbackMarker
+  const updateRoot = deps.updateRoot ?? path.join(hermesHome, 'hermes-agent')
+
+  try {
+    const backup = createBackup(hermesHome, { userDataDir: deps.userDataDir })
+    const receipt = buildReceipt({ hermesHome, updateRoot, resourcesPath: process.resourcesPath })
+    const verdict = evaluate(receipt)
+    writeReceipt(hermesHome, receipt)
+    writeMarker(hermesHome, {
+      schemaVersion: 1,
+      createdAt: backup.createdAt,
+      previousCommit: backup.appCommit,
+      backupDir: backup.backupDir,
+      binderSchemaVersion: backup.binderSchemaVersion
+    })
+
+    if (!verdict.ok) {
+      return {
+        pid: -1,
+        ageMs: 0,
+        message: `Update refused: compatibility check failed (${verdict.reasons.join(', ') || 'incompatible'}).`
+      }
+    }
+
+    return null
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : String(error)
+
+    return {
+      pid: -1,
+      ageMs: 0,
+      message: `Update refused: backup or compatibility receipt failed (${detail}).`
+    }
   }
 }

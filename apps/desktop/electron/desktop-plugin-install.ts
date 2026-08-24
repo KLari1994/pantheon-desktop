@@ -10,6 +10,8 @@ import fsp from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 
+import { pantheonAdapterInstallBlockReason } from './hardening'
+
 const GITHUB_BROWSER_SEGMENTS = new Set(['tree', 'blob', 'commit'])
 
 export interface ResolvedGitUrl {
@@ -335,6 +337,12 @@ function insecureSchemeWarnings(gitUrl: string): { warnings: string[]; insecure:
 }
 
 export async function probePluginRepo(gitBin: string, identifier: string): Promise<PluginProbeResult> {
+  const adapterBlock = pantheonAdapterInstallBlockReason(identifier)
+
+  if (adapterBlock) {
+    return { ok: false, agent: false, desktop: false, warnings: [], insecure: false, error: adapterBlock }
+  }
+
   try {
     const { gitUrl, subdir } = resolvePluginGitUrl(identifier)
     const { warnings, insecure } = insecureSchemeWarnings(gitUrl)

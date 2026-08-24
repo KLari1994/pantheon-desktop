@@ -310,11 +310,18 @@ import {
 } from './update-count'
 import { waitForUpdateClearance } from './update-gate'
 import { readLiveUpdateMarker, updateHandoffConflict, writeUpdateMarker } from './update-marker'
+import {
+  readLatestBackupReceipt,
+  readRollbackMarker,
+  restorePantheonBackup,
+  restorePantheonRollbackAtBoot
+} from './pantheon-backup'
 import { isOfficialSshRemote, OFFICIAL_REPO_HTTPS_URL } from './update-remote'
 import {
   collectRelaunchArgs,
   observeUpdaterHandoff,
   resolvePosixScriptHandoff,
+  resolveRollbackHandoff,
   resolveStagedUpdaterBinary,
   resolveUpdateScriptHandoff,
   sandboxFallbackFromEnv,
@@ -2040,7 +2047,8 @@ const UPDATE_HANDOFF_DWELL_MS = 2500
 function updateGateDeps() {
   return {
     hasLiveMarker: () => Boolean(readLiveUpdateMarker(HERMES_HOME)),
-    isUpdateInFlight: () => updateInFlight
+    isUpdateInFlight: () => updateInFlight,
+    isRollbackInFlight: () => rollbackInFlight
   }
 }
 
@@ -3021,6 +3029,7 @@ async function readCommitLog(cwd, branch, isShallow) {
 }
 
 let updateInFlight = false
+let rollbackInFlight = false
 
 // Set to true when the desktop is about to quit so a detached swap/install/
 // uninstall script can take over. On macOS, app.quit() closes windows but
@@ -14875,6 +14884,47 @@ ipcMain.handle('hermes:updates:branch:set', async (_event, name) => {
   return { branch }
 })
 
+ipcMain.handle('hermes:updates:rollback', async () => {
+  rollbackInFlight = true
+
+  try {
+    const marker = readRollbackMarker(HERMES_HOME)
+
+    if (!marker) {
+      return { ok: false, error: 'no-rollback', message: 'No previous working build is available to restore.' }
+    }
+
+    const receipt = readLatestBackupReceipt(HERMES_HOME)
+
+    if (!receipt) {
+      return { ok: false, error: 'no-backup', message: 'No key-safe backup receipt is available to restore.' }
+    }
+
+    const restored = restorePantheonBackup(HERMES_HOME, receipt)
+    const handoff = resolveRollbackHandoff(resolveUpdateRoot(), marker)
+
+    rememberLog(`[updates] rollback restored=${restored.restored.length} failed=${restored.failed.length}`)
+
+    return {
+      ok: restored.failed.length === 0,
+      error: restored.failed.length === 0 ? undefined : 'rollback-partial',
+      message:
+        restored.failed.length === 0
+          ? 'Previous working config restored.'
+          : `Rollback restored ${restored.restored.length} files; failed ${restored.failed.join(', ')}.`,
+      handoff: handoff ? { command: handoff.command, scriptPath: handoff.scriptPath } : null
+    }
+  } catch (error) {
+    return {
+      ok: false,
+      error: 'rollback-failed',
+      message: error instanceof Error ? error.message : String(error)
+    }
+  } finally {
+    rollbackInFlight = false
+  }
+})
+
 // Resolve the canonical Hermes version (the one `release.py` bumps in
 // hermes_cli/__init__.py + pyproject.toml) so the desktop About panel shows the
 // real Hermes version instead of the Electron app's own package.json version,
@@ -15322,6 +15372,12 @@ app.whenReady().then(() => {
   // Warm the login-shell PATH resolution immediately so it usually completes
   // before the backend start path awaits the same single-flight promise.
   void ensureLoginShellPath()
+
+  const rollbackAtBoot = restorePantheonRollbackAtBoot(HERMES_HOME)
+
+  if (rollbackAtBoot.restored) {
+    rememberLog(`[updates] restore-at-boot applied previous working config (${rollbackAtBoot.message})`)
+  }
 
   const systemCa = installWindowsSystemCaTrust(tls)
 

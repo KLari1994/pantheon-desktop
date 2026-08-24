@@ -25,19 +25,25 @@
  * waiter could slip through mid-update.
  */
 
-export type UpdateGateReason = 'marker' | 'update-in-flight' | null
+export type UpdateGateReason = 'marker' | 'update-in-flight' | 'rollback-in-flight' | null
 
 export interface UpdateGateDeps {
   /** True when a live on-disk update marker exists (see update-marker.ts). */
   hasLiveMarker: () => boolean
   /** True while this process is inside applyUpdates()' critical section. */
   isUpdateInFlight: () => boolean
+  /** True while a one-click restore is rewriting the previous working tree. */
+  isRollbackInFlight?: () => boolean
 }
 
 /** Why the gate is closed right now, or null when it is open. */
 export function updateGateReason(deps: UpdateGateDeps): UpdateGateReason {
   if (deps.hasLiveMarker()) {
     return 'marker'
+  }
+
+  if (deps.isRollbackInFlight?.()) {
+    return 'rollback-in-flight'
   }
 
   if (deps.isUpdateInFlight()) {

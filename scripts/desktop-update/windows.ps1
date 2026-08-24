@@ -50,7 +50,10 @@ param(
     [switch]$NoMarkerCleanup,
     [switch]$SelfTestUi,
     [switch]$SelfTestPipeDrain,
-    [switch]$SelfTestMarker
+    [switch]$SelfTestMarker,
+    [switch]$Rollback,
+    [string]$BackupDir = "",
+    [string]$PreviousCommit = ""
 )
 
 if (-not $SelfTestUi -and -not $SelfTestPipeDrain -and -not $InstallRoot) {
@@ -1066,6 +1069,20 @@ try {
         Write-HandoffLog $finalMsg
         exit $finalCode
     }
+    if ($Rollback) {
+        Write-HandoffLog "rollback requested; skipping hermes update (backup-dir=$BackupDir)"
+        if ($PreviousCommit) {
+            & git -C $InstallRoot checkout --force $PreviousCommit
+            if ($LASTEXITCODE -ne 0) {
+                $finalCode = 3
+                $finalMsg = "Rollback aborted: cannot restore previous commit $PreviousCommit."
+                Write-HandoffLog $finalMsg
+                exit $finalCode
+            }
+        }
+        $res = [pscustomobject]@{ Code = 0; Output = "rollback" }
+        $desktopBuildFailed = $false
+    } else {
     $updateArgs = @("-m", "hermes_cli.main", "update", "--yes", "--gateway", "--force", "--branch", $Branch)
     # --keep-stash: never re-apply local source edits after the update (they
     # stay parked in git stash). Probe --help first: the flag ships with newer
@@ -1107,6 +1124,7 @@ try {
         $rebuild = Invoke-HermesStep $pythonExe @("-m", "hermes_cli.main", "desktop", "--force-build", "--build-only") "rebuild"
         Write-HandoffLog "desktop rebuild exit code: $($rebuild.Code)"
         if ($rebuild.Code -ne 0) { $desktopBuildFailed = $true }
+    }
     }
 
     if ($res.Code -eq 0 -and -not $desktopBuildFailed) {

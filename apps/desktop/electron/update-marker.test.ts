@@ -165,14 +165,14 @@ test('writeUpdateMarker + dead pid => self-heals on read', () => {
 
 test('no marker => hand-off is not blocked', () => {
   const home = tmpHome('conflict-none')
-  assert.equal(updateHandoffConflict(home, { kill: ALIVE }), null)
+  assert.equal(updateHandoffConflict(home, { kill: ALIVE, pantheon: false }), null)
 })
 
 test('a different live updater already owns the marker => hand-off is blocked', () => {
   const home = tmpHome('conflict-live')
   const now = 1_000_000_000_000
   writeMarker(home, 1010, Math.floor(now / 1000) - 6) // 6s old
-  const conflict = updateHandoffConflict(home, { kill: ALIVE, now: () => now })
+  const conflict = updateHandoffConflict(home, { kill: ALIVE, now: () => now, pantheon: false })
   assert.ok(conflict, 'a live foreign updater must block a new hand-off')
   assert.equal(conflict.pid, 1010)
   assert.match(conflict.message, /already running/)
@@ -183,21 +183,103 @@ test('a different live updater already owns the marker => hand-off is blocked', 
 test('a dead-pid marker does not block a hand-off (self-heals)', () => {
   const home = tmpHome('conflict-dead')
   writeMarker(home, 999999, Math.floor(Date.now() / 1000))
-  assert.equal(updateHandoffConflict(home, { kill: DEAD }), null)
+  assert.equal(updateHandoffConflict(home, { kill: DEAD, pantheon: false }), null)
 })
 
 test('an expired marker does not block a hand-off (self-heals)', () => {
   const home = tmpHome('conflict-expired')
   const now = 1_000_000_000_000
   writeMarker(home, 1010, Math.floor((now - UPDATE_MARKER_MAX_AGE_MS - 60_000) / 1000))
-  assert.equal(updateHandoffConflict(home, { kill: ALIVE, now: () => now }), null)
+  assert.equal(updateHandoffConflict(home, { kill: ALIVE, now: () => now, pantheon: false }), null)
 })
 
 test('minutes-scale elapsed time is formatted as "Nm Ss"', () => {
   const home = tmpHome('conflict-minutes')
   const now = 1_000_000_000_000
   writeMarker(home, 1010, Math.floor(now / 1000) - 125) // 2m 5s old
-  const conflict = updateHandoffConflict(home, { kill: ALIVE, now: () => now })
+  const conflict = updateHandoffConflict(home, { kill: ALIVE, now: () => now, pantheon: false })
   assert.ok(conflict)
   assert.match(conflict.message, /2m 5s/)
+})
+
+test('pantheon pre-apply writes receipts and proceeds when compatible', () => {
+  const home = tmpHome('pantheon-ok')
+  const written: string[] = []
+  const conflict = updateHandoffConflict(home, {
+    kill: ALIVE,
+    pantheon: {
+      createBackup: () => ({
+        schemaVersion: 1,
+        createdAt: '2026-08-24T12:00:00.000Z',
+        backupDir: `${home}/pantheon/backups/1`,
+        appCommit: 'abc',
+        binderSchemaVersion: 1,
+        entries: [],
+        excluded: []
+      }),
+      buildReceipt: () =>
+        ({
+          schemaVersion: 1,
+          createdAt: '2026-08-24T12:00:00.000Z',
+          pantheon: { version: '1', commit: 'abc' },
+          hermes: { sourceCommit: 'abc' },
+          buzzBridge: { present: false, pinnedVersion: null, sha256: null, integrity: 'missing' },
+          relay: { url: null, protocolVersion: null },
+          acpBinder: { schemaVersion: 1 },
+          windows: { platform: 'linux', release: '1' },
+          result: 'compatible',
+          reasons: []
+        }) as never,
+      evaluate: () => ({ ok: true, reasons: [] }),
+      writeReceipt: () => {
+        written.push('receipt')
+
+        return 'receipt.json'
+      },
+      writeMarker: () => {
+        written.push('marker')
+      }
+    }
+  })
+  assert.equal(conflict, null)
+  assert.deepEqual(written, ['receipt', 'marker'])
+})
+
+test('pantheon pre-apply fails closed when backup throws or compatibility is incompatible', () => {
+  const home = tmpHome('pantheon-fail')
+  const backupFail = updateHandoffConflict(home, {
+    kill: ALIVE,
+    pantheon: {
+      createBackup: () => {
+        throw new Error('disk full')
+      }
+    }
+  })
+  assert.equal(backupFail?.pid, -1)
+  assert.match(String(backupFail?.message), /backup or compatibility/)
+
+  const incompat = updateHandoffConflict(home, {
+    kill: ALIVE,
+    pantheon: {
+      createBackup: () => ({
+        schemaVersion: 1,
+        createdAt: '2026-08-24T12:00:00.000Z',
+        backupDir: `${home}/b`,
+        appCommit: null,
+        binderSchemaVersion: 1,
+        entries: [],
+        excluded: []
+      }),
+      buildReceipt: () =>
+        ({
+          result: 'incompatible',
+          reasons: ['buzz-bridge-integrity-mismatch']
+        }) as never,
+      evaluate: () => ({ ok: false, reasons: ['buzz-bridge-integrity-mismatch'] }),
+      writeReceipt: () => 'x',
+      writeMarker: () => {}
+    }
+  })
+  assert.equal(incompat?.pid, -1)
+  assert.match(String(incompat?.message), /compatibility check failed/)
 })
