@@ -22,6 +22,7 @@ import {
   shouldAttemptAclRepair,
   shouldRelaunchForGpuSandboxCrash,
   shouldRelaunchForRendererSandboxCrashLoop,
+  tryWriteSandboxMarker,
   WINDOWS_SANDBOX_BREAKPOINT_EXIT,
   WINDOWS_SANDBOX_MARKER_FILENAME,
   writeSandboxMarker
@@ -212,6 +213,27 @@ test('sandbox marker round-trips through the userData file', () => {
   } finally {
     fs.rmSync(dir, { recursive: true, force: true })
   }
+})
+
+test('sandbox marker persistence is best-effort when Windows mkdir returns ENOENT', () => {
+  let writeAttempted = false
+  const error = Object.assign(new Error('no such file or directory'), { code: 'ENOENT' })
+  const result = tryWriteSandboxMarker(
+    'C:\\Users\\kelce\\AppData\\Roaming\\Pantheon',
+    { state: 'booting' },
+    {
+      mkdirSync() {
+        throw error
+      },
+      writeFileSync() {
+        writeAttempted = true
+      }
+    }
+  )
+
+  assert.equal(result.ok, false)
+  assert.equal(result.error, error)
+  assert.equal(writeAttempted, false)
 })
 
 test('buildIcaclsGrantArgs targets ALL APPLICATION PACKAGES with inherited RX', () => {

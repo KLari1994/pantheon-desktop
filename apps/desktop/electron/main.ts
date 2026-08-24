@@ -368,6 +368,7 @@ import {
   shouldAttemptAclRepair,
   shouldRelaunchForGpuSandboxCrash,
   shouldRelaunchForRendererSandboxCrashLoop,
+  tryWriteSandboxMarker,
   writeSandboxMarker
 } from './windows-sandbox-fallback'
 import { installWindowsSystemCaTrust } from './windows-system-ca'
@@ -541,7 +542,14 @@ if (IS_WINDOWS) {
     )
   }
 
-  writeSandboxMarker(windowsUserData, sandboxDecision.nextMarker)
+  const initialSandboxMarkerWrite = tryWriteSandboxMarker(windowsUserData, sandboxDecision.nextMarker)
+
+  if ('error' in initialSandboxMarkerWrite) {
+    console.warn(
+      '[hermes] Windows sandbox marker could not be persisted; continuing without crash-loop marker state',
+      initialSandboxMarkerWrite.error
+    )
+  }
 
   // Catch the first GPU breakpoint death and relaunch before Chromium's
   // "GPU process isn't usable" FATAL abort ends the process with no recovery.
