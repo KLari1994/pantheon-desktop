@@ -38,7 +38,11 @@ export class CronCenterStore {
   readonly $history = atom<{ key: null | string; rows: CronCenterHistoryRow[] }>({ key: null, rows: [] })
   readonly $status = atom<'error' | 'idle' | 'loading' | 'ready'>('idle')
   private readonly generations = new Map<string, number>()
+  private readonly writeEpochs = new Map<string, number>()
+  private readonly writesInFlight = new Map<string, number>()
   private readonly writeQueues = new Map<string, Promise<unknown>>()
+  private historyGeneration = 0
+  private inventoryGeneration = 0
 
   constructor(private readonly api: CronCenterApi) {}
 
@@ -67,6 +71,32 @@ export class CronCenterStore {
 
   private currentGeneration(key: string): number {
     return this.generations.get(key) ?? 0
+  }
+
+  private currentWriteEpoch(key: string): number {
+    return this.writeEpochs.get(key) ?? 0
+  }
+
+  private writeInFlight(key: string): boolean {
+    return (this.writesInFlight.get(key) ?? 0) > 0
+  }
+
+  private beginWrite(key: string): number {
+    this.writesInFlight.set(key, (this.writesInFlight.get(key) ?? 0) + 1)
+
+    return this.nextGeneration(key)
+  }
+
+  private endWrite(key: string): void {
+    const remaining = (this.writesInFlight.get(key) ?? 1) - 1
+
+    if (remaining > 0) {
+      this.writesInFlight.set(key, remaining)
+    } else {
+      this.writesInFlight.delete(key)
+    }
+
+    this.writeEpochs.set(key, this.currentWriteEpoch(key) + 1)
   }
 
   private publishSlice(slice: CronCenterOwnerSlice): void {
@@ -110,6 +140,7 @@ export class CronCenterStore {
   async refreshOwner(owner: CronCenterOwner): Promise<void> {
     const key = ownerKey(owner)
     const generation = this.nextGeneration(key)
+    const writeEpoch = this.currentWriteEpoch(key)
     const previous = this.slice(owner)
     this.publishSlice({
       owner,
@@ -123,9 +154,15 @@ export class CronCenterStore {
       const jobs = await this.api.listJobs(owner)
 
       if (generation !== this.currentGeneration(key)) {return}
+
+      if (writeEpoch !== this.currentWriteEpoch(key) || this.writeInFlight(key)) {return}
+
       this.publishSlice({ owner, jobs, generation, status: 'ready', error: null })
     } catch (error) {
       if (generation !== this.currentGeneration(key)) {return}
+
+      if (writeEpoch !== this.currentWriteEpoch(key) || this.writeInFlight(key)) {return}
+
       this.publishSlice({
         owner,
         jobs: previous?.jobs ?? [],
@@ -137,12 +174,14 @@ export class CronCenterStore {
   }
 
   async refreshAll(): Promise<void> {
+    const inventoryGeneration = ++this.inventoryGeneration
     this.$status.set('loading')
     let owners: CronCenterOwner[]
 
     try {
       owners = await this.api.listOwners()
     } catch (error) {
+      if (inventoryGeneration !== this.inventoryGeneration) {return}
       const slices = this.$slices.get()
       const next: Record<string, CronCenterOwnerSlice> = {}
 
@@ -160,6 +199,8 @@ export class CronCenterStore {
       return
     }
 
+    if (inventoryGeneration !== this.inventoryGeneration) {return}
+
     const keep = new Set(owners.map(owner => ownerKey(owner)))
     const retained: Record<string, CronCenterOwnerSlice> = {}
 
@@ -169,6 +210,9 @@ export class CronCenterStore {
 
     this.$slices.set(retained)
     await Promise.all(owners.map(owner => this.refreshOwner(owner)))
+
+    if (inventoryGeneration !== this.inventoryGeneration) {return}
+
     const slices = Object.values(this.$slices.get())
     const allFailed = slices.length > 0 && slices.every(slice => slice.status === 'error' && slice.jobs.length === 0)
     this.$status.set(allFailed ? 'error' : 'ready')
@@ -196,7 +240,8 @@ export class CronCenterStore {
   pause(owner: CronCenterOwner, jobId: string): Promise<void> {
     return this.enqueue(owner, async () => {
       const snapshot = this.snapshot(owner)
-      this.nextGeneration(ownerKey(owner))
+      const key = ownerKey(owner)
+      this.beginWrite(key)
       this.applyOptimistic(owner, jobId, { enabled: false, state: 'paused' })
 
       try {
@@ -206,6 +251,7 @@ export class CronCenterStore {
         this.setSliceJobs(owner, snapshot, this.slice(owner)?.status ?? 'ready')
         throw error
       } finally {
+        this.endWrite(key)
         await this.refreshOwner(owner)
       }
     })
@@ -214,7 +260,8 @@ export class CronCenterStore {
   resume(owner: CronCenterOwner, jobId: string): Promise<void> {
     return this.enqueue(owner, async () => {
       const snapshot = this.snapshot(owner)
-      this.nextGeneration(ownerKey(owner))
+      const key = ownerKey(owner)
+      this.beginWrite(key)
       this.applyOptimistic(owner, jobId, { enabled: true, state: 'scheduled' })
 
       try {
@@ -224,6 +271,7 @@ export class CronCenterStore {
         this.setSliceJobs(owner, snapshot, this.slice(owner)?.status ?? 'ready')
         throw error
       } finally {
+        this.endWrite(key)
         await this.refreshOwner(owner)
       }
     })
@@ -232,7 +280,8 @@ export class CronCenterStore {
   update(owner: CronCenterOwner, jobId: string, updates: CronCenterJobUpdates): Promise<void> {
     return this.enqueue(owner, async () => {
       const snapshot = this.snapshot(owner)
-      this.nextGeneration(ownerKey(owner))
+      const key = ownerKey(owner)
+      this.beginWrite(key)
       this.applyOptimistic(owner, jobId, {
         name: updates.name ?? snapshot.find(job => job.id === jobId)?.name,
         prompt: updates.prompt ?? snapshot.find(job => job.id === jobId)?.prompt,
@@ -246,6 +295,7 @@ export class CronCenterStore {
         this.setSliceJobs(owner, snapshot, this.slice(owner)?.status ?? 'ready')
         throw error
       } finally {
+        this.endWrite(key)
         await this.refreshOwner(owner)
       }
     })
@@ -254,7 +304,8 @@ export class CronCenterStore {
   remove(owner: CronCenterOwner, jobId: string): Promise<void> {
     return this.enqueue(owner, async () => {
       const snapshot = this.snapshot(owner)
-      this.nextGeneration(ownerKey(owner))
+      const key = ownerKey(owner)
+      this.beginWrite(key)
       this.setSliceJobs(
         owner,
         this.jobsFor(owner).filter(job => job.id !== jobId),
@@ -267,6 +318,7 @@ export class CronCenterStore {
         this.setSliceJobs(owner, snapshot, this.slice(owner)?.status ?? 'ready')
         throw error
       } finally {
+        this.endWrite(key)
         await this.refreshOwner(owner)
       }
     })
@@ -274,11 +326,17 @@ export class CronCenterStore {
 
   async loadHistory(owner: CronCenterOwner, jobId: string): Promise<void> {
     const key = jobKey(owner, jobId)
+    const generation = ++this.historyGeneration
 
     try {
       const { runs } = await this.api.getHistory(owner, jobId, 20)
+
+      if (generation !== this.historyGeneration) {return}
+
       this.$history.set({ key, rows: projectCronHistory(runs ?? [], 20) })
     } catch {
+      if (generation !== this.historyGeneration) {return}
+
       this.$history.set({ key, rows: [] })
     }
   }
@@ -287,13 +345,15 @@ export class CronCenterStore {
     this.$pendingKey.set(jobKey(owner, jobId))
 
     return this.enqueue(owner, async () => {
-      this.nextGeneration(ownerKey(owner))
+      const key = ownerKey(owner)
+      this.beginWrite(key)
 
       try {
         const next = await this.api.trigger(owner, jobId)
         this.replaceJob(owner, next)
       } finally {
         this.$pendingKey.set(null)
+        this.endWrite(key)
         await this.refreshOwner(owner)
       }
     })

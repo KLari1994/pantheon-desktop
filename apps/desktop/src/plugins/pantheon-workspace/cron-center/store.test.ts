@@ -226,6 +226,123 @@ test('all-owner read failures are an error, not a truthful empty inventory', asy
   expect(store.jobsFor(ownerA)).toEqual([])
 })
 
+test('a refresh started during a mutation cannot publish pre-write data over newer intent', async () => {
+  let releasePause: () => void = () => undefined
+
+  const pauseGate = new Promise<void>(resolve => {
+    releasePause = resolve
+  })
+
+  let releaseRefresh: () => void = () => undefined
+
+  const refreshGate = new Promise<void>(resolve => {
+    releaseRefresh = resolve
+  })
+
+  let listCalls = 0
+
+  const api = fakeApi({
+    listJobs: async () => {
+      listCalls += 1
+
+      if (listCalls === 2) {
+        await refreshGate
+
+        return [job('job-1', { enabled: true, name: 'pre-write' })]
+      }
+
+      return [job('job-1', { enabled: listCalls === 1, name: listCalls === 1 ? 'before' : 'server' })]
+    },
+    pause: async () => {
+      await pauseGate
+
+      return job('job-1', { enabled: false, state: 'paused', name: 'server' })
+    }
+  })
+
+  const store = new CronCenterStore(api)
+  await store.refreshOwner(ownerA)
+  const pause = store.pause(ownerA, 'job-1')
+  await Promise.resolve()
+  expect(store.jobsFor(ownerA)[0]).toMatchObject({ enabled: false, name: 'before' })
+  const midMutationRefresh = store.refreshOwner(ownerA)
+  releaseRefresh()
+  await midMutationRefresh
+  expect(store.jobsFor(ownerA)[0]).toMatchObject({ enabled: false, name: 'before' })
+  releasePause()
+  await pause
+  expect(store.jobsFor(ownerA)[0]).toMatchObject({ enabled: false, name: 'server' })
+})
+
+test('a stale history response cannot overwrite a newer job selection', async () => {
+  let releaseFirst: () => void = () => undefined
+
+  const firstGate = new Promise<void>(resolve => {
+    releaseFirst = resolve
+  })
+
+  let calls = 0
+
+  const api = fakeApi({
+    getHistory: async (_owner, jobId) => {
+      calls += 1
+
+      if (calls === 1) {
+        await firstGate
+
+        return { runs: [{ id: 'run-a', preview: 'from-a', started_at: 1, last_active: 1, title: 'A' }] }
+      }
+
+      return { runs: [{ id: 'run-b', preview: 'from-b', started_at: 2, last_active: 2, title: 'B' }] }
+    }
+  })
+
+  const store = new CronCenterStore(api)
+  const stale = store.loadHistory(ownerA, 'job-a')
+  const fresh = store.loadHistory(ownerA, 'job-b')
+  await fresh
+  expect(store.$history.get().key).toBe('conn-a::worker::job-b')
+  expect(store.$history.get().rows.map(row => row.id)).toEqual(['run-b'])
+  releaseFirst()
+  await stale
+  expect(store.$history.get().key).toBe('conn-a::worker::job-b')
+  expect(store.$history.get().rows.map(row => row.id)).toEqual(['run-b'])
+})
+
+test('a stale refreshAll inventory cannot drop owners discovered by a newer refresh', async () => {
+  let releaseFirst: () => void = () => undefined
+
+  const firstGate = new Promise<void>(resolve => {
+    releaseFirst = resolve
+  })
+
+  let ownerCalls = 0
+
+  const api = fakeApi({
+    listOwners: async () => {
+      ownerCalls += 1
+
+      if (ownerCalls === 1) {
+        await firstGate
+
+        return [ownerA]
+      }
+
+      return [ownerA, ownerB]
+    }
+  })
+
+  const store = new CronCenterStore(api)
+  const stale = store.refreshAll()
+  const fresh = store.refreshAll()
+  await fresh
+  expect(store.owners().map(owner => owner.connectionId).sort()).toEqual(['conn-a', 'conn-b'])
+  releaseFirst()
+  await stale
+  expect(store.owners().map(owner => owner.connectionId).sort()).toEqual(['conn-a', 'conn-b'])
+  expect(store.slice(ownerB)?.jobs[0]?.id).toBe('conn-b-job')
+})
+
 test('writes for one owner are serialized', async () => {
   const order: string[] = []
   let releaseFirst: () => void = () => undefined
