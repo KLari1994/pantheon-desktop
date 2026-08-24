@@ -1,4 +1,5 @@
 import type { PluginContext } from '@hermes/plugin-sdk'
+import { host } from '@hermes/plugin-sdk'
 import { expect, test, vi } from 'vitest'
 
 import { NEW_CHAT_ROUTE } from '@/app/routes'
@@ -94,4 +95,38 @@ test('registers the one-segment /rooms route rather than /rooms/:id', () => {
   expect(roomPaths).toContain('/rooms')
   expect(roomPaths.some(path => path?.includes('/rooms/'))).toBe(true)
   expect(roomPaths.some(path => path === '/rooms/:id' || path?.startsWith('/rooms/:'))).toBe(false)
+})
+
+test('registers the one-segment /projects route after Rooms', () => {
+  const ctx = fakeCtx()
+  plugin.register(ctx as unknown as PluginContext)
+  const routePaths = ctx.contributions.filter(item => item.area === 'routes').map(item => item.data?.path)
+  expect(routePaths).toContain('/projects')
+  expect(routePaths.some(path => path === '/projects/:id' || path?.startsWith('/projects/:'))).toBe(false)
+  const roomsNav = ctx.contributions.find(item => item.data?.label === 'Rooms')
+  const projectsNav = ctx.contributions.find(item => item.data?.label === 'Projects')
+  expect(projectsNav).toBeTruthy()
+  expect((roomsNav?.order ?? 99) < (projectsNav?.order ?? 0)).toBe(true)
+  expect(ctx.contributions.findIndex(item => item.data?.label === 'Rooms')).toBeLessThan(
+    ctx.contributions.findIndex(item => item.data?.label === 'Projects')
+  )
+})
+
+test('registers the project locale bundle', () => {
+  const ctx = fakeCtx()
+  plugin.register(ctx as unknown as PluginContext)
+  expect(ctx.i18n.register).toHaveBeenCalledTimes(2)
+})
+
+test('disposal exits /projects', () => {
+  const navigate = vi.fn()
+  const original = host.navigate
+  host.navigate = navigate
+  vi.stubGlobal('window', { ...window, location: { ...window.location, pathname: '/projects' } })
+  const ctx = fakeCtx()
+  plugin.register(ctx as unknown as PluginContext)
+  ctx.disposers.forEach(dispose => dispose())
+  host.navigate = original
+  expect(navigate).toHaveBeenCalledWith('/')
+  vi.unstubAllGlobals()
 })

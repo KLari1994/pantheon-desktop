@@ -27,6 +27,8 @@ import { CronCenterApi } from './cron-center/api'
 import { CronCenterPage } from './cron-center/cron-center-page'
 import { CRON_CENTER_LOCALES, useCronCenterText } from './cron-center/i18n'
 import { CronCenterStore } from './cron-center/store'
+import { PROJECT_LOCALES } from './projects/i18n'
+import { ProjectPage } from './projects/project-page'
 import { HomePage } from './home/home-page'
 import { startHomeIngestion } from './home/ingest'
 import { botIdFromMembershipSearch, cronCenterJobKeyFromSearch, openHomeTarget, pickRoomId, registeredHref } from './home/navigation'
@@ -46,6 +48,7 @@ import { loadMutes, muteScope, mutesForCurrentScope, type MuteState } from './no
 import {
   deriveBindingHealth,
   diagnosticRuntimeForAgent,
+  liveDiagnosticRoute,
   loadRoomDiagnostics,
   type RoomDiagnosticRow
 } from './rooms/room-diagnostics'
@@ -67,7 +70,7 @@ function useRoomsSearch(): string {
   }
 }
 
-function RoomsPage() {
+function RoomsPage({ embedded, roomId }: { embedded?: boolean; roomId?: string } = {}) {
   const store = useMemo(() => new RoomsStore(undefined, undefined), [])
   const rooms = useStoreValue(store.$rooms)
   const windows = useStoreValue(store.$windows)
@@ -107,11 +110,14 @@ function RoomsPage() {
           const roomId = event.roomId || event.room_id
 
           if (event.type === 'room.event' && roomId && event.event && typeof event.event === 'object') {
-            store.ingestEvent(roomId, event.event as RoomLiveEvent)
+            const result = store.ingestEvent(roomId, event.event as RoomLiveEvent)
+            if (result === 'refresh-room') {
+              void refreshSelectedRoom(store, roomId, setSelected)
+            }
           }
         })
 
-        const targetId = pickRoomId(
+        const targetId = roomId || pickRoomId(
           page.rooms.map(room => room.id),
           search
         )
@@ -131,19 +137,21 @@ function RoomsPage() {
       cancelled = true
       unsubscribe()
     }
-  }, [search, store])
+  }, [roomId, search, store])
 
   useEffect(() => {
     if (!selected) {return}
     let cancelled = false
     const agents = (manifest.agents || []) as Array<WorkspaceAgent & { pubkey?: string }>
-
-    const live = {
-      connectionId: host.state.connectionId.get(),
-      profile: host.state.profile.get(),
-      runtimeSessionId: host.state.focusedSessionId.get()
-    }
-
+    const owner = host.state.focusedSessionOwner.get()
+    const live = liveDiagnosticRoute(
+      owner,
+      {
+        connectionId: host.state.connectionId.get(),
+        profile: host.state.profile.get()
+      },
+      host.state.focusedSessionId.get()
+    )
     const lastEventAt = windows[selected.id]?.messages.at(-1)?.createdAt
     void Promise.all(
       selected.members.map(async member => {
@@ -191,6 +199,7 @@ function RoomsPage() {
 
   return (
     <div className="flex h-full min-h-0">
+      {embedded ? null : (
       <aside className="w-72 border-r border-(--ui-stroke-tertiary)">
         <RoomList
           onSelect={id => {
@@ -200,6 +209,7 @@ function RoomsPage() {
           selectedId={selected.id}
         />
       </aside>
+      )}
       <RoomWorkspace
         diagnostics={diagnostics}
         failed={failed}
@@ -229,7 +239,8 @@ function RoomsPage() {
               roomId: selected.id,
               content: failed.content,
               threadRootId: failed.threadRootId,
-              attachments: failed.attachments
+              attachments: failed.attachments,
+              mentions: failed.mentions
             })
             .then(result => store.ackOptimistic(nonce, result.eventId))
             .catch(() => store.failOptimistic(nonce))
@@ -237,8 +248,11 @@ function RoomsPage() {
         onSend={async (content, mentions, extras) => {
           const client = desktopBuzzClient()
           const nonce = `${Date.now()}`
-          store.queueOptimistic(selected.id, content, nonce)
-
+          store.queueOptimistic(selected.id, content, nonce, {
+            mentions,
+            threadRootId: extras?.threadRootId,
+            attachments: extras?.attachments
+          })
           try {
             const result = await client.sendMessage({
               roomId: selected.id,
@@ -276,7 +290,22 @@ async function selectRoom(
   const detail = await client.getRoom({ roomId })
   const window = await client.getMessages({ roomId, limit: 50 })
   store.applyWindow(roomId, window.messages, window.reactions || [])
+  store.upsertRoom(detail)
   setSelected(detail)
+}
+
+async function refreshSelectedRoom(
+  store: RoomsStore,
+  roomId: string,
+  setSelected: (room: BuzzRoom | ((current: BuzzRoom | null) => BuzzRoom | null)) => void
+): Promise<void> {
+  try {
+    const detail = await desktopBuzzClient().getRoom({ roomId })
+    store.upsertRoom(detail)
+    setSelected(current => (current && current.id === roomId ? detail : current))
+  } catch {
+    /* keep the last painted room if the refresh misses */
+  }
 }
 
 export function AgentEditorRoomsMount({
@@ -352,6 +381,7 @@ export function AgentEditorRoomsMount({
         const next = await applyRoomMembership(client, {
           roomId: input.roomId,
           pubkey,
+          agentId: agentRecord.id,
           memberAgentIds,
           add: input.add
         })
@@ -555,6 +585,7 @@ const plugin: HermesPlugin = {
       AgentEditorRoomsMount
     const disposeNotifications = bindHomeNotifications(ctx)
     ctx.i18n.register(CRON_CENTER_LOCALES)
+    ctx.i18n.register(PROJECT_LOCALES)
     ctx.registerMany([
       {
         id: 'home-page',
@@ -595,6 +626,18 @@ const plugin: HermesPlugin = {
         data: { codicon: 'comment-discussion', label: 'Rooms', path: '/rooms' } satisfies SidebarNavContribution
       },
       {
+        id: 'projects-page',
+        area: ROUTES_AREA,
+        data: { path: '/projects' } satisfies RouteContribution,
+        render: () => <ProjectPage renderConversation={id => <RoomsPage embedded roomId={id} />} />
+      },
+      {
+        id: 'projects-nav',
+        area: SIDEBAR_NAV_AREA,
+        order: 27,
+        data: { codicon: 'repo', label: 'Projects', path: '/projects' } satisfies SidebarNavContribution
+      },
+      {
         id: 'agent-rooms',
         area: ROUTES_AREA,
         data: { path: '/rooms/memberships' } satisfies RouteContribution,
@@ -606,7 +649,7 @@ const plugin: HermesPlugin = {
       delete (globalThis as { __PantheonAgentRooms?: typeof AgentEditorRoomsMount }).__PantheonAgentRooms
       const path = window.location.pathname
 
-      if (typeof host.navigate === 'function' && (path.startsWith('/rooms') || path === '/home' || path.startsWith('/cron-center'))) {
+      if (typeof host.navigate === 'function' && (path.startsWith('/rooms') || path === '/home' || path.startsWith('/cron-center') || path.startsWith('/projects'))) {
         host.navigate('/')
       }
     })

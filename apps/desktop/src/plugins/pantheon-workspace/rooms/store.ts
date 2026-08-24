@@ -60,22 +60,19 @@ export class RoomsStore {
 
   mergeRooms(rooms: BuzzRoom[]): RoomSummary[] {
     const previous = new Map(this.$rooms.get().map(room => [room.id, room]))
-    const next = rooms.map(room => {
-      const prior = previous.get(room.id)
-      const latest = this.$windows.get()[room.id]?.messages.at(-1)
-      return {
-        id: room.id,
-        kind: (room.kind as RoomKind) || prior?.kind || 'office',
-        name: room.name,
-        memberAgentIds: room.members.map(member => member.pubkey),
-        latestPreview: latest?.content || prior?.latestPreview || '',
-        unread: this.isUnread(room.id, latest?.createdAt),
-        needsYou: this.deriveNeedsYou(latest),
-        expiresAt: room.expiresAt ? String(room.expiresAt) : prior?.expiresAt
-      } satisfies RoomSummary
-    })
+    const next = rooms.map(room => this.toSummary(room, previous.get(room.id)))
     this.$rooms.set(next)
     return next
+  }
+
+  upsertRoom(room: BuzzRoom): RoomSummary {
+    const previous = new Map(this.$rooms.get().map(row => [row.id, row]))
+    const summary = this.toSummary(room, previous.get(room.id))
+    const current = this.$rooms.get()
+    const index = current.findIndex(row => row.id === room.id)
+    const next = index === -1 ? [...current, summary] : current.map((row, i) => (i === index ? summary : row))
+    this.$rooms.set(next)
+    return summary
   }
 
   applyWindow(roomId: string, messages: BuzzMessage[], reactions: BuzzReaction[] = []): RoomWindowState {
@@ -91,7 +88,12 @@ export class RoomsStore {
     return next[roomId]
   }
 
-  queueOptimistic(roomId: string, content: string, nonce: string): RoomMessage {
+  queueOptimistic(
+    roomId: string,
+    content: string,
+    nonce: string,
+    extras?: Pick<RoomMessage, 'mentions' | 'threadRootId' | 'replyToId' | 'attachments'>
+  ): RoomMessage {
     const row: RoomMessage = {
       id: `pending:${nonce}`,
       roomId,
@@ -99,7 +101,11 @@ export class RoomsStore {
       createdAt: Date.now(),
       author: 'you',
       outgoing: 'pending',
-      nonce
+      nonce,
+      mentions: extras?.mentions,
+      threadRootId: extras?.threadRootId,
+      replyToId: extras?.replyToId,
+      attachments: extras?.attachments
     }
     const window = this.$windows.get()[roomId] || { messages: [], reactions: [] }
     this.$windows.set({
@@ -125,7 +131,7 @@ export class RoomsStore {
     this.$windows.set(next)
   }
 
-  ingestEvent(roomId: string, event: RoomLiveEvent): void {
+  ingestEvent(roomId: string, event: RoomLiveEvent): 'refresh-room' | void {
     if (!event.id && event.kind !== 5 && event.kind !== 9000 && event.kind !== 9001 && event.kind !== 39000 && event.kind !== 39002) {
       return
     }
@@ -163,7 +169,7 @@ export class RoomsStore {
       return
     }
     if (kind === 9000 || kind === 9001 || kind === 39000 || kind === 39002) {
-      return
+      return 'refresh-room'
     }
     if (!event.id || window.messages.some(message => message.id === event.id)) return
     this.$windows.set({
@@ -179,7 +185,9 @@ export class RoomsStore {
             createdAt: event.created_at || event.createdAt || Date.now(),
             author: event.pubkey || event.author || 'unknown',
             threadRootId: event.threadRootId || eventTag(event, 'E') || eventTag(event, 'e'),
-            replyToId: event.replyToId || eventTag(event, 'e')
+            replyToId: event.replyToId || eventTag(event, 'e'),
+            mentions: eventTags(event, 'p'),
+            attachments: eventAttachments(event)
           }
         ]
       }
@@ -235,6 +243,20 @@ export class RoomsStore {
     return createdAt > (marks[roomId] || 0)
   }
 
+  private toSummary(room: BuzzRoom, prior?: RoomSummary): RoomSummary {
+    const latest = this.$windows.get()[room.id]?.messages.at(-1)
+    return {
+      id: room.id,
+      kind: (room.kind as RoomKind) || prior?.kind || 'office',
+      name: room.name,
+      memberAgentIds: room.members.map(member => member.pubkey),
+      latestPreview: latest?.content || prior?.latestPreview || '',
+      unread: this.isUnread(room.id, latest?.createdAt),
+      needsYou: this.deriveNeedsYou(latest),
+      expiresAt: room.expiresAt ? String(room.expiresAt) : prior?.expiresAt
+    }
+  }
+
   private deriveNeedsYou(message?: RoomMessage): boolean {
     if (!message || !this.owner) return false
     const haystack = message.content.toLowerCase()
@@ -245,6 +267,28 @@ export class RoomsStore {
         (this.owner.pubkey && haystack.includes(this.owner.pubkey.toLowerCase()))
     )
   }
+}
+
+function eventAttachments(event: RoomLiveEvent): RoomMessage['attachments'] {
+  const attachments = (event.tags || []).flatMap(tag => {
+    if (!Array.isArray(tag) || tag[0] !== 'imeta') return []
+    let url: string | undefined
+    let mimeType = 'application/octet-stream'
+    let name: string | undefined
+    let sizeBytes: number | undefined
+    for (const part of tag.slice(1)) {
+      if (typeof part !== 'string') continue
+      if (part.startsWith('url ')) url = part.slice(4)
+      else if (part.startsWith('m ')) mimeType = part.slice(2)
+      else if (part.startsWith('alt ')) name = part.slice(4)
+      else if (part.startsWith('size ')) {
+        const parsed = Number(part.slice(5))
+        if (Number.isFinite(parsed)) sizeBytes = parsed
+      }
+    }
+    return url ? [{ url, mimeType, name, sizeBytes }] : []
+  })
+  return attachments.length ? attachments : undefined
 }
 
 function toRoomMessage(message: BuzzMessage): RoomMessage {
