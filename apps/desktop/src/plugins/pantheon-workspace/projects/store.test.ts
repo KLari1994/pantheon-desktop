@@ -7,7 +7,6 @@ import {
   preflightWorktree,
   ProjectStore
 } from './store'
-import type { ProjectRoomBinding } from './types'
 
 const worktree = '/opt/data/worktrees/pantheon-desktop/PAN-7'
 const repo = '/opt/data/repos/pantheon-desktop'
@@ -43,6 +42,7 @@ const linked = {
 test('valid test project joins one PR room to one linked worktree', () => {
   const parsed = parseBindingRecord(validRaw)
   expect(parsed.status).toBe('valid')
+
   if (parsed.status !== 'valid') {return}
 
   const joined = joinProjectRooms({
@@ -51,8 +51,10 @@ test('valid test project joins one PR room to one linked worktree', () => {
     rooms: [{ id: 'room-pr-7', name: 'PAN-7' }],
     trees: [{ id: 'p_demo', path: repo, repos: [{ path: repo }] }]
   })
+
   expect(joined).toHaveLength(1)
   expect(joined[0]?.status).toBe('valid')
+
   if (joined[0]?.status !== 'valid') {return}
   expect(joined[0].binding.buzzRoomId).toBe('room-pr-7')
   expect(joined[0].binding.worktreePath).toBe(worktree)
@@ -67,7 +69,9 @@ test('exact /opt/data/repos/CRM fixture is rejected when returned as isMain', ()
     worktreePath: '/opt/data/repos/CRM',
     targetBranch: 'main'
   })
+
   expect(crm.status).toBe('valid')
+
   if (crm.status !== 'valid') {return}
 
   expect(
@@ -85,6 +89,7 @@ test('missing, detached, wrong-branch, relative, non-staging, duplicate, and mis
 
   const parsed = parseBindingRecord(validRaw)
   expect(parsed.status).toBe('valid')
+
   if (parsed.status !== 'valid') {return}
 
   expect(preflightWorktree(parsed.binding, [])).toMatchObject({ ok: false, reason: 'unlisted' })
@@ -104,6 +109,7 @@ test('missing, detached, wrong-branch, relative, non-staging, duplicate, and mis
     rooms: [{ id: 'room-pr-7', name: 'PAN-7' }],
     trees: [{ id: 'p_demo', path: repo, repos: [{ path: repo }] }]
   })
+
   expect(duplicate.some(item => item.status === 'invalid' && item.reason === 'duplicate-room')).toBe(true)
 
   const mismatch = joinProjectRooms({
@@ -112,26 +118,31 @@ test('missing, detached, wrong-branch, relative, non-staging, duplicate, and mis
     rooms: [{ id: 'room-pr-7', name: 'PAN-7' }],
     trees: [{ id: 'p_other', path: '/somewhere/else', repos: [{ path: '/somewhere/else' }] }]
   })
+
   expect(mismatch[0]?.status).toBe('invalid')
 })
 
 test('stale refreshes cannot replace the selected foreground PR room', async () => {
   const store = new ProjectStore()
   const first = parseBindingRecord(validRaw)
+
   const second = parseBindingRecord({
     ...validRaw,
     buzzRoomId: 'room-pr-8',
     worktreePath: `${worktree}-other`,
     targetBranch: 'feat/other'
   })
+
   expect(first.status).toBe('valid')
   expect(second.status).toBe('valid')
+
   if (first.status !== 'valid' || second.status !== 'valid') {return}
 
   store.applyProjection([first])
   store.select('room-pr-7')
 
   let release: () => void = () => undefined
+
   const gate = new Promise<void>(resolve => {
     release = resolve
   })
@@ -141,20 +152,24 @@ test('stale refreshes cannot replace the selected foreground PR room', async () 
 
     return [second]
   })
+
   const fresh = store.refresh(async () => [first, second])
   await fresh
   expect(store.selected()?.status === 'valid' && store.selected()?.status === 'valid' ? store.selected() : null)
   expect(store.selectedId()).toBe('room-pr-7')
   const selected = store.selected()
   expect(selected?.status).toBe('valid')
+
   if (selected?.status === 'valid') {
     expect(selected.binding.buzzRoomId).toBe('room-pr-7')
   }
+
   release()
   await stale
   expect(store.selectedId()).toBe('room-pr-7')
   const still = store.selected()
   expect(still?.status).toBe('valid')
+
   if (still?.status === 'valid') {
     expect(still.binding.buzzRoomId).toBe('room-pr-7')
   }
@@ -163,6 +178,7 @@ test('stale refreshes cannot replace the selected foreground PR room', async () 
 test('archive preserves room, artifact, and evidence provenance', () => {
   const parsed = parseBindingRecord(validRaw)
   expect(parsed.status).toBe('valid')
+
   if (parsed.status !== 'valid') {return}
   const archived = archiveProjectRoom({ ...parsed.binding, lifecycle: 'merged' })
   expect(archived.lifecycle).toBe('archived')

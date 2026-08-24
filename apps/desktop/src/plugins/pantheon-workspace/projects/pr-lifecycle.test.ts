@@ -147,6 +147,7 @@ test('archive leaves provenance unchanged', () => {
     artifactIds: ['art-1', 'art-2'],
     evidence: { decision: { source: 'human', actor: 'Kelcee', verdict: 'approve', summary: 'done' } }
   })
+
   const archived = archiveProjectRoom(source)
   expect(archived.lifecycle).toBe('archived')
   expect(archived.buzzRoomId).toBe(source.buzzRoomId)

@@ -1,9 +1,9 @@
-import { useState, type ReactNode } from 'react'
+import { type ReactNode, useState } from 'react'
 
-import { deriveMergeAuthority } from './pr-lifecycle'
 import { projectEnglish } from './i18n'
 import { MachineTargetBanner } from './machine-target'
-import type { MachineAvailability, PrRoomTab, ProjectRoomBinding } from './types'
+import { deriveMergeAuthority } from './pr-lifecycle'
+import type { MachineAvailability, ProjectRoomBinding, PrRoomTab } from './types'
 
 const TABS: Array<{ id: PrRoomTab; label: string; operational: boolean }> = [
   { id: 'conversation', label: projectEnglish.conversation, operational: false },

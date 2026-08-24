@@ -1,7 +1,7 @@
-import type { HermesGitWorktree } from '@/global'
+import type { HermesGitWorktree } from '@hermes/plugin-sdk'
 
 import { validateLinearIssueUrl } from './pr-lifecycle'
-import type { MachineTarget, ProjectRoomBinding, ProjectRoomEvidence, ProjectRoomRecord, PrLifecycleState } from './types'
+import type { MachineTarget, PrLifecycleState, ProjectRoomBinding, ProjectRoomEvidence, ProjectRoomRecord } from './types'
 
 const LIFECYCLES: readonly PrLifecycleState[] = [
   'open',
@@ -56,6 +56,7 @@ function parseMachine(value: unknown): MachineTarget | null {
   }
 
   const record = value as Record<string, unknown>
+
   if (
     !isNonEmpty(record.connectionId) ||
     !isNonEmpty(record.machineId) ||
@@ -141,6 +142,7 @@ export function parseManifestBindings(manifest: unknown): ProjectRoomRecord[] {
   }
 
   const raw = (manifest as Record<string, unknown>).projectBindings
+
   if (!Array.isArray(raw)) {
     return []
   }
@@ -160,19 +162,23 @@ export function joinProjectRooms(input: {
     if (seenRooms.has(binding.buzzRoomId)) {
       return { status: 'invalid', reason: 'duplicate-room', record: binding }
     }
+
     seenRooms.add(binding.buzzRoomId)
 
     const project = input.projects.find(item => item.id === binding.projectId)
+
     if (!project) {
       return { status: 'invalid', reason: 'mismatched-project', record: binding }
     }
 
     const room = input.rooms.find(item => item.id === binding.buzzRoomId)
+
     if (!room) {
       return { status: 'invalid', reason: 'missing-room', record: binding }
     }
 
     const tree = input.trees.find(item => item.id === binding.projectId)
+
     const repoPaths = [
       project.primary_path,
       tree?.path,
@@ -222,6 +228,7 @@ export class ProjectStore {
 
   applyProjection(records: ProjectRoomRecord[]): void {
     this.records = records
+
     if (this.foregroundId && !this.records.some(record => this.recordId(record) === this.foregroundId)) {
       /* keep the last selected id so a transient refresh cannot steal focus */
     }

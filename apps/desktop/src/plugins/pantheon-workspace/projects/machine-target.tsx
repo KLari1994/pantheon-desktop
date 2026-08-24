@@ -1,4 +1,4 @@
-import type { DesktopAgentRoster } from '@/global'
+import type { DesktopAgentRoster } from '@hermes/plugin-sdk'
 
 import type { MachineAvailability, MachineTarget } from './types'
 

@@ -1,11 +1,14 @@
-import { useEffect, useMemo, useState } from 'react'
-import type { ReactNode } from 'react'
-
-import { desktopGit } from '@/lib/desktop-git'
-import type { HermesGitWorktree } from '@/global'
-import { $projects, $projectTree, refreshProjects, refreshProjectTree } from '@/store/projects'
-import { ensureGatewayAgent } from '@/store/profile'
-import { desktopBuzzClient } from '@/pantheon/buzz-client'
+import {
+  $projects,
+  $projectTree,
+  desktopBuzzClient,
+  desktopGit,
+  type HermesGitWorktree,
+  host,
+  refreshProjects,
+  refreshProjectTree
+} from '@hermes/plugin-sdk'
+import { type ReactNode, useEffect, useMemo, useState } from 'react'
 
 import { projectEnglish } from './i18n'
 import { observeMachineRoute, resolveMachineTarget, type RosterSource } from './machine-target'
@@ -32,6 +35,7 @@ async function defaultLoadBindings() {
   const parsed = parseManifestBindings(manifest)
   const valid = parsed.filter((item): item is { status: 'valid'; binding: ProjectRoomBinding } => item.status === 'valid')
   const invalid = parsed.filter(item => item.status !== 'valid')
+
   const joined = joinProjectRooms({
     bindings: valid.map(item => item.binding),
     projects: $projects.get().map(project => ({
@@ -46,6 +50,7 @@ async function defaultLoadBindings() {
       repos: tree.repos?.map(repo => ({ path: repo.path }))
     }))
   })
+
   const sources = (await window.hermesDesktop?.getAgentRoster?.().catch(() => ({ sources: [] })))?.sources || []
 
   return { records: [...invalid, ...joined], sources }
@@ -53,9 +58,10 @@ async function defaultLoadBindings() {
 
 const defaultDeps: ProjectPageDeps = {
   loadBindings: defaultLoadBindings,
-  activate: route => ensureGatewayAgent(route.connectionId, route.profile),
+  activate: route => host.ensureAgent(route.connectionId, route.profile),
   listWorktrees: async binding => {
     const git = desktopGit({ connectionId: binding.machine.connectionId, profile: binding.machine.profile })
+
     if (!git) {throw new Error('git-unavailable')}
 
     return git.worktreeList(binding.repoPath)
@@ -126,7 +132,6 @@ export function ProjectPage({
     if (next.status !== 'available') {
       return
     }
-
     void (async () => {
       try {
         await deps.activate({
@@ -134,8 +139,10 @@ export function ProjectPage({
           profile: selectedBinding.machine.profile
         })
         const worktrees = await deps.listWorktrees(selectedBinding)
+
         if (cancelled) {return}
         const result = preflightWorktree(selectedBinding, worktrees)
+
         if (!result.ok) {
           setPreflightError(result.reason)
         }

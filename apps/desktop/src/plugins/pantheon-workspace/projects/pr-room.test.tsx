@@ -56,6 +56,7 @@ function renderRoom(
 
 test('renders all seven required tabs', () => {
   renderRoom()
+
   for (const tab of tabs) {
     expect(screen.getByRole('tab', { name: tab })).toBeTruthy()
   }
@@ -63,6 +64,7 @@ test('renders all seven required tabs', () => {
 
 test('every tab exposes the same project, room, worktree, branch, and machine identity', () => {
   renderRoom()
+
   for (const tab of tabs) {
     fireEvent.click(screen.getByRole('tab', { name: tab }))
     expect(screen.getAllByText('Pantheon Desktop').length).toBeGreaterThan(0)
@@ -82,9 +84,11 @@ test('Conversation receives the bound Buzz room ID', () => {
 test('blocked machine disables all operational surfaces', () => {
   const onActivate = vi.fn()
   renderRoom(blocked, { onActivate })
+
   for (const tab of ['Diff/Review', 'Preview', 'Files', 'Terminal', 'Artifacts']) {
     expect((screen.getByRole('tab', { name: tab }) as HTMLButtonElement).disabled).toBe(true)
   }
+
   fireEvent.click(screen.getByRole('tab', { name: 'Preview' }))
   expect(onActivate).not.toHaveBeenCalled()
 })

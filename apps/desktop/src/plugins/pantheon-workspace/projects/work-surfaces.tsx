@@ -1,10 +1,14 @@
-import { createTerminal } from '@/app/right-sidebar/terminal/terminals'
-import { $artifactRegistry, findArtifact, openArtifact } from '@/store/artifacts'
-import { revealFileInTree } from '@/store/layout'
-import { openPreview } from '@/store/preview'
-import { openReview } from '@/store/review'
+import {
+  $artifactRegistry,
+  createTerminal,
+  findArtifact,
+  openArtifact,
+  openPreview,
+  openReview,
+  revealFileInTree
+} from '@hermes/plugin-sdk'
 
-import type { PrRoomTab, ProjectRoomBinding } from './types'
+import type { ProjectRoomBinding, PrRoomTab } from './types'
 
 export function activateWorkSurface(tab: PrRoomTab, binding: ProjectRoomBinding): void {
   if (tab === 'preview') {
