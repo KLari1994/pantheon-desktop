@@ -223,6 +223,7 @@ import {
   parentWatchdogEnv
 } from './parent-process-identity'
 import { registerPetOverlayIpc } from './pet-overlay-ipc'
+import { disposePantheonBuzzIpc, registerPantheonBuzzIpc } from './pantheon-buzz-ipc'
 import {
   buildRegistryProfileRoutes,
   localRouteFallbackProfiles,
@@ -14504,6 +14505,7 @@ app.on('before-quit', () => {
 // hold the event loop open or leak FDs past app teardown.
 app.on('will-quit', () => {
   destroyKeepaliveAgents()
+  disposePantheonBuzzIpc()
 })
 
 // Answered synchronously so preload can publish the verdict before the
@@ -15368,6 +15370,7 @@ app.whenReady().then(() => {
   // it without the renderer visiting Settings. A failed registration is logged
   // here and surfaced in Settings via the IPC state (never silent).
   applyQuickEntrySettings(readQuickEntrySettings())
+  registerPantheonBuzzIpc()
 
   if (IS_MAC) {
     const reposition = () => wakeIndicatorController.reposition()

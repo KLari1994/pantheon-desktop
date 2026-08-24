@@ -57,7 +57,8 @@
  *   - electronPlatformName: 'win32' | 'darwin' | 'linux'
  *   - arch:                 Arch enum (0=ia32, 1=x64, 2=armv7l, 3=arm64, 4=universal)
  */
-import { existsSync, rmSync, renameSync } from 'node:fs'
+import { existsSync, rmSync, renameSync, copyFileSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { createHash } from 'node:crypto'
 import path from 'node:path'
 import { Arch } from 'electron-builder'
 import { stageNodePty, stageGetWindows } from './stage-native-deps.mjs'
@@ -110,6 +111,31 @@ export function preserveRollbackBackup(appOutDir, productExeName = 'Hermes.exe')
   }
 }
 
+export const WINDOWS_SIDECAR_TARGETS = new Set(['win32-x64', 'win32-arm64'])
+
+export function sidecarSourcePath(repoRoot, platform, arch) {
+  const name = platform === 'win32' ? 'buzz-bridge.exe' : 'buzz-bridge'
+  return path.join(repoRoot, 'pantheon', 'buzz-bridge', 'dist', `${platform}-${arch}`, name)
+}
+
+export function stageBuzzSidecar({ platform, arch, repoRoot = path.resolve(import.meta.dirname, '../../..') }) {
+  const target = `${platform}-${arch}`
+  if (!WINDOWS_SIDECAR_TARGETS.has(target)) {
+    return { staged: false, target }
+  }
+  const source = sidecarSourcePath(repoRoot, platform, arch)
+  if (!existsSync(source)) {
+    throw new Error(`[before-pack] missing Pantheon Buzz sidecar for ${target}: ${source}`)
+  }
+  const stageDir = path.join(import.meta.dirname, '..', 'build', 'sidecars', target)
+  mkdirSync(stageDir, { recursive: true })
+  const dest = path.join(stageDir, 'buzz-bridge.exe')
+  copyFileSync(source, dest)
+  const digest = createHash('sha256').update(readFileSync(dest)).digest('hex')
+  writeFileSync(path.join(stageDir, 'buzz-bridge.sha256'), `${digest}\n`)
+  return { staged: true, target, dest, sha256: digest }
+}
+
 export default async function beforePack(context) {
   const appOutDir = context && context.appOutDir
   const platformName = context && context.electronPlatformName
@@ -148,6 +174,10 @@ export default async function beforePack(context) {
       // Pass the target arch so an ARM64 package never stages an x64 binding.
       stageGetWindows({ platform, arch: archName })
       console.log(`[before-pack] re-staged get-windows for target ${platform}-${archName}`)
+      const sidecar = stageBuzzSidecar({ platform, arch: archName })
+      if (sidecar.staged) {
+        console.log(`[before-pack] staged Buzz sidecar for ${sidecar.target} sha256=${sidecar.sha256}`)
+      }
     }
   } catch (err) {
     // This one SHOULD fail the build — a missing/wrong native binary for the
