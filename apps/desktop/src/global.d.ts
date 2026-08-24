@@ -480,6 +480,26 @@ declare global {
         before?: string
         limit: number
       }) => Promise<import('./pantheon/buzz-client').BuzzMessageWindow>
+      sendMessage: (input: {
+        roomId: string
+        content: string
+        threadRootId?: string
+        mentions?: string[]
+        attachments?: import('./pantheon/buzz-client').BuzzAttachment[]
+      }) => Promise<{ eventId: string; createdAt: number }>
+      addReaction: (input: { roomId: string; targetEventId: string; emoji: string }) => Promise<{ eventId: string }>
+      removeReaction: (input: { roomId: string; reactionEventId: string }) => Promise<{ eventId: string }>
+      inviteMember: (input: { roomId: string; pubkey: string; role?: string }) => Promise<{ eventId: string }>
+      removeMember: (input: { roomId: string; pubkey: string }) => Promise<{ eventId: string }>
+      startSubscription: (input: { roomIds: string[] }) => Promise<{ started: boolean }>
+      stopSubscription: () => Promise<{ stopped: boolean }>
+      getWorkspaceManifest: () => Promise<import('./pantheon/buzz-client').WorkspaceManifest>
+      updateRoomMembership: (input: {
+        roomId: string
+        kind?: string
+        name?: string
+        memberAgentIds?: string[]
+      }) => Promise<import('./pantheon/buzz-client').WorkspaceManifest>
       subscribe: (callback: (event: import('./pantheon/buzz-client').BuzzBridgeEvent) => void) => () => void
     }
   }

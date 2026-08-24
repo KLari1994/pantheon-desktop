@@ -500,6 +500,15 @@ contextBridge.exposeInMainWorld('pantheonBuzz', {
   listRooms: input => ipcRenderer.invoke('pantheon-buzz:rooms.list', input),
   getRoom: input => ipcRenderer.invoke('pantheon-buzz:rooms.get', input),
   getMessages: input => ipcRenderer.invoke('pantheon-buzz:messages.window', input),
+  sendMessage: input => ipcRenderer.invoke('pantheon-buzz:messages.send', input),
+  addReaction: input => ipcRenderer.invoke('pantheon-buzz:reactions.add', input),
+  removeReaction: input => ipcRenderer.invoke('pantheon-buzz:reactions.remove', input),
+  inviteMember: input => ipcRenderer.invoke('pantheon-buzz:members.add', input),
+  removeMember: input => ipcRenderer.invoke('pantheon-buzz:members.remove', input),
+  startSubscription: input => ipcRenderer.invoke('pantheon-buzz:subscribe.start', input),
+  stopSubscription: () => ipcRenderer.invoke('pantheon-buzz:subscribe.stop'),
+  getWorkspaceManifest: () => ipcRenderer.invoke('pantheon-buzz:workspace.manifest'),
+  updateRoomMembership: input => ipcRenderer.invoke('pantheon-buzz:workspace.updateRoomMembership', input),
   subscribe: callback => {
     const listener = (_event, payload) => callback(payload)
     ipcRenderer.on('pantheon-buzz:event', listener)
