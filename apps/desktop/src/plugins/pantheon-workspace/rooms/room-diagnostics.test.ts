@@ -1,6 +1,6 @@
 import { expect, test, vi } from 'vitest'
 
-import { deriveBindingHealth, diagnosticRuntimeForAgent, loadRoomDiagnostics } from './room-diagnostics'
+import { deriveBindingHealth, diagnosticRuntimeForAgent, liveDiagnosticRoute, loadRoomDiagnostics } from './room-diagnostics'
 
 test('health derivation branches', () => {
   expect(deriveBindingHealth({ storedSessionId: 's', runtimeSessionId: 'r' })).toBe('resumable')
@@ -53,4 +53,14 @@ test('runtime session is only supplied when the live route matches the agent', (
       { connectionId: 'c1', profile: 'ops', runtimeSessionId: 'live-1' }
     )
   ).toEqual({ machine: 'desk-1', runtimeSessionId: 'live-1' })
+})
+
+test('live diagnostic route prefers focusedSessionOwner over ambient gateway', () => {
+  expect(
+    liveDiagnosticRoute(
+      { connectionId: 'focused-c', profile: 'research' },
+      { connectionId: 'ambient-c', profile: 'ops' },
+      'live-9'
+    )
+  ).toEqual({ connectionId: 'focused-c', profile: 'research', runtimeSessionId: 'live-9' })
 })

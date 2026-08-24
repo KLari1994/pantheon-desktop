@@ -4,7 +4,7 @@ import { parseWorkspaceManifest } from './schema'
 
 export async function applyRoomMembership(
   api: Pick<PantheonBuzzApi, 'updateRoomMembership' | 'inviteMember' | 'removeMember'>,
-  input: { roomId: string; pubkey: string; memberAgentIds: string[]; add: boolean }
+  input: { roomId: string; pubkey: string; agentId: string; memberAgentIds: string[]; add: boolean }
 ): Promise<WorkspaceManifest> {
   const manifest = await api.updateRoomMembership({
     roomId: input.roomId,
@@ -21,8 +21,8 @@ export async function applyRoomMembership(
     await api.updateRoomMembership({
       roomId: input.roomId,
       memberAgentIds: input.add
-        ? input.memberAgentIds.filter(id => id !== input.pubkey)
-        : [...input.memberAgentIds, input.pubkey]
+        ? input.memberAgentIds.filter(id => id !== input.agentId)
+        : [...input.memberAgentIds, input.agentId]
     })
     throw error
   }
