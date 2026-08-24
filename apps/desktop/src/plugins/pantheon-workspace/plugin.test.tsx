@@ -145,3 +145,14 @@ test('registers thin /search and /memory route roots after Projects', () => {
   expect((projectsNav?.order ?? 99) < (searchNav?.order ?? 0)).toBe(true)
   expect((searchNav?.order ?? 99) < (memoryNav?.order ?? 0)).toBe(true)
 })
+
+test('registers the Grok Bot unavailable surface after Memory', () => {
+  const ctx = fakeCtx()
+  plugin.register(ctx as unknown as PluginContext)
+  const routePaths = ctx.contributions.filter(item => item.area === 'routes').map(item => item.data?.path)
+  expect(routePaths).toContain('/grok')
+  const memoryNav = ctx.contributions.find(item => item.data?.label === 'Memory')
+  const grokNav = ctx.contributions.find(item => item.data?.label === 'Grok Bot')
+  expect(grokNav).toBeTruthy()
+  expect((memoryNav?.order ?? 99) < (grokNav?.order ?? 0)).toBe(true)
+})

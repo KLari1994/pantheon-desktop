@@ -1,0 +1,57 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://pantheon.local/grok/discovery-report.schema.json",
+  "title": "Grok Bot product discovery report",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "productName",
+    "productVersion",
+    "installPath",
+    "processIdentity",
+    "integrationSurface",
+    "healthProbe",
+    "authModel",
+    "messageHistoryGuarantees",
+    "redistributionTerms",
+    "discoveryHost",
+    "discoveredAt",
+    "result"
+  ],
+  "properties": {
+    "productName": { "type": "string", "minLength": 1 },
+    "productVersion": { "type": "string", "minLength": 1 },
+    "installPath": { "type": "string", "minLength": 1 },
+    "processIdentity": { "type": "string", "minLength": 1 },
+    "integrationSurface": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "documentation"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["documented-api", "documented-ipc"]
+        },
+        "documentation": { "type": "string", "minLength": 1 }
+      }
+    },
+    "healthProbe": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "description"],
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": ["documented-health-endpoint", "documented-ipc-ping"]
+        },
+        "description": { "type": "string", "minLength": 1 }
+      }
+    },
+    "authModel": { "type": "string", "minLength": 1 },
+    "messageHistoryGuarantees": { "type": "string", "minLength": 1 },
+    "redistributionTerms": { "type": "string", "minLength": 1 },
+    "discoveryHost": { "type": "string", "minLength": 1 },
+    "discoveredAt": { "type": "string", "minLength": 1 },
+    "result": { "type": "string", "enum": ["pass", "fail"] }
+  }
+}
