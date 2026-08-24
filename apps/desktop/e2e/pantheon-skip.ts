@@ -13,7 +13,7 @@ export function pantheonE2eSkipReason(): string | null {
     return 'no graphical display (DISPLAY/WAYLAND_DISPLAY unset); Linux farm cannot run Electron e2e or the Windows manual matrix'
   }
 
-  const distMain = resolve(__dirname, '../dist/electron-main.mjs')
+  const distMain = resolve(import.meta.dirname, '../dist/electron-main.mjs')
   if (!existsSync(distMain)) {
     return 'apps/desktop/dist not built; run npm -w apps/desktop run build before Playwright'
   }
