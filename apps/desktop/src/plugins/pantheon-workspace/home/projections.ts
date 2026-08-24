@@ -45,8 +45,12 @@ const DEFAULT_STATUS: Record<string, string> = {
   'merge-decision': 'merge'
 }
 
-export function navigationTarget(kind: HomeSourceKind, sourceId: string): HomeNavigationTarget {
-  const href = registeredHref(kind, sourceId)
+export function navigationTarget(
+  kind: HomeSourceKind,
+  sourceId: string,
+  owner?: { connectionId?: null | string; profile?: null | string }
+): HomeNavigationTarget {
+  const href = registeredHref(kind, sourceId, owner)
   switch (kind) {
     case 'bot':
       return { kind, botId: sourceId, href }
@@ -55,7 +59,13 @@ export function navigationTarget(kind: HomeSourceKind, sourceId: string): HomeNa
     case 'session':
       return { kind, sessionId: sourceId, href }
     case 'cron':
-      return { kind, jobId: sourceId, href }
+      return {
+        kind,
+        jobId: sourceId,
+        href,
+        ...(owner?.connectionId ? { connectionId: owner.connectionId } : {}),
+        ...(owner?.profile ? { profile: owner.profile } : {})
+      }
     case 'project':
       return { kind, projectId: sourceId, href }
     case 'pr':
@@ -94,7 +104,10 @@ function toItem(event: HomeSourceEvent): HomeItem | null {
     timestamp: event.timestamp,
     status,
     statusLabel: statusLabel(status),
-    navigation: navigationTarget(event.sourceKind, event.sourceId)
+    navigation: navigationTarget(event.sourceKind, event.sourceId, {
+      connectionId: event.connectionId,
+      profile: event.profile
+    })
   }
 }
 
