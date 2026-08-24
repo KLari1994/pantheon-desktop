@@ -1,14 +1,17 @@
 import { useEffect, useMemo, useState, useSyncExternalStore } from 'react'
+import { useSearchParams } from 'react-router'
 
 import {
   type HermesPlugin,
   host,
+  type PluginContext,
   type RouteContribution,
   ROUTES_AREA,
   SIDEBAR_NAV_AREA,
   type SidebarNavContribution
 } from '@hermes/plugin-sdk'
 
+import { openSession } from '@/app/open-session'
 import {
   desktopBuzzClient,
   type BuzzRoom,
@@ -16,10 +19,27 @@ import {
   type WorkspaceAgent,
   type WorkspaceManifest
 } from '@/pantheon/buzz-client'
+import { openArtifact } from '@/store/artifacts'
+import { setCronFocusJobId } from '@/store/cron'
 
 import { RoomMemberships } from './agents/room-memberships'
 import { resolveAgentPubkey, resolveMemberAgent, selectMembershipAgent } from './agents/resolve-agent'
+import { HomePage } from './home/home-page'
+import { startHomeIngestion } from './home/ingest'
+import { botIdFromMembershipSearch, openHomeTarget, pickRoomId, registeredHref } from './home/navigation'
+import {
+  applyHomeSourceSnapshot,
+  collectApprovalInboxRows,
+  collectAuthoritativeHomeEvents,
+  createPluginApprovalInbox,
+  subscribeAuthoritativeHomeSources,
+  toNotificationEvent
+} from './home/sources'
+import { HomeStore } from './home/store'
 import { applyRoomMembership } from './manifest/store'
+import type { ApprovalProjection } from './needs-you/approval-projections'
+import { NotificationCoordinator } from './notifications/coordinator'
+import { loadMutes, muteScope, mutesForCurrentScope, type MuteState } from './notifications/mutes'
 import { RoomList } from './rooms/room-list'
 import { RoomWorkspace } from './rooms/room-workspace'
 import {
@@ -34,10 +54,20 @@ function useStoreValue<T>(store: { get: () => T; listen: (listener: (next: T) =>
   return useSyncExternalStore(store.listen, store.get, store.get)
 }
 
+function useRoomsSearch(): string {
+  try {
+    const [params] = useSearchParams()
+    return params.toString()
+  } catch {
+    return typeof window === 'undefined' ? '' : window.location.search.replace(/^\?/, '')
+  }
+}
+
 function RoomsPage() {
   const store = useMemo(() => new RoomsStore(undefined, undefined), [])
   const rooms = useStoreValue(store.$rooms)
   const windows = useStoreValue(store.$windows)
+  const search = useRoomsSearch()
   const [status, setStatus] = useState<BuzzStatus>({ state: 'connecting' })
   const [selected, setSelected] = useState<BuzzRoom | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -70,9 +100,12 @@ function RoomsPage() {
             store.ingestEvent(roomId, event.event as RoomLiveEvent)
           }
         })
-        const first = page.rooms[0]
-        if (first) {
-          await selectRoom(store, first.id, setSelected)
+        const targetId = pickRoomId(
+          page.rooms.map(room => room.id),
+          search
+        )
+        if (targetId) {
+          await selectRoom(store, targetId, setSelected)
           await client.startSubscription({ roomIds: page.rooms.map(room => room.id) })
         }
       } catch (err) {
@@ -84,7 +117,7 @@ function RoomsPage() {
       cancelled = true
       unsubscribe()
     }
-  }, [store])
+  }, [search, store])
 
   useEffect(() => {
     if (!selected) return
@@ -232,6 +265,8 @@ export function AgentEditorRoomsMount({
   connectionId?: string
   profile?: string
 }) {
+  const search = useRoomsSearch()
+  const requestedBot = botIdFromMembershipSearch(search)
   const [manifest, setManifest] = useState<WorkspaceManifest>({ version: 1, rooms: [] })
   const [liveRooms, setLiveRooms] = useState<BuzzRoom[]>([])
   useEffect(() => {
@@ -254,7 +289,7 @@ export function AgentEditorRoomsMount({
   }, [])
   const selected = {
     connectionId: connectionId || bot?.route?.connectionId || bot?.connectionId || host.state.connectionId.get() || undefined,
-    profile: profile || bot?.route?.profile || bot?.name || host.state.profile.get() || undefined
+    profile: profile || bot?.route?.profile || bot?.name || requestedBot || undefined
   }
   const agentRecord = selectMembershipAgent((manifest.agents || []) as Array<WorkspaceAgent & { pubkey?: string }>, selected)
   if (!agentRecord) {
@@ -306,6 +341,132 @@ export function diagnosticsFromSessions(
   }))
 }
 
+const homeStore = new HomeStore()
+const homeInbox = createPluginApprovalInbox()
+let muteStorage: PluginContext['storage'] | null = null
+let muteState: MuteState = { key: 'notification-mutes-v1:pantheon:local', mutedBots: [], mutedRooms: [] }
+
+function currentMuteScope() {
+  return {
+    workspace: host.state.profile.get() || 'pantheon',
+    connectionId: host.state.connectionId.get() || 'local'
+  }
+}
+
+function refreshMuteScope() {
+  if (!muteStorage) return
+  muteState = mutesForCurrentScope(muteStorage, currentMuteScope(), muteState)
+}
+
+function navigateHome(href: string, owner?: { connectionId: string; profile: string }) {
+  openHomeTarget(href, {
+    navigate: path => host.navigate(path),
+    openSession,
+    setCronFocusJobId,
+    openArtifact,
+    owner
+  })
+}
+
+function HomeRoute() {
+  const [cards, setCards] = useState(homeInbox.cards())
+  const [busyId, setBusyId] = useState(homeInbox.busyId())
+  const [errors, setErrors] = useState(homeInbox.errors())
+  useEffect(
+    () =>
+      homeInbox.listen(() => {
+        setCards(homeInbox.cards())
+        setBusyId(homeInbox.busyId())
+        setErrors(homeInbox.errors())
+      }),
+    []
+  )
+  return (
+    <HomePage
+      approvals={{
+        busyId,
+        cards,
+        errors,
+        onMute: target => {
+          if (!muteStorage) return
+          refreshMuteScope()
+          muteState = muteScope(muteStorage, currentMuteScope(), target)
+        },
+        onNavigate: (card: ApprovalProjection) => {
+          navigateHome(registeredHref('session', card.sessionId || card.id), card.owner)
+        },
+        onRespond: (card, choice) => {
+          void homeInbox.respond(card, choice).then(() => {
+            homeInbox.replace(collectApprovalInboxRows())
+          })
+        }
+      }}
+      onNavigate={href => navigateHome(href)}
+      store={homeStore}
+    />
+  )
+}
+
+function bindHomeNotifications(ctx: PluginContext) {
+  muteStorage = ctx.storage
+  muteState = loadMutes(ctx.storage, currentMuteScope())
+  const unsubProfile = host.state.profile.listen(() => refreshMuteScope())
+  const unsubConnection = host.state.connectionId.listen(() => refreshMuteScope())
+  const coordinator = new NotificationCoordinator({
+    toast: input => {
+      host.notify({
+        kind: 'info',
+        title: input.title,
+        message: input.message || input.title || 'Needs you',
+        action: { label: 'Open', onClick: input.onActivate }
+      })
+    },
+    native: input => {
+      ctx.os.notify({ title: input.title || 'Pantheon', body: input.message || input.title || 'Needs you', onActivate: input.onActivate })
+    },
+    navigate: href => navigateHome(href),
+    focused: () => typeof document !== 'undefined' && document.hasFocus(),
+    mutes: () => {
+      refreshMuteScope()
+      return muteState
+    },
+    onRefresh: () => {
+      homeInbox.replace(collectApprovalInboxRows())
+    }
+  })
+  const runtime = startHomeIngestion({
+    store: homeStore,
+    listEvents: collectAuthoritativeHomeEvents,
+    subscribe: subscribeAuthoritativeHomeSources,
+    onHydrate: events => {
+      coordinator.hydrate(
+        events.flatMap(event => {
+          const next = toNotificationEvent(event)
+          return next ? [next] : []
+        })
+      )
+      homeInbox.replace(collectApprovalInboxRows())
+    },
+    notifications: {
+      subscribe: ingest =>
+        subscribeAuthoritativeHomeSources(events => {
+          applyHomeSourceSnapshot(events, {
+            replaceInbox: rows => homeInbox.replace(rows),
+            ingestNotification: ingest
+          })
+        }),
+      ingest: event => coordinator.ingest(event as Parameters<NotificationCoordinator['ingest']>[0])
+    }
+  })
+  runtime.startNotifications()
+  return () => {
+    unsubProfile()
+    unsubConnection()
+    runtime.dispose()
+    coordinator.dispose()
+  }
+}
+
 const plugin: HermesPlugin = {
   id: 'pantheon-workspace',
   name: 'Pantheon Rooms',
@@ -314,7 +475,22 @@ const plugin: HermesPlugin = {
   register(ctx) {
     ;(globalThis as { __PantheonAgentRooms?: typeof AgentEditorRoomsMount }).__PantheonAgentRooms =
       AgentEditorRoomsMount
+    const disposeNotifications = bindHomeNotifications(ctx)
     ctx.registerMany([
+      {
+        id: 'home-page',
+        area: ROUTES_AREA,
+        data: { path: '/home' } satisfies RouteContribution,
+        render: () => <HomeRoute />
+      },
+      {
+        id: 'home-nav',
+        area: SIDEBAR_NAV_AREA,
+        // Host sidebar renders [...SIDEBAR_NAV, ...contributions]. There is no
+        // contribution placement API that inserts before permanent items.
+        order: 20,
+        data: { codicon: 'home', label: 'Home', path: '/home' } satisfies SidebarNavContribution
+      },
       {
         id: 'page',
         area: ROUTES_AREA,
@@ -335,8 +511,10 @@ const plugin: HermesPlugin = {
       }
     ])
     ctx.onDispose(() => {
+      disposeNotifications()
       delete (globalThis as { __PantheonAgentRooms?: typeof AgentEditorRoomsMount }).__PantheonAgentRooms
-      if (typeof host.navigate === 'function' && window.location.pathname.startsWith('/rooms')) {
+      const path = window.location.pathname
+      if (typeof host.navigate === 'function' && (path.startsWith('/rooms') || path === '/home')) {
         host.navigate('/')
       }
     })
