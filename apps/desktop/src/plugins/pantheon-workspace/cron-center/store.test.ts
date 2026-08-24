@@ -176,6 +176,56 @@ test('run now records pending without inventing a success result', async () => {
   expect(store.jobsFor(ownerA)[0]?.latest_execution?.status).toBe('running')
 })
 
+test('a refresh in flight cannot publish over a newer mutation', async () => {
+  let releaseRefresh: () => void = () => undefined
+  const refreshGate = new Promise<void>(resolve => {
+    releaseRefresh = resolve
+  })
+  let listCalls = 0
+
+  const api = fakeApi({
+    listJobs: async () => {
+      listCalls += 1
+
+      if (listCalls === 2) {
+        await refreshGate
+
+        return [job('job-1', { enabled: true, name: 'stale' })]
+      }
+
+      return [job('job-1', { enabled: listCalls > 2 ? false : true, name: listCalls > 2 ? 'server' : 'before' })]
+    },
+    pause: async () => job('job-1', { enabled: false, state: 'paused', name: 'server' })
+  })
+
+  const store = new CronCenterStore(api)
+  await store.refreshOwner(ownerA)
+  const staleRefresh = store.refreshOwner(ownerA)
+  const pause = store.pause(ownerA, 'job-1')
+  await Promise.resolve()
+  expect(store.jobsFor(ownerA)[0]?.enabled).toBe(false)
+  releaseRefresh()
+  await staleRefresh
+  expect(store.jobsFor(ownerA)[0]?.enabled).toBe(false)
+  await pause
+  expect(store.jobsFor(ownerA)[0]).toMatchObject({ enabled: false, name: 'server' })
+})
+
+test('all-owner read failures are an error, not a truthful empty inventory', async () => {
+  const api = fakeApi({
+    listOwners: async () => [ownerA, ownerB],
+    listJobs: async () => {
+      throw new Error('down')
+    }
+  })
+  const store = new CronCenterStore(api)
+  await store.refreshAll()
+  expect(store.$status.get()).toBe('error')
+  expect(store.slice(ownerA)?.status).toBe('error')
+  expect(store.slice(ownerB)?.status).toBe('error')
+  expect(store.jobsFor(ownerA)).toEqual([])
+})
+
 test('writes for one owner are serialized', async () => {
   const order: string[] = []
   let releaseFirst: () => void = () => undefined

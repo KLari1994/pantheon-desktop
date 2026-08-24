@@ -50,7 +50,7 @@ test('every rendered source type has exact navigation and visible identity', () 
   const store = seededStore([
     source({ type: 'approval', sourceKind: 'session', sourceId: 'sess-1', requestId: 'r1', title: 'Allow rm' }),
     source({ type: 'running', sourceKind: 'bot', sourceId: 'daedalus', title: 'Coding' }),
-    source({ type: 'stalled', sourceKind: 'cron', sourceId: 'job-1', title: 'Stalled cron' }),
+    source({ type: 'stalled', sourceKind: 'cron', sourceId: 'job-1', title: 'Stalled cron', connectionId: 'conn-a', profile: 'worker' }),
     source({ type: 'long-running-completion', sourceKind: 'artifact', sourceId: 'art-1', title: 'Wrote file' }),
     source({ type: 'direct-mention', sourceKind: 'room', sourceId: 'room-9', title: 'Mention' }),
     source({ type: 'merge-decision', sourceKind: 'project', sourceId: 'proj-1', title: 'Project ready' }),
@@ -71,7 +71,7 @@ test('every rendered source type has exact navigation and visible identity', () 
   expect(onNavigate.mock.calls.map(call => call[0])).toEqual([
     '/sess-1',
     '/rooms/memberships?bot=daedalus',
-    '/cron-center?job=job-1',
+    '/cron-center?job=job-1&connection=conn-a&profile=worker',
     '/artifacts?id=art-1',
     '/rooms?room=room-9',
     '/rooms?project=proj-1',

@@ -31,7 +31,11 @@ export function botIdFromMembershipSearch(search: string): string | null {
   return new URLSearchParams(raw).get('bot')
 }
 
-export function registeredHref(kind: HomeSourceKind, sourceId: string): string {
+export function registeredHref(
+  kind: HomeSourceKind,
+  sourceId: string,
+  owner?: { connectionId?: null | string; profile?: null | string }
+): string {
   switch (kind) {
     case 'bot':
       return membershipHref(sourceId)
@@ -45,13 +49,31 @@ export function registeredHref(kind: HomeSourceKind, sourceId: string): string {
 
     case 'session':
       return `/${encodeURIComponent(sourceId)}`
+    case 'cron': {
+      const params = new URLSearchParams({ job: sourceId })
 
-    case 'cron':
-      return `/cron-center?job=${encodeURIComponent(sourceId)}`
+      if (owner?.connectionId) {params.set('connection', owner.connectionId)}
+
+      if (owner?.profile) {params.set('profile', owner.profile)}
+
+      return `/cron-center?${params.toString()}`
+    }
 
     case 'artifact':
       return `/artifacts?id=${encodeURIComponent(sourceId)}`
   }
+}
+
+export function cronCenterJobKeyFromSearch(search: string): null | string {
+  const raw = search.startsWith('?') ? search.slice(1) : search
+  const params = new URLSearchParams(raw)
+  const job = params.get('job')
+  const connection = params.get('connection')
+  const profile = params.get('profile')
+
+  if (!job || !connection || !profile) {return null}
+
+  return `${connection}::${profile}::${job}`
 }
 
 export interface HomeNavigationDeps {

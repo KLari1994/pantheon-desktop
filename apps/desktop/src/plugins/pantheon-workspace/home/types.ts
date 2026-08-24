@@ -23,7 +23,7 @@ export type HomeEventType =
 export type HomeNavigationTarget =
   | { kind: 'artifact'; artifactId: string; href: string }
   | { kind: 'bot'; botId: string; href: string }
-  | { kind: 'cron'; jobId: string; href: string }
+  | { kind: 'cron'; jobId: string; href: string; connectionId?: string; profile?: string }
   | { kind: 'pr'; prId: string; href: string }
   | { kind: 'project'; projectId: string; href: string }
   | { kind: 'room'; roomId: string; href: string }
@@ -60,4 +60,6 @@ export interface HomeSourceEvent {
   id?: string
   botId?: string
   roomId?: string
+  connectionId?: string
+  profile?: string
 }

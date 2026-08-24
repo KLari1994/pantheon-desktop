@@ -51,6 +51,18 @@ function scope(owner: CronCenterOwner): Pick<CronCenterRequest, 'connectionId' |
   }
 }
 
+function profileQuery(owner: CronCenterOwner): string {
+  return `profile=${encodeURIComponent(owner.targetProfile || owner.profile)}`
+}
+
+function jobPath(owner: CronCenterOwner, jobId: string, suffix = ''): string {
+  const encoded = encodeURIComponent(jobId)
+  const [pathSuffix, existingQuery] = suffix.split('?')
+  const query = existingQuery ? `${existingQuery}&${profileQuery(owner)}` : profileQuery(owner)
+
+  return `/api/cron/jobs/${encoded}${pathSuffix}?${query}`
+}
+
 function defaultDeps(): CronCenterApiDeps {
   return {
     hermesApi: request => window.hermesDesktop.api(request),
@@ -81,7 +93,7 @@ export class CronCenterApi {
   async listJobs(owner: CronCenterOwner): Promise<CronCenterPersistedJob[]> {
     const jobs = await this.deps.hermesApi<CronCenterPersistedJob[]>({
       ...scope(owner),
-      path: `/api/cron/jobs?profile=${encodeURIComponent(owner.targetProfile || owner.profile)}`
+      path: `/api/cron/jobs?${profileQuery(owner)}`
     })
 
     return Array.isArray(jobs) ? jobs : []
@@ -101,14 +113,14 @@ export class CronCenterApi {
   getHistory(owner: CronCenterOwner, jobId: string, limit = 20): Promise<{ runs: CronCenterSessionInfo[] }> {
     return this.deps.hermesApi<{ runs: CronCenterSessionInfo[] }>({
       ...scope(owner),
-      path: `/api/cron/jobs/${encodeURIComponent(jobId)}/runs?limit=${limit}`
+      path: jobPath(owner, jobId, `/runs?limit=${limit}`)
     })
   }
 
   pause(owner: CronCenterOwner, jobId: string): Promise<CronCenterPersistedJob> {
     return this.deps.hermesApi<CronCenterPersistedJob>({
       ...scope(owner),
-      path: `/api/cron/jobs/${encodeURIComponent(jobId)}/pause`,
+      path: jobPath(owner, jobId, '/pause'),
       method: 'POST'
     })
   }
@@ -116,7 +128,7 @@ export class CronCenterApi {
   resume(owner: CronCenterOwner, jobId: string): Promise<CronCenterPersistedJob> {
     return this.deps.hermesApi<CronCenterPersistedJob>({
       ...scope(owner),
-      path: `/api/cron/jobs/${encodeURIComponent(jobId)}/resume`,
+      path: jobPath(owner, jobId, '/resume'),
       method: 'POST'
     })
   }
@@ -124,7 +136,7 @@ export class CronCenterApi {
   trigger(owner: CronCenterOwner, jobId: string): Promise<CronCenterPersistedJob> {
     return this.deps.hermesApi<CronCenterPersistedJob>({
       ...scope(owner),
-      path: `/api/cron/jobs/${encodeURIComponent(jobId)}/trigger`,
+      path: jobPath(owner, jobId, '/trigger'),
       method: 'POST',
       timeoutMs: CRON_TRIGGER_REQUEST_TIMEOUT_MS
     })
@@ -133,7 +145,7 @@ export class CronCenterApi {
   update(owner: CronCenterOwner, jobId: string, updates: CronCenterJobUpdates): Promise<CronCenterPersistedJob> {
     return this.deps.hermesApi<CronCenterPersistedJob>({
       ...scope(owner),
-      path: `/api/cron/jobs/${encodeURIComponent(jobId)}`,
+      path: jobPath(owner, jobId),
       method: 'PUT',
       body: { updates }
     })
@@ -142,7 +154,7 @@ export class CronCenterApi {
   remove(owner: CronCenterOwner, jobId: string): Promise<{ ok: boolean }> {
     return this.deps.hermesApi<{ ok: boolean }>({
       ...scope(owner),
-      path: `/api/cron/jobs/${encodeURIComponent(jobId)}`,
+      path: jobPath(owner, jobId),
       method: 'DELETE'
     })
   }

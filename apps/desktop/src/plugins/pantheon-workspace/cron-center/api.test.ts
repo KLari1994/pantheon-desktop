@@ -87,13 +87,42 @@ test('reads, history, and every mutation include the captured owner', async () =
   }
 
   expect(requests[0]?.path).toBe('/api/cron/jobs?profile=backend-a')
-  expect(requests[1]?.path).toBe('/api/cron/jobs/job-1/runs?limit=20')
-  expect(requests[2]?.path).toBe('/api/cron/jobs/job-1/pause')
-  expect(requests[3]?.path).toBe('/api/cron/jobs/job-1/resume')
-  expect(requests[4]?.path).toBe('/api/cron/jobs/job-1/trigger')
-  expect(requests[5]?.path).toBe('/api/cron/jobs/job-1')
+  expect(requests[1]?.path).toBe('/api/cron/jobs/job-1/runs?limit=20&profile=backend-a')
+  expect(requests[2]?.path).toBe('/api/cron/jobs/job-1/pause?profile=backend-a')
+  expect(requests[3]?.path).toBe('/api/cron/jobs/job-1/resume?profile=backend-a')
+  expect(requests[4]?.path).toBe('/api/cron/jobs/job-1/trigger?profile=backend-a')
+  expect(requests[5]?.path).toBe('/api/cron/jobs/job-1?profile=backend-a')
   expect(requests[5]?.method).toBe('PUT')
+  expect(requests[6]?.path).toBe('/api/cron/jobs/job-1?profile=backend-a')
   expect(requests[6]?.method).toBe('DELETE')
+})
+
+test('same-connection duplicate job ids keep the captured target profile on every mutation', async () => {
+  const sibling: CronCenterOwner = {
+    connectionId: 'conn-a',
+    profile: 'writer',
+    targetProfile: 'backend-writer',
+    mode: 'remote',
+    label: 'Homelab / writer'
+  }
+  const { api, requests } = createApi(async request => {
+    if (request.path.includes('/runs')) {return { runs: [] }}
+
+    if (request.method === 'DELETE') {return { ok: true }}
+
+    return { id: 'shared-id', enabled: true }
+  })
+
+  await api.getHistory(ownerA, 'shared-id')
+  await api.pause(ownerA, 'shared-id')
+  await api.pause(sibling, 'shared-id')
+  await api.trigger(sibling, 'shared-id')
+  await api.update(sibling, 'shared-id', { name: 'other' })
+  await api.remove(sibling, 'shared-id')
+  expect(requests[0]?.path).toContain('profile=backend-a')
+  expect(requests[1]?.path).toContain('profile=backend-a')
+  expect(requests.slice(2).every(request => request.path.includes('profile=backend-writer'))).toBe(true)
+  expect(requests.slice(2).every(request => request.connectionId === 'conn-a')).toBe(true)
 })
 
 test('an in-flight action keeps the captured owner after the foreground connection changes', async () => {

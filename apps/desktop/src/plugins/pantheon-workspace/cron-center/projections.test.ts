@@ -4,6 +4,7 @@ import {
   jobKey,
   projectCronHistory,
   projectCronRow,
+  projectCurrentExecution,
   projectJobHealth
 } from './projections'
 import type { CronCenterOwner, CronCenterPersistedJob } from './types'
@@ -123,8 +124,56 @@ test('healthy completion never uses wrapper ok text as an input', () => {
 
   expect(health).toBe('healthy')
   expect(projectJobHealth(job({ id: 'never' }))).toBe('not-run')
-  expect(projectJobHealth(job({ id: 'run', latest_execution: { status: 'running' } }))).toBe('in-progress')
-  expect(projectJobHealth(job({ id: 'claim', latest_execution: { status: 'claimed' } }))).toBe('in-progress')
+})
+
+test('an in-progress ledger attempt does not replace the persisted last result', () => {
+  const runningHealthy = job({
+    id: 'run',
+    last_status: 'ok',
+    last_run_at: '2026-08-24T03:00:00Z',
+    latest_execution: { status: 'running', claimed_at: '2026-08-24T04:00:00Z' }
+  })
+  const claimedFailed = job({
+    id: 'claim',
+    last_status: 'error',
+    latest_execution: { status: 'claimed' }
+  })
+  const neverStarted = job({ id: 'fresh', latest_execution: { status: 'running' } })
+
+  expect(projectJobHealth(runningHealthy)).toBe('healthy')
+  expect(projectCurrentExecution(runningHealthy)).toBe('running')
+  expect(projectJobHealth(claimedFailed)).toBe('failed')
+  expect(projectCurrentExecution(claimedFailed)).toBe('claimed')
+  expect(projectJobHealth(neverStarted)).toBe('not-run')
+  expect(projectCurrentExecution(neverStarted)).toBe('running')
+  expect(projectCronRow(ownerA, runningHealthy).currentExecution).toBe('running')
+  expect(projectCronRow(ownerA, runningHealthy).result).toBe('healthy')
+})
+
+test('semantic projection labels come from the supplied locale bundle', () => {
+  const row = projectCronRow(
+    ownerA,
+    job({
+      id: 'script-ja',
+      no_agent: true,
+      script: 'echo hi',
+      last_status: 'ok'
+    }),
+    {
+      defaultAgent: 'デフォルト',
+      noAgent: 'エージェントなし',
+      results: {
+        failed: '失敗',
+        healthy: '正常',
+        'needs-attention': '要注意',
+        'not-run': '未実行',
+        'silent-no-change': '無変化'
+      }
+    }
+  )
+
+  expect(row.agentLabel).toBe('エージェントなし')
+  expect(row.resultLabel).toBe('正常')
 })
 
 test('script-only jobs show No agent and omit model provider reasoning claims', () => {

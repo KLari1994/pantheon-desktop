@@ -58,6 +58,8 @@ function job(id: string, extra: Partial<CronCenterPersistedJob> = {}): CronCente
     schedule_display: 'daily',
     last_status: 'ok',
     deliver: 'local',
+    next_run_at: '2026-08-25T03:00:00Z',
+    last_run_at: '2026-08-24T03:00:00Z',
     latest_execution: { id: 'exec-1', status: 'completed', claimed_at: '2026-08-24T03:00:00Z' },
     ...extra
   }
@@ -140,6 +142,95 @@ test('loading, empty, partial-degraded, and exhausted error states are distinct'
   await failed.refreshAll()
   render(<CronCenterPage store={failed} />)
   expect(screen.getByText('Unable to load cron jobs')).toBeTruthy()
+  cleanup()
+
+  const allFailed = new CronCenterStore({
+    listOwners: async () => [ownerA, ownerB],
+    listJobs: async () => {
+      throw new Error('down')
+    }
+  } as unknown as CronCenterApi)
+
+  await allFailed.refreshAll()
+  render(<CronCenterPage store={allFailed} />)
+  expect(screen.queryByText('No scheduled jobs')).toBeNull()
+  expect(screen.getByText('Unable to load cron jobs')).toBeTruthy()
+})
+
+test('list rows render next and last run without requiring selection', async () => {
+  const { store, hydrate } = seededStore([{ owner: ownerA, jobs: [job('nightly')] }])
+  await hydrate()
+  render(<CronCenterPage store={store} />)
+  expect(screen.getByText(/Next run/)).toBeTruthy()
+  expect(screen.getByText(/2026-08-25T03:00:00Z/)).toBeTruthy()
+  expect(screen.getByText(/Last run/)).toBeTruthy()
+  expect(screen.getByText(/2026-08-24T03:00:00Z/)).toBeTruthy()
+})
+
+test('deep links require an exact composite owner key', async () => {
+  const { store, hydrate } = seededStore([
+    { owner: ownerA, jobs: [job('shared')] },
+    { owner: ownerB, jobs: [job('shared', { name: 'office-shared' })] }
+  ])
+  await hydrate()
+  const { rerender } = render(<CronCenterPage initialJobKey="shared" store={store} />)
+  expect(screen.queryByText('summarize inbox')).toBeNull()
+  rerender(<CronCenterPage initialJobKey="conn-b::writer::shared" store={store} />)
+  expect(screen.getByRole('heading', { name: 'office-shared' })).toBeTruthy()
+  expect(screen.getByText('summarize inbox')).toBeTruthy()
+})
+
+test('expanded detail renders every populated source and receipt error field', async () => {
+  const { store, hydrate } = seededStore([
+    {
+      owner: ownerA,
+      jobs: [
+        job('monitor', {
+          prompt: 'watch status',
+          script: 'echo start',
+          monitor_script: 'curl https://status',
+          monitor_url: 'https://status.example',
+          last_error: 'persisted last error',
+          last_delivery_error: 'telegram 401',
+          last_fire_error: { detail: 'forward failed' },
+          latest_execution: { id: 'exec-9', status: 'failed', claimed_at: '2026-08-24T03:00:00Z', error: 'receipt boom' }
+        })
+      ]
+    }
+  ])
+  await hydrate()
+  render(<CronCenterPage store={store} />)
+  fireEvent.click(screen.getByRole('button', { name: 'monitor' }))
+  expect(screen.getByText('watch status')).toBeTruthy()
+  expect(screen.getByText('echo start')).toBeTruthy()
+  expect(screen.getByText('curl https://status')).toBeTruthy()
+  expect(screen.getByText('https://status.example')).toBeTruthy()
+  expect(screen.getByText(/persisted last error/)).toBeTruthy()
+  expect(screen.getByText(/telegram 401/)).toBeTruthy()
+  expect(screen.getByText(/forward failed/)).toBeTruthy()
+  expect(screen.getByText(/receipt boom/)).toBeTruthy()
+})
+
+test('failed writes surface an error instead of an unhandled rejection', async () => {
+  const { store, api, hydrate } = seededStore([{ owner: ownerA, jobs: [job('nightly')] }])
+  api.pause = vi.fn(async () => {
+    throw new Error('pause failed')
+  })
+  api.update = vi.fn(async () => {
+    throw new Error('save failed')
+  })
+  await hydrate()
+  render(<CronCenterPage store={store} />)
+  fireEvent.click(screen.getByRole('button', { name: 'nightly' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Pause' }))
+  await waitFor(() => {
+    expect(screen.getByText(/pause failed/)).toBeTruthy()
+  })
+  fireEvent.click(screen.getByRole('button', { name: 'Edit' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Save' }))
+  await waitFor(() => {
+    expect(screen.getByText(/save failed/)).toBeTruthy()
+  })
 })
 
 test('expanded detail is bounded and renders persisted source and receipt data', async () => {

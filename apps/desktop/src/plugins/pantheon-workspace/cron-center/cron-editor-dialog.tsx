@@ -35,12 +35,16 @@ export function CronEditorDialog({
             return
           }
 
-          void onSave(
-            cronEditorUpdates(
-              { deliver, model: job.model || '', name, prompt, provider: job.provider || '', schedule },
-              { scriptOnlyJob: scriptOnly }
+          void Promise.resolve(
+            onSave(
+              cronEditorUpdates(
+                { deliver, model: job.model || '', name, prompt, provider: job.provider || '', schedule },
+                { scriptOnlyJob: scriptOnly }
+              )
             )
-          )
+          ).catch(error => {
+            setError(error instanceof Error ? error.message : String(error))
+          })
         }}
       >
         <h2 className="text-sm font-medium">{text.edit}</h2>

@@ -80,9 +80,17 @@ export interface CronCenterSessionInfo {
   title: null | string
 }
 
-export type CronCenterHealth = 'failed' | 'healthy' | 'in-progress' | 'needs-attention' | 'not-run' | 'silent-no-change'
+export type CronCenterHealth = 'failed' | 'healthy' | 'needs-attention' | 'not-run' | 'silent-no-change'
+
+export type CronCenterCurrentExecution = 'claimed' | 'running' | null
 
 export type CronCenterSliceStatus = 'degraded' | 'error' | 'loading' | 'ready'
+
+export interface CronCenterLabelBundle {
+  defaultAgent: string
+  noAgent: string
+  results: Record<CronCenterHealth, string>
+}
 
 export interface CronCenterRow {
   key: CronCenterJobKey
@@ -98,6 +106,7 @@ export interface CronCenterRow {
   lastRun: null | string
   result: CronCenterHealth
   resultLabel: string
+  currentExecution: CronCenterCurrentExecution
   delivery: string
   failureStreak: number
   scriptOnly: boolean

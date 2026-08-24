@@ -2,13 +2,27 @@ import { ConfirmDialog, type PluginProfileRoute } from '@hermes/plugin-sdk'
 import { useEffect, useMemo, useState, useSyncExternalStore } from 'react'
 
 import { CronEditorDialog } from './cron-editor-dialog'
-import { cronCenterEnglish } from './i18n'
+import { cronCenterEnglish, cronCenterLabels, type CronCenterText } from './i18n'
 import { projectCronRow } from './projections'
 import type { CronCenterStore } from './store'
 import type { CronCenterRow } from './types'
 
 function useStoreValue<T>(store: { get: () => T; listen: (listener: (next: T) => void) => () => void }): T {
   return useSyncExternalStore(store.listen, store.get, store.get)
+}
+
+function actionMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error)
+}
+
+function fieldText(value: unknown): string {
+  if (typeof value === 'string') {return value.trim()}
+
+  if (value && typeof value === 'object' && 'detail' in value) {
+    return typeof (value as { detail?: unknown }).detail === 'string' ? (value as { detail: string }).detail.trim() : ''
+  }
+
+  return ''
 }
 
 export function CronCenterPage({
@@ -19,7 +33,7 @@ export function CronCenterPage({
   onNavigate
 }: {
   store: CronCenterStore
-  text?: typeof cronCenterEnglish
+  text?: CronCenterText | typeof cronCenterEnglish
   initialJobKey?: string | null
   onOpenOwnerChat?: (route: PluginProfileRoute) => void
   onNavigate?: (href: string) => void
@@ -32,22 +46,26 @@ export function CronCenterPage({
   const [editing, setEditing] = useState(false)
   const [moreOpen, setMoreOpen] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
+  const [actionError, setActionError] = useState<string | null>(null)
+  const labels = useMemo(() => cronCenterLabels(text), [text])
 
   const rows = useMemo(
     () =>
-      Object.values(slices).flatMap(slice => slice.jobs.map(job => projectCronRow(slice.owner, job))),
-    [slices]
+      Object.values(slices).flatMap(slice => slice.jobs.map(job => projectCronRow(slice.owner, job, labels))),
+    [labels, slices]
   )
 
   const selected = rows.find(row => row.key === selectedKey) ?? null
-  const degraded = Object.values(slices).some(slice => slice.status === 'degraded' || slice.status === 'error')
+  const sliceList = Object.values(slices)
+  const degraded = sliceList.some(slice => slice.status === 'degraded' || slice.status === 'error')
+  const ownersReady = sliceList.length > 0 && sliceList.every(slice => slice.status === 'ready')
   const exhausted = status === 'error' && rows.length === 0
 
   const [didApplyInitial, setDidApplyInitial] = useState(false)
 
   useEffect(() => {
     if (didApplyInitial || !initialJobKey) {return}
-    const match = rows.find(row => row.key === initialJobKey || row.job.id === initialJobKey)
+    const match = rows.find(row => row.key === initialJobKey)
 
     if (match) {
       setSelectedKey(match.key)
@@ -60,12 +78,22 @@ export function CronCenterPage({
     void store.loadHistory(selected.owner, selected.job.id)
   }, [selected, store])
 
+  const runAction = (work: () => Promise<void>) => {
+    void work().catch(error => {
+      setActionError(actionMessage(error))
+    })
+  }
+
   if (status === 'loading' && rows.length === 0) {
     return <p className="p-4 text-sm text-(--ui-text-secondary)">{text.loading}</p>
   }
 
   if (exhausted) {
     return <p className="p-4 text-sm text-(--ui-text-secondary)">{text.error}</p>
+  }
+
+  if (rows.length === 0 && sliceList.length > 0 && !ownersReady) {
+    return <p className="p-4 text-sm text-(--ui-text-secondary)">{status === 'error' ? text.error : text.degraded}</p>
   }
 
   if (rows.length === 0) {
@@ -77,6 +105,7 @@ export function CronCenterPage({
       <aside className="w-80 overflow-auto border-r border-(--ui-stroke-tertiary) p-3">
         <h1 className="text-sm font-medium">{text.title}</h1>
         {degraded ? <p className="mt-2 text-xs text-(--ui-text-secondary)">{text.degraded}</p> : null}
+        {!selected && actionError ? <p className="mt-2 text-xs text-destructive">{actionError}</p> : null}
         <ul className="mt-3 flex flex-col gap-2">
           {rows.map(row => (
             <li key={row.key}>
@@ -86,6 +115,7 @@ export function CronCenterPage({
                   setSelectedKey(row.key)
                   setMoreOpen(false)
                   setEditing(false)
+                  setActionError(null)
                 }}
                 type="button"
               >
@@ -96,6 +126,9 @@ export function CronCenterPage({
                 <span>{row.schedule}</span>
                 <span>{row.agentLabel}</span>
                 <span>{row.resultLabel}</span>
+                {row.currentExecution ? <span>{text.runningNow}</span> : null}
+                <span>{text.nextRun}: {row.nextRun || text.unavailable}</span>
+                <span>{text.lastRun}: {row.lastRun || text.unavailable}</span>
                 <span>{row.delivery}</span>
                 <span>{row.failureStreak}</span>
               </div>
@@ -106,6 +139,7 @@ export function CronCenterPage({
       <section className="min-w-0 flex-1 overflow-auto p-4">
         {selected ? (
           <CronCenterDetail
+            actionError={actionError}
             confirmDelete={confirmDelete}
             history={history.key === selected.key ? history.rows : []}
             moreOpen={moreOpen}
@@ -121,13 +155,13 @@ export function CronCenterPage({
               })
             }}
             onPause={() => {
-              void store.pause(selected.owner, selected.job.id)
+              runAction(() => store.pause(selected.owner, selected.job.id))
             }}
             onResume={() => {
-              void store.resume(selected.owner, selected.job.id)
+              runAction(() => store.resume(selected.owner, selected.job.id))
             }}
             onRunNow={() => {
-              void store.trigger(selected.owner, selected.job.id)
+              runAction(() => store.trigger(selected.owner, selected.job.id))
             }}
             pending={pendingKey === selected.key}
             row={selected}
@@ -144,6 +178,7 @@ export function CronCenterPage({
           onSave={async updates => {
             await store.update(selected.owner, selected.job.id, updates)
             setEditing(false)
+            setActionError(null)
           }}
           text={text}
         />
@@ -154,14 +189,21 @@ export function CronCenterPage({
           destructive
           onClose={() => setConfirmDelete(false)}
           onConfirm={async () => {
-            await store.remove(selected.owner, selected.job.id)
-            setConfirmDelete(false)
-            setSelectedKey(null)
+            try {
+              await store.remove(selected.owner, selected.job.id)
+              setConfirmDelete(false)
+              setSelectedKey(null)
+              setActionError(null)
+            } catch (error) {
+              setConfirmDelete(false)
+              setActionError(actionMessage(error))
+            }
           }}
           open={confirmDelete}
           title={text.deleteTitle(selected.name)}
         />
       ) : null}
+      {onNavigate ? null : null}
     </div>
   )
 }
@@ -173,6 +215,7 @@ function CronCenterDetail({
   moreOpen,
   history,
   confirmDelete,
+  actionError,
   onRunNow,
   onEdit,
   onPause,
@@ -182,11 +225,12 @@ function CronCenterDetail({
   onDelete
 }: {
   row: CronCenterRow
-  text: typeof cronCenterEnglish
+  text: CronCenterText | typeof cronCenterEnglish
   pending: boolean
   moreOpen: boolean
   history: Array<{ id: string; title: string; preview: string }>
   confirmDelete: boolean
+  actionError: string | null
   onRunNow: () => void
   onEdit: () => void
   onPause: () => void
@@ -195,18 +239,26 @@ function CronCenterDetail({
   onMore: () => void
   onDelete: () => void
 }) {
-  const source =
-    row.job.prompt ||
-    row.job.script ||
-    row.job.monitor_script ||
-    row.job.monitor_url ||
-    text.unavailable
+  const sources = [
+    { label: text.prompt, value: fieldText(row.job.prompt) },
+    { label: text.script, value: fieldText(row.job.script) },
+    { label: text.monitorScript, value: fieldText(row.job.monitor_script) },
+    { label: text.monitorUrl, value: fieldText(row.job.monitor_url) }
+  ].filter(entry => entry.value)
 
   const receipt = row.job.latest_execution
+
+  const errors = [
+    { label: text.lastError, value: fieldText(row.job.last_error) },
+    { label: text.deliveryError, value: fieldText(row.job.last_delivery_error) },
+    { label: text.fireError, value: fieldText(row.job.last_fire_error) },
+    { label: text.receiptError, value: fieldText(receipt?.error) }
+  ].filter(entry => entry.value)
 
   return (
     <div>
       <h2 className="text-base font-medium">{row.name}</h2>
+      {actionError ? <p className="mt-2 text-xs text-destructive">{actionError}</p> : null}
       <dl className="mt-3 grid grid-cols-2 gap-2 text-xs">
         <div>
           <dt>{text.owner}</dt>
@@ -230,7 +282,10 @@ function CronCenterDetail({
         </div>
         <div>
           <dt>{text.result}</dt>
-          <dd>{row.resultLabel}</dd>
+          <dd>
+            {row.resultLabel}
+            {row.currentExecution ? ` · ${text.runningNow}` : ''}
+          </dd>
         </div>
         <div>
           <dt>{text.delivery}</dt>
@@ -265,13 +320,27 @@ function CronCenterDetail({
       ) : null}
       <section className="mt-6">
         <h3 className="text-sm font-medium">{text.source}</h3>
-        <pre className="mt-1 whitespace-pre-wrap text-xs">{source}</pre>
+        {sources.length ? (
+          sources.map(entry => (
+            <div className="mt-1" key={entry.label}>
+              <p className="text-[11px] text-(--ui-text-tertiary)">{entry.label}</p>
+              <pre className="whitespace-pre-wrap text-xs">{entry.value}</pre>
+            </div>
+          ))
+        ) : (
+          <pre className="mt-1 whitespace-pre-wrap text-xs">{text.unavailable}</pre>
+        )}
       </section>
       <section className="mt-4">
         <h3 className="text-sm font-medium">{text.receipt}</h3>
         <p className="mt-1 text-xs">
           {receipt ? `${receipt.id || 'execution'} ${receipt.status || ''} ${receipt.claimed_at || ''}`.trim() : text.unavailable}
         </p>
+        {errors.map(entry => (
+          <p className="mt-1 text-xs" key={entry.label}>
+            {entry.label}: {entry.value}
+          </p>
+        ))}
       </section>
       <section className="mt-4">
         <h3 className="text-sm font-medium">{text.history}</h3>

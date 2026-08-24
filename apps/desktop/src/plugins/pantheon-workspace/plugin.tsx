@@ -25,11 +25,11 @@ import { resolveAgentPubkey, resolveMemberAgent, selectMembershipAgent } from '.
 import { RoomMemberships } from './agents/room-memberships'
 import { CronCenterApi } from './cron-center/api'
 import { CronCenterPage } from './cron-center/cron-center-page'
-import { CRON_CENTER_LOCALES } from './cron-center/i18n'
+import { CRON_CENTER_LOCALES, useCronCenterText } from './cron-center/i18n'
 import { CronCenterStore } from './cron-center/store'
 import { HomePage } from './home/home-page'
 import { startHomeIngestion } from './home/ingest'
-import { botIdFromMembershipSearch, openHomeTarget, pickRoomId, registeredHref } from './home/navigation'
+import { botIdFromMembershipSearch, cronCenterJobKeyFromSearch, openHomeTarget, pickRoomId, registeredHref } from './home/navigation'
 import {
   applyHomeSourceSnapshot,
   collectApprovalInboxRows,
@@ -406,7 +406,8 @@ function navigateHome(href: string, owner?: { connectionId: string; profile: str
 function CronCenterRoute() {
   const store = useMemo(() => new CronCenterStore(new CronCenterApi()), [])
   const search = useRoomsSearch()
-  const job = new URLSearchParams(search.startsWith('?') ? search.slice(1) : search).get('job')
+  const text = useCronCenterText()
+  const initialJobKey = cronCenterJobKeyFromSearch(search)
   useEffect(() => {
     void store.refreshAll()
 
@@ -430,9 +431,10 @@ function CronCenterRoute() {
 
   return (
     <CronCenterPage
-      initialJobKey={job}
+      initialJobKey={initialJobKey}
       onOpenOwnerChat={route => host.newChat(route)}
       store={store}
+      text={text}
     />
   )
 }

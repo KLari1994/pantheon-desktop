@@ -36,6 +36,19 @@ type CronCenterMessages = {
   name: string
   prompt: string
   script: string
+  monitorScript: string
+  monitorUrl: string
+  lastError: string
+  deliveryError: string
+  fireError: string
+  receiptError: string
+  defaultAgent: string
+  resultHealthy: string
+  resultFailed: string
+  resultNeedsAttention: string
+  resultNotRun: string
+  resultSilent: string
+  runningNow: string
 }
 
 const en: CronCenterMessages = {
@@ -72,7 +85,20 @@ const en: CronCenterMessages = {
   cancel: 'Cancel',
   name: 'Name',
   prompt: 'Prompt',
-  script: 'Script'
+  script: 'Script',
+  monitorScript: 'Monitor script',
+  monitorUrl: 'Monitor URL',
+  lastError: 'Last error',
+  deliveryError: 'Delivery error',
+  fireError: 'Fire error',
+  receiptError: 'Receipt error',
+  defaultAgent: 'Default',
+  resultHealthy: 'Healthy',
+  resultFailed: 'Failed',
+  resultNeedsAttention: 'Needs attention',
+  resultNotRun: 'Not run yet',
+  resultSilent: 'Silent / no-change',
+  runningNow: 'Running now'
 }
 
 const ja: CronCenterMessages = {
@@ -110,7 +136,20 @@ const ja: CronCenterMessages = {
   cancel: 'キャンセル',
   name: '名前',
   prompt: 'プロンプト',
-  script: 'スクリプト'
+  script: 'スクリプト',
+  monitorScript: '監視スクリプト',
+  monitorUrl: '監視URL',
+  lastError: '前回のエラー',
+  deliveryError: '配信エラー',
+  fireError: '起動エラー',
+  receiptError: '実行レシートエラー',
+  defaultAgent: 'デフォルト',
+  resultHealthy: '正常',
+  resultFailed: '失敗',
+  resultNeedsAttention: '要注意',
+  resultNotRun: '未実行',
+  resultSilent: '無変化',
+  runningNow: '実行中'
 }
 
 const zh: CronCenterMessages = {
@@ -148,7 +187,20 @@ const zh: CronCenterMessages = {
   cancel: '取消',
   name: '名称',
   prompt: '提示词',
-  script: '脚本'
+  script: '脚本',
+  monitorScript: '监视脚本',
+  monitorUrl: '监视 URL',
+  lastError: '上次错误',
+  deliveryError: '投递错误',
+  fireError: '触发错误',
+  receiptError: '执行回执错误',
+  defaultAgent: '默认',
+  resultHealthy: '正常',
+  resultFailed: '失败',
+  resultNeedsAttention: '需要关注',
+  resultNotRun: '尚未运行',
+  resultSilent: '无变化',
+  runningNow: '正在运行'
 }
 
 const zhHant: CronCenterMessages = {
@@ -186,7 +238,20 @@ const zhHant: CronCenterMessages = {
   cancel: '取消',
   name: '名稱',
   prompt: '提示詞',
-  script: '指令碼'
+  script: '指令碼',
+  monitorScript: '監視指令碼',
+  monitorUrl: '監視 URL',
+  lastError: '上次錯誤',
+  deliveryError: '投遞錯誤',
+  fireError: '觸發錯誤',
+  receiptError: '執行回執錯誤',
+  defaultAgent: '預設',
+  resultHealthy: '正常',
+  resultFailed: '失敗',
+  resultNeedsAttention: '需要關注',
+  resultNotRun: '尚未執行',
+  resultSilent: '無變化',
+  runningNow: '正在執行'
 }
 
 export const CRON_CENTER_LOCALES: PluginLocaleBundles = { en, ja, zh, 'zh-hant': zhHant }
@@ -216,6 +281,30 @@ function bind<T extends object>(t: PluginTranslate, template: T, prefix = ''): B
 }
 
 export type CronCenterText = Bound<CronCenterMessages>
+
+export function cronCenterLabels(text: Pick<CronCenterText, 'defaultAgent' | 'noAgent' | 'resultFailed' | 'resultHealthy' | 'resultNeedsAttention' | 'resultNotRun' | 'resultSilent'>): {
+  defaultAgent: string
+  noAgent: string
+  results: {
+    failed: string
+    healthy: string
+    'needs-attention': string
+    'not-run': string
+    'silent-no-change': string
+  }
+} {
+  return {
+    defaultAgent: text.defaultAgent,
+    noAgent: text.noAgent,
+    results: {
+      failed: text.resultFailed,
+      healthy: text.resultHealthy,
+      'needs-attention': text.resultNeedsAttention,
+      'not-run': text.resultNotRun,
+      'silent-no-change': text.resultSilent
+    }
+  }
+}
 
 export function useCronCenterText(): CronCenterText {
   const t = usePluginI18n('pantheon-workspace')

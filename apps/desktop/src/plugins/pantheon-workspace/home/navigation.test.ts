@@ -1,6 +1,6 @@
 import { expect, test, vi } from 'vitest'
 
-import { botIdFromMembershipSearch, membershipHref, openHomeTarget, pickRoomId, registeredHref, roomsSearchHref, sourceIdFromRoomsSearch } from './navigation'
+import { botIdFromMembershipSearch, cronCenterJobKeyFromSearch, membershipHref, openHomeTarget, pickRoomId, registeredHref, roomsSearchHref, sourceIdFromRoomsSearch } from './navigation'
 
 test('room, project, and pr use the registered /rooms path with an encoded source id', () => {
   expect(registeredHref('room', 'room/9')).toBe('/rooms?room=room%2F9')
@@ -21,6 +21,9 @@ test('every source kind has a registered one-segment path', () => {
   expect(registeredHref('bot', 'daedalus')).toBe('/rooms/memberships?bot=daedalus')
   expect(registeredHref('session', 'sess-1')).toBe('/sess-1')
   expect(registeredHref('cron', 'job-3')).toBe('/cron-center?job=job-3')
+  expect(registeredHref('cron', 'job-3', { connectionId: 'conn-a', profile: 'worker' })).toBe(
+    '/cron-center?job=job-3&connection=conn-a&profile=worker'
+  )
   expect(registeredHref('artifact', 'art-2')).toBe('/artifacts?id=art-2')
   expect(registeredHref('room', 'room-9').startsWith('/rooms')).toBe(true)
 })
@@ -54,4 +57,9 @@ test('openHomeTarget uses the APIs those surfaces actually consume', () => {
 test('membership search preserves the requested bot', () => {
   expect(botIdFromMembershipSearch('?bot=daedalus')).toBe('daedalus')
   expect(membershipHref('daedalus')).toBe('/rooms/memberships?bot=daedalus')
+})
+
+test('cron center search only becomes a job key when owner identity is complete', () => {
+  expect(cronCenterJobKeyFromSearch('?job=job-3')).toBeNull()
+  expect(cronCenterJobKeyFromSearch('?job=job-3&connection=conn-a&profile=worker')).toBe('conn-a::worker::job-3')
 })

@@ -169,7 +169,9 @@ export class CronCenterStore {
 
     this.$slices.set(retained)
     await Promise.all(owners.map(owner => this.refreshOwner(owner)))
-    this.$status.set('ready')
+    const slices = Object.values(this.$slices.get())
+    const allFailed = slices.length > 0 && slices.every(slice => slice.status === 'error' && slice.jobs.length === 0)
+    this.$status.set(allFailed ? 'error' : 'ready')
   }
 
   private snapshot(owner: CronCenterOwner): CronCenterPersistedJob[] {
@@ -194,6 +196,7 @@ export class CronCenterStore {
   pause(owner: CronCenterOwner, jobId: string): Promise<void> {
     return this.enqueue(owner, async () => {
       const snapshot = this.snapshot(owner)
+      this.nextGeneration(ownerKey(owner))
       this.applyOptimistic(owner, jobId, { enabled: false, state: 'paused' })
 
       try {
@@ -211,6 +214,7 @@ export class CronCenterStore {
   resume(owner: CronCenterOwner, jobId: string): Promise<void> {
     return this.enqueue(owner, async () => {
       const snapshot = this.snapshot(owner)
+      this.nextGeneration(ownerKey(owner))
       this.applyOptimistic(owner, jobId, { enabled: true, state: 'scheduled' })
 
       try {
@@ -228,6 +232,7 @@ export class CronCenterStore {
   update(owner: CronCenterOwner, jobId: string, updates: CronCenterJobUpdates): Promise<void> {
     return this.enqueue(owner, async () => {
       const snapshot = this.snapshot(owner)
+      this.nextGeneration(ownerKey(owner))
       this.applyOptimistic(owner, jobId, {
         name: updates.name ?? snapshot.find(job => job.id === jobId)?.name,
         prompt: updates.prompt ?? snapshot.find(job => job.id === jobId)?.prompt,
@@ -249,6 +254,7 @@ export class CronCenterStore {
   remove(owner: CronCenterOwner, jobId: string): Promise<void> {
     return this.enqueue(owner, async () => {
       const snapshot = this.snapshot(owner)
+      this.nextGeneration(ownerKey(owner))
       this.setSliceJobs(
         owner,
         this.jobsFor(owner).filter(job => job.id !== jobId),
@@ -281,6 +287,8 @@ export class CronCenterStore {
     this.$pendingKey.set(jobKey(owner, jobId))
 
     return this.enqueue(owner, async () => {
+      this.nextGeneration(ownerKey(owner))
+
       try {
         const next = await this.api.trigger(owner, jobId)
         this.replaceJob(owner, next)

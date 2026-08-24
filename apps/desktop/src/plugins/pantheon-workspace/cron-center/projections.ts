@@ -1,7 +1,9 @@
 import type {
+  CronCenterCurrentExecution,
   CronCenterHealth,
   CronCenterHistoryRow,
   CronCenterJobKey,
+  CronCenterLabelBundle,
   CronCenterOwner,
   CronCenterPersistedJob,
   CronCenterRow,
@@ -14,10 +16,15 @@ const asText = (value: unknown): string => (typeof value === 'string' ? value.tr
 const RESULT_LABEL: Record<CronCenterHealth, string> = {
   failed: 'Failed',
   healthy: 'Healthy',
-  'in-progress': 'In progress',
   'needs-attention': 'Needs attention',
   'not-run': 'Not run yet',
   'silent-no-change': 'Silent / no-change'
+}
+
+const DEFAULT_LABELS = {
+  defaultAgent: 'Default',
+  noAgent: 'No agent',
+  results: RESULT_LABEL
 }
 
 export function ownerKey(owner: Pick<CronCenterOwner, 'connectionId' | 'profile'>): string {
@@ -70,10 +77,6 @@ export function projectJobHealth(job: CronCenterPersistedJob): CronCenterHealth 
     return 'needs-attention'
   }
 
-  if (isInProgress(executionStatus)) {
-    return 'in-progress'
-  }
-
   if (state === 'failed' || state === 'error' || lastStatus === 'error' || executionStatus === 'failed') {
     return 'failed'
   }
@@ -91,7 +94,7 @@ export function projectJobHealth(job: CronCenterPersistedJob): CronCenterHealth 
     }
   }
 
-  if (!job.last_run_at && !job.latest_execution && !lastStatus) {
+  if (!job.last_run_at && !lastStatus && (!job.latest_execution || isInProgress(executionStatus))) {
     return 'not-run'
   }
 
@@ -106,7 +109,19 @@ export function projectJobHealth(job: CronCenterPersistedJob): CronCenterHealth 
   return 'healthy'
 }
 
-export function projectCronRow(owner: CronCenterOwner, job: CronCenterPersistedJob): CronCenterRow {
+export function projectCurrentExecution(job: CronCenterPersistedJob): CronCenterCurrentExecution {
+  const executionStatus = asText(job.latest_execution?.status).toLowerCase()
+
+  if (executionStatus === 'running' || executionStatus === 'claimed') {return executionStatus}
+
+  return null
+}
+
+export function projectCronRow(
+  owner: CronCenterOwner,
+  job: CronCenterPersistedJob,
+  labels: CronCenterLabelBundle = DEFAULT_LABELS
+): CronCenterRow {
   const scriptOnly = jobIsScriptOnly(job)
   const result = projectJobHealth(job)
   const provider = scriptOnly ? null : asText(job.provider) || null
@@ -122,11 +137,12 @@ export function projectCronRow(owner: CronCenterOwner, job: CronCenterPersistedJ
     provider,
     model,
     reasoning,
-    agentLabel: scriptOnly ? 'No agent' : model || provider || reasoning ? [provider, model, reasoning].filter(Boolean).join(' / ') : 'Default',
+    agentLabel: scriptOnly ? labels.noAgent : model || provider || reasoning ? [provider, model, reasoning].filter(Boolean).join(' / ') : labels.defaultAgent,
     nextRun: asText(job.next_run_at) || null,
     lastRun: asText(job.last_run_at) || null,
     result,
-    resultLabel: RESULT_LABEL[result],
+    resultLabel: labels.results[result],
+    currentExecution: projectCurrentExecution(job),
     delivery: asText(job.deliver) || 'local',
     failureStreak: Number(job.failure_streak || 0),
     scriptOnly,
