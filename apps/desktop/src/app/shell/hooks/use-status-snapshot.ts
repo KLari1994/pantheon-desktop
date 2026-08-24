@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 
 import { getStatus } from '@/hermes'
 import { evaluateRuntimeReadiness, type RuntimeReadinessResult } from '@/lib/runtime-readiness'
+import { $inferenceReadiness } from '@/store/inference-readiness'
 import type { StatusResponse } from '@/types/hermes'
 
 // Statusbar health is ambient chrome, not live data — nothing the user acts on
@@ -23,17 +24,22 @@ export function useStatusSnapshot(
     let cancelled = false
     let timer: number | undefined
 
+    const publishInferenceStatus = (value: null | RuntimeReadinessResult) => {
+      setInferenceStatus(value)
+      $inferenceReadiness.set(value)
+    }
+
     // Status and inference readiness belong to one backend. A source switch
     // can keep gatewayState="open" throughout, so clear the previous source's
     // snapshot and start a fresh scoped request explicitly.
     setStatusSnapshot(null)
-    setInferenceStatus(null)
+    publishInferenceStatus(null)
 
     // A closed/connecting gateway cannot have an authoritative live-runtime
     // result. Clear readiness before starting the REST status leg so a hung
     // getStatus() cannot leave a stale "ready" state visible after disconnect.
     if (gatewayState !== 'open') {
-      setInferenceStatus(null)
+      publishInferenceStatus(null)
     }
 
     const scheduleRefresh = () => {
@@ -74,14 +80,14 @@ export function useStatusSnapshot(
           const inference = inferenceResult.value
 
           if (inference === null) {
-            setInferenceStatus(null)
+            publishInferenceStatus(null)
           } else if (inference.source !== 'fallback') {
             // runtime_check/setup_status returned an authoritative boolean.
             // A fallback means both RPCs failed or returned no boolean, so it
             // is a transient/unknown transport state, not proof that inference
             // became unconfigured. Keep the last authoritative result instead
             // of flashing "Inference not ready" during a gateway flap.
-            setInferenceStatus(inference)
+            publishInferenceStatus(inference)
           }
         }
       } finally {

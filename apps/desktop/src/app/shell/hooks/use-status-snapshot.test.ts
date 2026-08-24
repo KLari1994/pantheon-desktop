@@ -2,6 +2,7 @@ import { act, cleanup, renderHook } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { getStatus } from '@/hermes'
+import { $inferenceReadiness } from '@/store/inference-readiness'
 
 import { deferred } from '../../../test/deferred'
 
@@ -25,6 +26,7 @@ beforeEach(() => {
   vi.mocked(getStatus)
     .mockReset()
     .mockResolvedValue({} as never)
+  $inferenceReadiness.set(null)
 })
 
 afterEach(() => {
@@ -222,5 +224,34 @@ describe('useStatusSnapshot', () => {
       await vi.advanceTimersByTimeAsync(1)
     })
     expect(requestGatewayMock).toHaveBeenCalledTimes(4)
+  })
+
+  it('mirrors readiness into $inferenceReadiness for non-statusbar consumers', async () => {
+    const requestGateway = vi.fn(
+      async (method: string) =>
+        (method === 'setup.runtime_check' ? { ok: true } : { provider_configured: true }) as never
+    ) as unknown as GatewayRequester
+
+    renderHook(() => useStatusSnapshot('open', requestGateway))
+    await flushAsync()
+
+    expect($inferenceReadiness.get()).toMatchObject({ ready: true, source: 'runtime_check' })
+  })
+
+  it('clears the mirrored readiness when the gateway leaves open', async () => {
+    const requestGateway = vi.fn(
+      async (method: string) =>
+        (method === 'setup.runtime_check' ? { ok: true } : { provider_configured: true }) as never
+    ) as unknown as GatewayRequester
+
+    const { rerender } = renderHook(({ gatewayState }) => useStatusSnapshot(gatewayState, requestGateway), {
+      initialProps: { gatewayState: 'open' }
+    })
+
+    await flushAsync()
+    expect($inferenceReadiness.get()).not.toBeNull()
+
+    rerender({ gatewayState: 'closed' })
+    expect($inferenceReadiness.get()).toBeNull()
   })
 })
