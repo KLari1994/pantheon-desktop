@@ -1,5 +1,7 @@
 import { type CSSProperties, useState } from 'react'
 
+import { Button } from '@/components/ui/button'
+import { runtimeReadinessDisplay, type RuntimeReadinessResult } from '@/lib/runtime-readiness'
 import { capitalize, normalize } from '@/lib/text'
 
 import introCopyJsonl from './intro-copy.jsonl?raw'
@@ -16,6 +18,8 @@ type IntroCopyRecord = IntroCopy & {
 export type IntroProps = {
   personality?: string
   seed?: number
+  /** First-run affordance: when set, the landing offers provider setup. */
+  onOpenSetup?: () => void
 }
 
 const NEUTRAL_PERSONALITIES = new Set(['', 'default', 'none', 'neutral'])
@@ -157,7 +161,24 @@ export function resolveCopy(personality?: string, seed?: number): IntroCopy {
   return pickCopy(copies, seed)
 }
 
-export function Intro({ personality, seed }: IntroProps) {
+// The landing only offers setup when it would tell the truth: the gateway is
+// live, readiness is PROVEN broken (checking stays silent), and this is a
+// first run with nothing else to click.
+export function shouldOfferIntroSetup(input: {
+  gatewayState: string | undefined
+  sessionCount: number
+  readiness: null | RuntimeReadinessResult
+}): boolean {
+  if (input.gatewayState !== 'open' || input.sessionCount > 0) {
+    return false
+  }
+
+  const display = runtimeReadinessDisplay(input.readiness)
+
+  return display === 'needs_setup' || display === 'unavailable'
+}
+
+export function Intro({ onOpenSetup, personality, seed }: IntroProps) {
   const [mountSeed] = useState(() => Math.floor(Math.random() * 100000))
   const copy = resolveCopy(personality, mountSeed + (seed ?? 0))
 
@@ -179,6 +200,14 @@ export function Intro({ personality, seed }: IntroProps) {
         </p>
 
         <p className="m-0 text-center leading-normal tracking-tight">{copy.body}</p>
+
+        {onOpenSetup && (
+          <div className="pointer-events-auto mt-4 flex justify-center">
+            <Button onClick={onOpenSetup} size="sm" type="button" variant="outline">
+              Set up a provider
+            </Button>
+          </div>
+        )}
       </div>
     </div>
   )

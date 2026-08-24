@@ -4,12 +4,13 @@ import { useQuery } from '@tanstack/react-query'
 import type { ReadableAtom } from 'nanostores'
 import type * as React from 'react'
 import { memo, Suspense, useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
-import { useLocation } from 'react-router'
+import { useLocation, useNavigate } from 'react-router'
 
 import type { SubmitTextOptions } from '@/app/session/hooks/use-prompt-actions/utils'
 import { Thread } from '@/components/assistant-ui/thread'
 import { TranscriptWindowProvider } from '@/components/assistant-ui/thread/transcript-window'
 import { Backdrop } from '@/components/Backdrop'
+import { shouldOfferIntroSetup } from '@/components/chat/intro'
 import { COMPOSER_HEART_CONFIG, HeartField } from '@/components/chat/vibe-hearts'
 import { usePaneVisible } from '@/components/pane-shell/pane-visibility'
 import { $sessionTileDragging, $sessionTileEdgeHover } from '@/components/pane-shell/tree/store'
@@ -27,6 +28,7 @@ import { useStoreSelector } from '@/lib/use-session-slice'
 import { cn } from '@/lib/utils'
 import { migrateSessionDraft } from '@/store/composer'
 import { migrateQueuedPrompts, parkQueuedPrompts } from '@/store/composer-queue'
+import { $inferenceReadiness } from '@/store/inference-readiness'
 import { $introSplash } from '@/store/intro-splash'
 import { $pinnedSessionIds } from '@/store/layout'
 import { $petActive } from '@/store/pet'
@@ -52,7 +54,7 @@ import { $transcriptTailBySessionId, transcriptTailState } from '@/store/transcr
 import { isAuxiliaryWindow, isWatchWindow } from '@/store/windows'
 import type { ModelOptionsResponse } from '@/types/hermes'
 
-import { primaryRouteSelectedSessionId, routeSessionId } from '../routes'
+import { COMMAND_CENTER_ROUTE, primaryRouteSelectedSessionId, routeSessionId } from '../routes'
 import { titlebarHeaderBaseClass, titlebarHeaderShadowClass, titlebarHeaderTitleClass } from '../shell/titlebar'
 
 import { ChatDropOverlay } from './chat-drop-overlay'
@@ -384,6 +386,7 @@ const ChatViewContent = memo(function ChatViewContent({
   onDismissError
 }: ChatViewProps) {
   const location = useLocation()
+  const navigate = useNavigate()
   const { t } = useI18n()
   // The view this surface renders: the primary route-driven session (global
   // atoms) or a tile's session slice — same component either way.
@@ -433,6 +436,14 @@ const ChatViewContent = memo(function ChatViewContent({
   const lastVisibleIsUser = useStore(view.$lastVisibleIsUser)
   const selectedSessionId = useStore(view.$storedId)
   const sessions = useStore($sessions)
+  const inferenceReadiness = useStore($inferenceReadiness)
+  // Same seam as the statusbar's openCommandCenterSection('system').
+  const openSystemSetup = useCallback(() => navigate(`${COMMAND_CENTER_ROUTE}?section=system`), [navigate])
+  const offerIntroSetup = shouldOfferIntroSetup({
+    gatewayState,
+    readiness: inferenceReadiness,
+    sessionCount: sessions.length
+  })
   const resumeExhaustedSessionId = useStore($resumeExhaustedSessionId)
 
   // Durable composer/queue scope (lineage root) so auto-compression tip rotation
@@ -644,7 +655,11 @@ const ChatViewContent = memo(function ChatViewContent({
             clampToComposer={showChatBar}
             cwd={currentCwd}
             gateway={gateway}
-            intro={showIntro ? { personality: introPersonality, seed: introSeed } : undefined}
+            intro={
+              showIntro
+                ? { personality: introPersonality, seed: introSeed, onOpenSetup: offerIntroSetup ? openSystemSetup : undefined }
+                : undefined
+            }
             loading={threadLoading}
             onBranchInNewChat={onBranchInNewChat}
             onCancel={haltRun}
