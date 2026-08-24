@@ -130,3 +130,18 @@ test('disposal exits /projects', () => {
   expect(navigate).toHaveBeenCalledWith('/')
   vi.unstubAllGlobals()
 })
+
+test('registers thin /search and /memory route roots after Projects', () => {
+  const ctx = fakeCtx()
+  plugin.register(ctx as unknown as PluginContext)
+  const routePaths = ctx.contributions.filter(item => item.area === 'routes').map(item => item.data?.path)
+  expect(routePaths).toContain('/search')
+  expect(routePaths).toContain('/memory')
+  const projectsNav = ctx.contributions.find(item => item.data?.label === 'Projects')
+  const searchNav = ctx.contributions.find(item => item.data?.label === 'Search')
+  const memoryNav = ctx.contributions.find(item => item.data?.label === 'Memory')
+  expect(searchNav).toBeTruthy()
+  expect(memoryNav).toBeTruthy()
+  expect((projectsNav?.order ?? 99) < (searchNav?.order ?? 0)).toBe(true)
+  expect((searchNav?.order ?? 99) < (memoryNav?.order ?? 0)).toBe(true)
+})

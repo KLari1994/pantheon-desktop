@@ -1,37 +1,80 @@
 import { atom } from 'nanostores'
 
+import type { ProfileScope } from '@/api/client'
 import { getStarmapGraph } from '@/hermes'
 import type { StarmapGraph } from '@/types/hermes'
 
 // On-demand cache for the star map. The graph scan touches the skills catalog +
 // usage ledger + memory files, so we fetch it only when the panel opens (and on
-// an explicit refresh), never on a turn boundary.
+// an explicit refresh), never on a turn boundary. Routed loads are keyed so a
+// Memory Graph switch cannot paint another profile's nodes from a shared atom.
 export const $starmapGraph = atom<StarmapGraph | null>(null)
+export const $starmapGraphKey = atom('')
 export const $starmapLoading = atom(false)
 export const $starmapError = atom<null | string>(null)
 
 let inflight: Promise<void> | null = null
+let inflightKey: string | null = null
+let loadGeneration = 0
 
-export async function loadStarmapGraph(force = false): Promise<void> {
-  if (inflight) {
+export function starmapScopeKey(scope?: ProfileScope): string {
+  if (scope && typeof scope === 'object') {
+    return `${String(scope.connectionId || '').trim()}::${String(scope.profile || '').trim()}`
+  }
+
+  if (typeof scope === 'string' && scope.trim()) {
+    return `::${scope.trim()}`
+  }
+
+  return 'active'
+}
+
+export function starmapGraphForRoute(routeKey: string): StarmapGraph | null {
+  if (routeKey && $starmapGraphKey.get() !== routeKey) {
+    return null
+  }
+
+  return $starmapGraph.get()
+}
+
+export async function loadStarmapGraph(force = false, scope?: ProfileScope): Promise<void> {
+  const key = starmapScopeKey(scope)
+
+  if (inflight && inflightKey === key) {
     return inflight
   }
 
-  if ($starmapGraph.get() && !force) {
+  if ($starmapGraph.get() && !force && $starmapGraphKey.get() === key) {
     return
   }
 
+  const generation = ++loadGeneration
   $starmapLoading.set(true)
   $starmapError.set(null)
+  inflightKey = key
 
   inflight = (async () => {
     try {
-      $starmapGraph.set(await getStarmapGraph())
+      const graph = await getStarmapGraph(scope)
+
+      if (generation !== loadGeneration) {
+        return
+      }
+
+      $starmapGraph.set(graph)
+      $starmapGraphKey.set(key)
     } catch (err) {
+      if (generation !== loadGeneration) {
+        return
+      }
+
       $starmapError.set(err instanceof Error ? err.message : String(err))
     } finally {
-      $starmapLoading.set(false)
-      inflight = null
+      if (generation === loadGeneration) {
+        $starmapLoading.set(false)
+        inflight = null
+        inflightKey = null
+      }
     }
   })()
 
@@ -59,7 +102,10 @@ export function evictStarmapNode(id: string): () => void {
 
 /** Drop the cache so the next open refetches against the now-active profile. */
 export function resetStarmapGraph(): void {
+  loadGeneration += 1
   inflight = null
+  inflightKey = null
   $starmapGraph.set(null)
+  $starmapGraphKey.set('')
   $starmapError.set(null)
 }

@@ -246,6 +246,31 @@ describe('downloadGatewayMediaFile', () => {
     })
   })
 
+  it('fails closed when the owning connection is not the active gateway', async () => {
+    $connection.set({ mode: 'remote', profile: 'docker-gw' } as never)
+
+    await expect(
+      downloadGatewayMediaFile('/tmp/report.pdf', { connectionId: 'homelab', profile: 'ops' })
+    ).rejects.toThrow('owning gateway connection')
+    expect(saveGatewayFile).not.toHaveBeenCalled()
+  })
+
+  it('downloads when the owner matches the active connection', async () => {
+    $connection.set({ connectionId: 'homelab', mode: 'remote', profile: 'ops' } as never)
+
+    await expect(
+      downloadGatewayMediaFile('/tmp/report.pdf', { connectionId: 'homelab', profile: 'ops' })
+    ).resolves.toEqual({
+      path: '/Users/me/Downloads/report.md',
+      saved: true
+    })
+    expect(saveGatewayFile).toHaveBeenCalledWith({
+      path: '/tmp/report.pdf',
+      profile: 'ops',
+      suggestedName: 'report.pdf'
+    })
+  })
+
   it('rejects when the desktop bridge is unavailable', async () => {
     vi.stubGlobal('window', { hermesDesktop: {} })
 

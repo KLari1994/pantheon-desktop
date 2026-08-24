@@ -197,11 +197,28 @@ export async function gatewayMediaDataUrl(path: string): Promise<string> {
 // bytes through the authenticated backend connection and save them locally. This
 // avoids browser/OS downloads losing OAuth cookies and avoids the data-URL cap
 // used by preview endpoints.
+function activeDownloadConnectionId(conn: { connectionId?: string; mode?: string } | null | undefined): string {
+  const connectionId = String(conn?.connectionId || '').trim()
+
+  if (connectionId) {
+    return connectionId
+  }
+
+  return conn?.mode === 'local' ? 'local' : ''
+}
+
 export async function downloadGatewayMediaFile(
-  path: string
+  path: string,
+  owner?: { connectionId?: string; profile?: string }
 ): Promise<{ canceled?: boolean; path?: string; saved: boolean }> {
   const file = filePathFromMediaPath(path)
   const conn = $connection.get()
+  const requestedConnectionId = owner?.connectionId?.trim()
+  const activeConnectionId = activeDownloadConnectionId(conn)
+
+  if (requestedConnectionId && requestedConnectionId !== activeConnectionId) {
+    throw new Error('Remote artifact download requires the owning gateway connection')
+  }
 
   if (!window.hermesDesktop?.saveGatewayFile) {
     throw new Error('Desktop file download bridge is unavailable')
@@ -209,7 +226,7 @@ export async function downloadGatewayMediaFile(
 
   return window.hermesDesktop.saveGatewayFile({
     path: file,
-    profile: conn?.profile,
+    profile: owner?.profile || conn?.profile,
     suggestedName: mediaName(file)
   })
 }

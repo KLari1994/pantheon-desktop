@@ -32,6 +32,8 @@ import { ProjectPage } from './projects/project-page'
 import { HomePage } from './home/home-page'
 import { startHomeIngestion } from './home/ingest'
 import { botIdFromMembershipSearch, cronCenterJobKeyFromSearch, openHomeTarget, pickRoomId, registeredHref } from './home/navigation'
+import { MemoryPage } from './memory/memory-page'
+import { AgentEditorCapabilities } from './memory/capability-embed'
 import {
   applyHomeSourceSnapshot,
   collectApprovalInboxRows,
@@ -55,6 +57,7 @@ import {
 import { RoomList } from './rooms/room-list'
 import { RoomWorkspace } from './rooms/room-workspace'
 import { type RoomLiveEvent, RoomsStore } from './rooms/store'
+import { SearchPage } from './search/search-page'
 
 function useStoreValue<T>(store: { get: () => T; listen: (listener: (next: T) => void) => () => void }): T {
   return useSyncExternalStore(store.listen, store.get, store.get)
@@ -583,6 +586,8 @@ const plugin: HermesPlugin = {
   register(ctx) {
     ;(globalThis as { __PantheonAgentRooms?: typeof AgentEditorRoomsMount }).__PantheonAgentRooms =
       AgentEditorRoomsMount
+    ;(globalThis as { __PantheonAgentCapabilities?: typeof AgentEditorCapabilities }).__PantheonAgentCapabilities =
+      AgentEditorCapabilities
     const disposeNotifications = bindHomeNotifications(ctx)
     ctx.i18n.register(CRON_CENTER_LOCALES)
     ctx.i18n.register(PROJECT_LOCALES)
@@ -638,6 +643,30 @@ const plugin: HermesPlugin = {
         data: { codicon: 'repo', label: 'Projects', path: '/projects' } satisfies SidebarNavContribution
       },
       {
+        id: 'search-page',
+        area: ROUTES_AREA,
+        data: { path: '/search' } satisfies RouteContribution,
+        render: () => <SearchPage />
+      },
+      {
+        id: 'search-nav',
+        area: SIDEBAR_NAV_AREA,
+        order: 28,
+        data: { codicon: 'search', label: 'Search', path: '/search' } satisfies SidebarNavContribution
+      },
+      {
+        id: 'memory-page',
+        area: ROUTES_AREA,
+        data: { path: '/memory' } satisfies RouteContribution,
+        render: () => <MemoryPage />
+      },
+      {
+        id: 'memory-nav',
+        area: SIDEBAR_NAV_AREA,
+        order: 29,
+        data: { codicon: 'type-hierarchy', label: 'Memory', path: '/memory' } satisfies SidebarNavContribution
+      },
+      {
         id: 'agent-rooms',
         area: ROUTES_AREA,
         data: { path: '/rooms/memberships' } satisfies RouteContribution,
@@ -647,9 +676,10 @@ const plugin: HermesPlugin = {
     ctx.onDispose(() => {
       disposeNotifications()
       delete (globalThis as { __PantheonAgentRooms?: typeof AgentEditorRoomsMount }).__PantheonAgentRooms
+      delete (globalThis as { __PantheonAgentCapabilities?: typeof AgentEditorCapabilities }).__PantheonAgentCapabilities
       const path = window.location.pathname
 
-      if (typeof host.navigate === 'function' && (path.startsWith('/rooms') || path === '/home' || path.startsWith('/cron-center') || path.startsWith('/projects'))) {
+      if (typeof host.navigate === 'function' && (path.startsWith('/rooms') || path === '/home' || path.startsWith('/cron-center') || path.startsWith('/projects') || path.startsWith('/search') || path.startsWith('/memory'))) {
         host.navigate('/')
       }
     })

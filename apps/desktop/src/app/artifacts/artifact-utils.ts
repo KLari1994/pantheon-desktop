@@ -14,6 +14,8 @@ export interface ArtifactRecord {
   sessionId: string
   sessionTitle: string
   timestamp: number
+  connectionId?: string
+  profile?: string
 }
 
 export interface ArtifactLoadFailure {
@@ -418,7 +420,9 @@ export function collectArtifactsForSession(session: SessionInfo, messages: Sessi
         label: artifactLabel(value),
         sessionId: session.id,
         sessionTitle: title,
-        timestamp: artifactTimestamp(message, session)
+        timestamp: artifactTimestamp(message, session),
+        ...(session.connection_id ? { connectionId: session.connection_id } : {}),
+        ...(session.profile ? { profile: session.profile } : {})
       })
     })
   }
