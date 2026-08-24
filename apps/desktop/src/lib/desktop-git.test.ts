@@ -123,4 +123,55 @@ describe('desktop git facade', () => {
       path: '/api/git/worktree/add'
     })
   })
+
+  it('adds connectionId and profile to GET and POST when an explicit target is given', async () => {
+    $connection.set({ mode: 'local' } as never)
+
+    await desktopGit({ connectionId: 'homelab', profile: 'daedalus' })?.repoStatus('/srv/work')
+    await desktopGit({ connectionId: 'homelab', profile: 'daedalus' })?.review.stage('/srv/work', 'a.txt')
+
+    expect(api).toHaveBeenCalledWith({
+      connectionId: 'homelab',
+      path: '/api/git/status?path=%2Fsrv%2Fwork',
+      profile: 'daedalus'
+    })
+    expect(api).toHaveBeenCalledWith({
+      body: { file: 'a.txt', path: '/srv/work' },
+      connectionId: 'homelab',
+      method: 'POST',
+      path: '/api/git/review/stage',
+      profile: 'daedalus'
+    })
+  })
+
+  it('routes an explicit remote target even while ambient state is local', async () => {
+    $connection.set({ mode: 'local' } as never)
+
+    await expect(desktopGit({ connectionId: 'homelab', profile: 'daedalus' })?.repoStatus('/srv/work')).resolves.toEqual({
+      branch: 'remote-main'
+    })
+    expect(repoStatus).not.toHaveBeenCalled()
+    expect(api).toHaveBeenCalled()
+  })
+
+  it('keeps an explicit local target on Electron git', async () => {
+    $connection.set({ mode: 'remote', profile: 'remote-docker' } as never)
+
+    await expect(desktopGit({ connectionId: 'local', profile: 'default' })?.repoStatus('/work')).resolves.toEqual({
+      branch: 'main'
+    })
+    expect(repoStatus).toHaveBeenCalledWith('/work')
+    expect(api).not.toHaveBeenCalled()
+  })
+
+  it('propagates explicit-target failures without retrying Electron-local git', async () => {
+    $connection.set({ mode: 'local' } as never)
+    api.mockRejectedValueOnce(new Error('homelab unreachable'))
+
+    await expect(desktopGit({ connectionId: 'homelab', profile: 'daedalus' })?.worktreeList('/srv/work')).rejects.toThrow(
+      'homelab unreachable'
+    )
+    expect(worktreeList).not.toHaveBeenCalled()
+    expect(api).toHaveBeenCalledTimes(1)
+  })
 })

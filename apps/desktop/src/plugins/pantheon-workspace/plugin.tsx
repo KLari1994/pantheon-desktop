@@ -27,6 +27,8 @@ import { CronCenterApi } from './cron-center/api'
 import { CronCenterPage } from './cron-center/cron-center-page'
 import { CRON_CENTER_LOCALES, useCronCenterText } from './cron-center/i18n'
 import { CronCenterStore } from './cron-center/store'
+import { PROJECT_LOCALES } from './projects/i18n'
+import { ProjectPage } from './projects/project-page'
 import { HomePage } from './home/home-page'
 import { startHomeIngestion } from './home/ingest'
 import { botIdFromMembershipSearch, cronCenterJobKeyFromSearch, openHomeTarget, pickRoomId, registeredHref } from './home/navigation'
@@ -68,7 +70,7 @@ function useRoomsSearch(): string {
   }
 }
 
-function RoomsPage() {
+function RoomsPage({ embedded, roomId }: { embedded?: boolean; roomId?: string } = {}) {
   const store = useMemo(() => new RoomsStore(undefined, undefined), [])
   const rooms = useStoreValue(store.$rooms)
   const windows = useStoreValue(store.$windows)
@@ -115,7 +117,7 @@ function RoomsPage() {
           }
         })
 
-        const targetId = pickRoomId(
+        const targetId = roomId || pickRoomId(
           page.rooms.map(room => room.id),
           search
         )
@@ -135,7 +137,7 @@ function RoomsPage() {
       cancelled = true
       unsubscribe()
     }
-  }, [search, store])
+  }, [roomId, search, store])
 
   useEffect(() => {
     if (!selected) {return}
@@ -197,6 +199,7 @@ function RoomsPage() {
 
   return (
     <div className="flex h-full min-h-0">
+      {embedded ? null : (
       <aside className="w-72 border-r border-(--ui-stroke-tertiary)">
         <RoomList
           onSelect={id => {
@@ -206,6 +209,7 @@ function RoomsPage() {
           selectedId={selected.id}
         />
       </aside>
+      )}
       <RoomWorkspace
         diagnostics={diagnostics}
         failed={failed}
@@ -581,6 +585,7 @@ const plugin: HermesPlugin = {
       AgentEditorRoomsMount
     const disposeNotifications = bindHomeNotifications(ctx)
     ctx.i18n.register(CRON_CENTER_LOCALES)
+    ctx.i18n.register(PROJECT_LOCALES)
     ctx.registerMany([
       {
         id: 'home-page',
@@ -621,6 +626,18 @@ const plugin: HermesPlugin = {
         data: { codicon: 'comment-discussion', label: 'Rooms', path: '/rooms' } satisfies SidebarNavContribution
       },
       {
+        id: 'projects-page',
+        area: ROUTES_AREA,
+        data: { path: '/projects' } satisfies RouteContribution,
+        render: () => <ProjectPage renderConversation={id => <RoomsPage embedded roomId={id} />} />
+      },
+      {
+        id: 'projects-nav',
+        area: SIDEBAR_NAV_AREA,
+        order: 27,
+        data: { codicon: 'repo', label: 'Projects', path: '/projects' } satisfies SidebarNavContribution
+      },
+      {
         id: 'agent-rooms',
         area: ROUTES_AREA,
         data: { path: '/rooms/memberships' } satisfies RouteContribution,
@@ -632,7 +649,7 @@ const plugin: HermesPlugin = {
       delete (globalThis as { __PantheonAgentRooms?: typeof AgentEditorRoomsMount }).__PantheonAgentRooms
       const path = window.location.pathname
 
-      if (typeof host.navigate === 'function' && (path.startsWith('/rooms') || path === '/home' || path.startsWith('/cron-center'))) {
+      if (typeof host.navigate === 'function' && (path.startsWith('/rooms') || path === '/home' || path.startsWith('/cron-center') || path.startsWith('/projects'))) {
         host.navigate('/')
       }
     })
