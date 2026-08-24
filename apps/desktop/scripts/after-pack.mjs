@@ -19,9 +19,34 @@
  *   - packager.appInfo.productFilename: the exe basename (e.g. 'Hermes')
  */
 
+import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { createHash } from 'node:crypto'
 import path from 'node:path'
 
 import { stampExeIdentity } from './set-exe-identity.mjs'
+import { WINDOWS_SIDECAR_TARGETS } from './before-pack.mjs'
+
+export function verifyBuzzSidecar({ platform, arch, appOutDir, desktopRoot = path.resolve(import.meta.dirname, '..') }) {
+  const target = `${platform}-${arch}`
+  if (!WINDOWS_SIDECAR_TARGETS.has(target)) {
+    return { verified: false, target }
+  }
+  const staged = path.join(desktopRoot, 'build', 'sidecars', target, 'buzz-bridge.exe')
+  const receipt = path.join(desktopRoot, 'build', 'sidecars', target, 'buzz-bridge.sha256')
+  if (!existsSync(staged) || !existsSync(receipt)) {
+    throw new Error(`[after-pack] missing staged Buzz sidecar for ${target}`)
+  }
+  const expected = readFileSync(receipt, 'utf8').trim()
+  const actual = createHash('sha256').update(readFileSync(staged)).digest('hex')
+  if (expected !== actual) {
+    throw new Error(`[after-pack] Buzz sidecar SHA-256 mismatch for ${target}`)
+  }
+  const destDir = path.join(appOutDir, 'resources', 'buzz-bridge')
+  mkdirSync(destDir, { recursive: true })
+  copyFileSync(staged, path.join(destDir, 'buzz-bridge.exe'))
+  writeFileSync(path.join(destDir, 'buzz-bridge.sha256'), `${actual}\n`)
+  return { verified: true, target, sha256: actual }
+}
 
 export default async function afterPack(context) {
   if (context.electronPlatformName !== 'win32') {
@@ -31,6 +56,14 @@ export default async function afterPack(context) {
   const productName = context.packager?.appInfo?.productFilename || 'Hermes'
   const exe = path.join(context.appOutDir, `${productName}.exe`)
   const desktopRoot = path.resolve(import.meta.dirname, '..')
+  const archName = context.arch === 3 ? 'arm64' : 'x64'
+
+  verifyBuzzSidecar({
+    platform: context.electronPlatformName,
+    arch: archName,
+    appOutDir: context.appOutDir,
+    desktopRoot
+  })
 
   try {
     await stampExeIdentity(exe, desktopRoot)

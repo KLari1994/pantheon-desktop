@@ -470,6 +470,17 @@ declare global {
       // already grabbed the chord (#81727, e.g. Pop!_OS / GNOME).
       onOpenFindBarRequested: (callback: () => void) => () => void
     }
+    pantheonBuzz: {
+      status: () => Promise<import('./pantheon/buzz-client').BuzzStatus>
+      listRooms: (input?: { cursor?: string }) => Promise<import('./pantheon/buzz-client').BuzzRoomPage>
+      getRoom: (input: { roomId: string }) => Promise<import('./pantheon/buzz-client').BuzzRoom>
+      getMessages: (input: {
+        roomId: string
+        before?: string
+        limit: number
+      }) => Promise<import('./pantheon/buzz-client').BuzzMessageWindow>
+      subscribe: (callback: (event: import('./pantheon/buzz-client').BuzzBridgeEvent) => void) => () => void
+    }
   }
 }
 

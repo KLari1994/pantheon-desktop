@@ -493,3 +493,16 @@ contextBridge.exposeInMainWorld('hermesDesktop', {
     return () => ipcRenderer.removeListener('hermes:open-find-bar', listener)
   }
 })
+
+contextBridge.exposeInMainWorld('pantheonBuzz', {
+  status: () => ipcRenderer.invoke('pantheon-buzz:status'),
+  listRooms: input => ipcRenderer.invoke('pantheon-buzz:rooms.list', input),
+  getRoom: input => ipcRenderer.invoke('pantheon-buzz:rooms.get', input),
+  getMessages: input => ipcRenderer.invoke('pantheon-buzz:messages.window', input),
+  subscribe: callback => {
+    const listener = (_event, payload) => callback(payload)
+    ipcRenderer.on('pantheon-buzz:event', listener)
+
+    return () => ipcRenderer.removeListener('pantheon-buzz:event', listener)
+  }
+})

@@ -42,7 +42,16 @@ jobs:
         run: npm -w apps/desktop run test:ui
 
       - name: Electron platform tests
-        run: npm -w apps/desktop run test:desktop:platforms
+        run: npm -w apps/desktop exec vitest run electron/pantheon-buzz-ipc.test.ts src/pantheon/buzz-client.test.ts src/plugins/pantheon-workspace/rooms/read-only-room.test.tsx
+
+      - name: Build Windows Buzz sidecar
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo build --release --manifest-path pantheon/buzz-bridge/Cargo.toml
+          mkdir -p pantheon/buzz-bridge/dist/win32-x64
+          cp -f pantheon/buzz-bridge/target/release/buzz-bridge.exe pantheon/buzz-bridge/dist/win32-x64/buzz-bridge.exe
+          test -f pantheon/buzz-bridge/dist/win32-x64/buzz-bridge.exe
 
       - name: Non-publishing Windows pack
         run: npm -w apps/desktop run pack
