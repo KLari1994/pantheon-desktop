@@ -9,6 +9,7 @@ import {
   MARKER_SELF_ADOPT_EPOCH_MS,
   observeUpdaterHandoff,
   resolvePosixScriptHandoff,
+  resolveRollbackHandoff,
   resolveStagedUpdaterBinary,
   resolveUpdateScriptHandoff,
   sandboxFallbackFromEnv,
@@ -459,4 +460,38 @@ test('observeUpdaterHandoff settles ok for children without an event interface',
   const outcome = await outcomePromise
 
   assert.equal(outcome.ok, true)
+})
+
+test('resolveRollbackHandoff appends explicit rollback args for the host script', () => {
+  const posix = resolveRollbackHandoff(
+    '/opt/hermes',
+    { backupDir: '/opt/hermes/pantheon/backups/1', previousCommit: 'abc123' },
+    {
+      isWindows: false,
+      fileExists: candidate => candidate.endsWith(`${path.sep}posix.sh`)
+    }
+  )
+  assert.ok(posix)
+  assert.deepEqual(posix.args.slice(-4), [
+    '--rollback',
+    '--backup-dir',
+    '/opt/hermes/pantheon/backups/1',
+    '--previous-commit',
+    'abc123'
+  ].slice(-4))
+  assert.ok(posix.args.includes('--rollback'))
+  assert.ok(posix.args.includes('--backup-dir'))
+  assert.ok(posix.args.includes('--previous-commit'))
+
+  const windows = resolveRollbackHandoff(
+    'C:\\\\Hermes',
+    { backupDir: 'C:\\\\Hermes\\\\pantheon\\\\backups\\\\1' },
+    {
+      isWindows: true,
+      fileExists: candidate => candidate.endsWith('windows.ps1')
+    }
+  )
+  assert.ok(windows)
+  assert.ok(windows.args.includes('-Rollback'))
+  assert.ok(windows.args.includes('-BackupDir'))
 })

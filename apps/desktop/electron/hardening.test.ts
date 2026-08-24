@@ -14,6 +14,7 @@ import {
   DEFAULT_FETCH_TIMEOUT_MS,
   enableBasicPasswordStoreEncryption,
   encryptDesktopSecret,
+  pantheonAdapterInstallBlockReason,
   readFileDataUrlForIpc,
   resolveDirectoryForIpc,
   resolvePersistedRemoteToken,
@@ -22,8 +23,11 @@ import {
   resolveTimeoutMs,
   SAFE_STORAGE_ENCODING,
   SECRET_FILE_MODE,
+  secretShapedValue,
+  sha256File,
   sensitiveFileBlockReason,
   tightenSecretFileMode,
+  verifyPinnedArtifacts,
   writeSecretFileAtomic
 } from './hardening'
 
@@ -1016,4 +1020,40 @@ test('sanitizeDesktopConnectionConfig exposes secureTokenStorage and remoteToken
   const returned = body.slice(returnIndex)
   assert.match(returned, /\bsecureTokenStorage\b/, 'the renderer needs the secure-storage availability signal')
   assert.match(returned, /\bremoteTokenPlainText\b/, 'the renderer needs the plain-text token signal')
+})
+
+test('secretShapedValue catches nsec, hex, sk-, bearer, and JWT shapes', () => {
+  assert.equal(secretShapedValue(`nsec1${'a'.repeat(20)}`), true)
+  assert.equal(secretShapedValue('a'.repeat(64)), true)
+  assert.equal(secretShapedValue('sk-live-secretvalue'), true)
+  assert.equal(secretShapedValue('Bearer abcdefghijklmnopqr'), true)
+  assert.equal(secretShapedValue('eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxIn0.abc'), true)
+  assert.equal(secretShapedValue('npub1alice'), false)
+  assert.equal(secretShapedValue('https://relay.example'), false)
+  assert.equal(secretShapedValue('deadbeef'), false)
+})
+
+test('verifyPinnedArtifacts reports missing and hash-mismatch adapters', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'pantheon-pin-'))
+  const relPath = path.join('buzz-bridge', 'buzz-bridge')
+  fs.mkdirSync(path.join(dir, 'buzz-bridge'), { recursive: true })
+  fs.writeFileSync(path.join(dir, relPath), 'bridge')
+  const sha256 = sha256File(path.join(dir, relPath))
+
+  assert.equal(verifyPinnedArtifacts(dir, [{ relPath, sha256 }]).ok, true)
+  assert.deepEqual(verifyPinnedArtifacts(dir, [{ relPath, sha256: '0'.repeat(64) }]).failures, [
+    { relPath, reason: 'hash-mismatch' }
+  ])
+  assert.deepEqual(verifyPinnedArtifacts(dir, [{ relPath: 'missing.bin', sha256 }]).failures, [
+    { relPath: 'missing.bin', reason: 'missing' }
+  ])
+})
+
+test('pantheonAdapterInstallBlockReason rejects remote adapter identifiers', () => {
+  assert.match(
+    String(pantheonAdapterInstallBlockReason('https://github.com/acme/buzz-bridge')),
+    /packaged local resources/
+  )
+  assert.match(String(pantheonAdapterInstallBlockReason('acme/pantheon-buzz')), /rejected/)
+  assert.equal(pantheonAdapterInstallBlockReason('acme/notes-helper'), null)
 })

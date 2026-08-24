@@ -14,13 +14,22 @@ import type {
   DesktopUpdateStatus,
   DesktopVersionInfo
 } from '@/global'
+import { $terminals } from '@/app/right-sidebar/terminal/terminals'
 import { checkHermesUpdate, getActionStatus, updateHermes } from '@/hermes'
 import { translateNow } from '@/i18n'
 import { persistString, storedString } from '@/lib/storage'
 import { $connectionsRegistry, refreshConnectionsRegistry } from '@/store/connections'
+import { $composerDraft, $draftTitles } from '@/store/composer'
 import { dismissNotification, notify } from '@/store/notifications'
-import { $connection } from '@/store/session'
+import { $awaitingResponse, $busy, $connection } from '@/store/session'
+import { $workingSessionIds } from '@/store/session-states'
 import type { BackendUpdateCheckResponse } from '@/types/hermes'
+
+import {
+  decidePantheonUpdate,
+  type PantheonActivitySnapshot,
+  type PantheonUpdateBlocker
+} from '../../electron/pantheon-update-preflight'
 
 export interface UpdateApplyState {
   applying: boolean
@@ -74,6 +83,125 @@ export const resetUpdateApplyState = () => {
 }
 
 const UPDATE_TOAST_ID = 'desktop-update-available'
+
+const BLOCKER_COPY: Record<PantheonUpdateBlocker, string> = {
+  'status-unavailable': 'updates.pantheonBlockers.statusUnavailable',
+  'active-agent': 'updates.pantheonBlockers.activeAgent',
+  'streaming-session': 'updates.pantheonBlockers.streamingSession',
+  'active-terminal-process': 'updates.pantheonBlockers.activeTerminalProcess',
+  'computer-use-active': 'updates.pantheonBlockers.computerUseActive',
+  'unsaved-draft': 'updates.pantheonBlockers.unsavedDraft',
+  'bridge-unhealthy': 'updates.pantheonBlockers.bridgeUnhealthy'
+}
+
+async function readBridgeHealthy(): Promise<PantheonActivitySnapshot['bridgeHealthy']> {
+  const statusFn =
+    typeof globalThis === 'object' && globalThis && 'window' in globalThis
+      ? (globalThis as typeof globalThis & { window?: { pantheonBuzz?: { status?: () => Promise<unknown> } } }).window
+          ?.pantheonBuzz?.status
+      : undefined
+
+  if (typeof statusFn !== 'function') {
+    return true
+  }
+
+  try {
+    const status = await Promise.race([
+      statusFn(),
+      new Promise<never>((_, reject) => {
+        globalThis.setTimeout(() => reject(new Error('timeout')), 1500)
+      })
+    ])
+    const state = status && typeof status === 'object' ? (status as { state?: string }).state : undefined
+
+    if (state === 'open' || state === 'unconfigured') {
+      return true
+    }
+
+    if (state === 'closed' || state === 'connecting') {
+      return false
+    }
+
+    return 'unknown'
+  } catch {
+    return 'unknown'
+  }
+}
+
+export async function gatherPantheonActivity(): Promise<PantheonActivitySnapshot> {
+  const snapshot: PantheonActivitySnapshot = {
+    activeAgentCount: 'unknown',
+    streamingSession: 'unknown',
+    activeTerminalProcess: 'unknown',
+    computerUseActive: 'unknown',
+    unsavedDraft: 'unknown',
+    bridgeHealthy: 'unknown'
+  }
+
+  try {
+    snapshot.activeAgentCount = $workingSessionIds.get().length
+    snapshot.computerUseActive = snapshot.activeAgentCount > 0
+  } catch {
+    snapshot.activeAgentCount = 'unknown'
+    snapshot.computerUseActive = 'unknown'
+  }
+
+  try {
+    snapshot.streamingSession = Boolean($busy.get() || $awaitingResponse.get())
+  } catch {
+    snapshot.streamingSession = 'unknown'
+  }
+
+  try {
+    const working = typeof snapshot.activeAgentCount === 'number' && snapshot.activeAgentCount > 0
+    snapshot.activeTerminalProcess = $terminals.get().some(term => term.kind === 'agent' && Boolean(term.procId)) && working
+  } catch {
+    snapshot.activeTerminalProcess = 'unknown'
+  }
+
+  try {
+    const draft = String($composerDraft.get() || '').trim()
+    const titled = Object.values($draftTitles.get() || {}).some(title => String(title || '').trim().length > 0)
+    snapshot.unsavedDraft = Boolean(draft || titled)
+  } catch {
+    snapshot.unsavedDraft = 'unknown'
+  }
+
+  snapshot.bridgeHealthy = await readBridgeHealthy()
+
+  return snapshot
+}
+
+function pantheonPreflightMessage(blockers: PantheonUpdateBlocker[]): string {
+  const listed = blockers.map(blocker => translateNow(BLOCKER_COPY[blocker])).join(' ')
+
+  return `${translateNow('updates.pantheonDeferredBody')} ${listed}`.trim()
+}
+
+async function refuseIfPantheonBusy(target: 'client' | 'backend'): Promise<DesktopUpdateApplyResult | null> {
+  const decision = decidePantheonUpdate(await gatherPantheonActivity())
+
+  if (decision.allowed) {
+    return null
+  }
+
+  const message = pantheonPreflightMessage(decision.blockers)
+  const next = {
+    ...IDLE,
+    applying: false,
+    stage: 'error' as const,
+    error: 'pantheon-preflight-blocked',
+    message
+  }
+
+  if (target === 'backend') {
+    $backendUpdateApply.set(next)
+  } else {
+    $updateApply.set(next)
+  }
+
+  return { ok: false, error: 'pantheon-preflight-blocked', message }
+}
 // Time-based snooze instead of per-sha dismissal: this repo lands ~100 commits
 // a day, so a "don't show this exact sha again" guard re-popped the toast on
 // every new commit. We instead suppress the toast for a cooldown window that
@@ -427,6 +555,12 @@ export async function checkUpdates(): Promise<DesktopUpdateStatus | null> {
 }
 
 export async function applyUpdates(opts: DesktopUpdateApplyOptions = {}): Promise<DesktopUpdateApplyResult> {
+  const blocked = await refuseIfPantheonBusy('client')
+
+  if (blocked) {
+    return blocked
+  }
+
   const bridge = window.hermesDesktop?.updates
 
   if (!bridge) {
@@ -627,6 +761,12 @@ function legacyBackendReachedTarget(
 let backendUpdateInFlight: Promise<DesktopUpdateApplyResult> | null = null
 
 async function runBackendUpdate(): Promise<DesktopUpdateApplyResult> {
+  const blocked = await refuseIfPantheonBusy('backend')
+
+  if (blocked) {
+    return blocked
+  }
+
   dismissNotification(UPDATE_TOAST_ID)
   $backendUpdateApply.set({
     ...IDLE,

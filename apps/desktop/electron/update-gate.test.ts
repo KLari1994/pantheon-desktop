@@ -27,6 +27,17 @@ function deps(marker: boolean, inFlight: boolean) {
 // updateGateReason
 // ---------------------------------------------------------------------------
 
+test('rollback-in-flight parks backend spawns', () => {
+  assert.equal(
+    updateGateReason({
+      hasLiveMarker: () => false,
+      isUpdateInFlight: () => false,
+      isRollbackInFlight: () => true
+    }),
+    'rollback-in-flight'
+  )
+})
+
 test('gate open when neither marker nor flag is set', () => {
   assert.equal(updateGateReason(deps(false, false)), null)
 })
