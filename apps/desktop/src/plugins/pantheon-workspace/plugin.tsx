@@ -26,7 +26,7 @@ import { RoomMemberships } from './agents/room-memberships'
 import { resolveAgentPubkey, resolveMemberAgent, selectMembershipAgent } from './agents/resolve-agent'
 import { HomePage } from './home/home-page'
 import { startHomeIngestion } from './home/ingest'
-import { openHomeTarget, pickRoomId, registeredHref } from './home/navigation'
+import { botIdFromMembershipSearch, openHomeTarget, pickRoomId, registeredHref } from './home/navigation'
 import {
   applyHomeSourceSnapshot,
   collectApprovalInboxRows,
@@ -265,6 +265,8 @@ export function AgentEditorRoomsMount({
   connectionId?: string
   profile?: string
 }) {
+  const search = useRoomsSearch()
+  const requestedBot = botIdFromMembershipSearch(search)
   const [manifest, setManifest] = useState<WorkspaceManifest>({ version: 1, rooms: [] })
   const [liveRooms, setLiveRooms] = useState<BuzzRoom[]>([])
   useEffect(() => {
@@ -287,7 +289,7 @@ export function AgentEditorRoomsMount({
   }, [])
   const selected = {
     connectionId: connectionId || bot?.route?.connectionId || bot?.connectionId || host.state.connectionId.get() || undefined,
-    profile: profile || bot?.route?.profile || bot?.name || host.state.profile.get() || undefined
+    profile: profile || bot?.route?.profile || bot?.name || requestedBot || undefined
   }
   const agentRecord = selectMembershipAgent((manifest.agents || []) as Array<WorkspaceAgent & { pubkey?: string }>, selected)
   if (!agentRecord) {

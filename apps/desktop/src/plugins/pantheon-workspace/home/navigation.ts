@@ -17,10 +17,19 @@ export function pickRoomId(roomIds: readonly string[], search: string): string |
   return roomIds[0] ?? null
 }
 
+export function membershipHref(botId: string): string {
+  return `/rooms/memberships?bot=${encodeURIComponent(botId)}`
+}
+
+export function botIdFromMembershipSearch(search: string): string | null {
+  const raw = search.startsWith('?') ? search.slice(1) : search
+  return new URLSearchParams(raw).get('bot')
+}
+
 export function registeredHref(kind: HomeSourceKind, sourceId: string): string {
   switch (kind) {
     case 'bot':
-      return `/agents?bot=${encodeURIComponent(sourceId)}`
+      return membershipHref(sourceId)
     case 'room':
     case 'project':
     case 'pr':
@@ -65,8 +74,9 @@ export function openHomeTarget(href: string, deps: HomeNavigationDeps): void {
     deps.navigate('/artifacts')
     return
   }
-  if (path === '/agents') {
-    deps.navigate('/agents')
+  if (path === '/agents' || path === '/rooms/memberships') {
+    const bot = url.searchParams.get('bot')
+    deps.navigate(bot ? membershipHref(bot) : '/rooms/memberships')
     return
   }
   if (path === '/rooms') {

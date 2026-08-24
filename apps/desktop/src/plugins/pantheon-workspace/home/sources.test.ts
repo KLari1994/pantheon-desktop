@@ -26,6 +26,10 @@ afterEach(() => {
   setCronJobs([])
 })
 
+async function flushHomeSources(): Promise<void> {
+  for (let i = 0; i < 20; i += 1) await Promise.resolve()
+}
+
 test('startSubscription is called with listed room ids', async () => {
   const startSubscription = vi.fn(async () => ({ started: true }))
   const subscribe = vi.fn(() => () => undefined)
@@ -46,7 +50,7 @@ test('startSubscription is called with listed room ids', async () => {
   unsub()
 })
 
-test('collector includes exhausted cron retries, completions, and tagged review decisions', () => {
+test('collector does not invent completions or exhausted retries from ordinary settle or last_error', () => {
   setCronJobs([
     {
       id: 'cron-fail',
@@ -56,6 +60,7 @@ test('collector includes exhausted cron retries, completions, and tagged review 
       state: 'error'
     }
   ])
+  publishSessionState('rt-done', { ...createClientSessionState('stored-done'), busy: true })
   publishSessionState('rt-done', { ...createClientSessionState('stored-done'), busy: false })
   ingestBuzzBridgeEvent({
     type: 'room.event',
@@ -72,8 +77,22 @@ test('collector includes exhausted cron retries, completions, and tagged review 
     }
   })
   const types = collectAuthoritativeHomeEvents().map(event => event.type)
-  expect(types).toContain('exhausted-retry')
+  expect(types).not.toContain('exhausted-retry')
+  expect(types).not.toContain('long-running-completion')
   expect(types).toContain('review-decision')
+})
+
+test('collector projects exhausted-retry only from exhausted cron state and failed only from failed state', () => {
+  setCronJobs([
+    { id: 'cron-ex', enabled: true, name: 'nightly', state: 'exhausted' },
+    { id: 'cron-fail', enabled: true, name: 'backup', state: 'failed' },
+    { id: 'cron-ok', enabled: true, name: 'ok', state: 'ok' }
+  ])
+  const types = collectAuthoritativeHomeEvents().map(event => event.type)
+  expect(types.filter(type => type === 'exhausted-retry')).toHaveLength(1)
+  expect(types.filter(type => type === 'failed')).toHaveLength(1)
+  expect(collectAuthoritativeHomeEvents().find(event => event.type === 'exhausted-retry')?.sourceId).toBe('cron-ex')
+  expect(collectAuthoritativeHomeEvents().find(event => event.type === 'failed')?.sourceId).toBe('cron-fail')
 })
 
 test('approval inbox resolves runtime-keyed prompts from stored/lineage attention ids', () => {
@@ -204,6 +223,162 @@ test('plugin notifications skip approvals because core already fires them', () =
       requestId: 'req-1'
     })
   ).toBeNull()
+})
+
+test('hydrates unique room membership from getRoom when listRooms members are empty', async () => {
+  const getRoom = vi.fn(async () => ({
+    id: 'room-ops',
+    name: 'Ops',
+    members: [{ pubkey: 'pk-d', name: 'daedalus' }]
+  }))
+  const unsub = subscribeAuthoritativeHomeSources(() => undefined, {
+    buzz: {
+      subscribe: () => () => undefined,
+      startSubscription: async () => ({ started: true }),
+      listRooms: async () => ({ rooms: [{ id: 'room-ops', name: 'Ops', members: [] }] }),
+      getRoom,
+      getWorkspaceManifest: async () => ({ version: 1, rooms: [] }),
+      status: async () => ({ state: 'open', pubkey: 'pk-me' })
+    }
+  })
+  await flushHomeSources()
+  setSessions([
+    makeSessionInfo({
+      id: 'stored-1',
+      title: 'ops',
+      profile: 'daedalus',
+      connection_id: 'conn-a'
+    })
+  ])
+  publishSessionState('runtime-1', {
+    ...createClientSessionState('stored-1'),
+    needsInput: true
+  })
+  setApprovalRequest({
+    command: 'rm',
+    description: 'delete',
+    requestId: 'req-hydrate',
+    sessionId: 'runtime-1'
+  })
+  expect(getRoom).toHaveBeenCalledWith({ roomId: 'room-ops' })
+  expect(collectApprovalInboxRows()[0]?.card.roomId).toBe('room-ops')
+  unsub()
+})
+
+test('hydrates member ids from workspace manifest when getRoom members stay empty', async () => {
+  const unsub = subscribeAuthoritativeHomeSources(() => undefined, {
+    buzz: {
+      subscribe: () => () => undefined,
+      startSubscription: async () => ({ started: true }),
+      listRooms: async () => ({ rooms: [{ id: 'room-ops', name: 'Ops', members: [] }] }),
+      getRoom: async () => ({ id: 'room-ops', name: 'Ops', members: [] }),
+      getWorkspaceManifest: async () => ({
+        version: 1,
+        rooms: [{ id: 'room-ops', memberAgentIds: ['daedalus'] }]
+      }),
+      status: async () => ({ state: 'open', pubkey: 'pk-me' })
+    }
+  })
+  await flushHomeSources()
+  setSessions([
+    makeSessionInfo({
+      id: 'stored-1',
+      title: 'ops',
+      profile: 'daedalus',
+      connection_id: 'conn-a'
+    })
+  ])
+  publishSessionState('runtime-1', {
+    ...createClientSessionState('stored-1'),
+    needsInput: true
+  })
+  setApprovalRequest({
+    command: 'rm',
+    description: 'delete',
+    requestId: 'req-manifest',
+    sessionId: 'runtime-1'
+  })
+  expect(collectApprovalInboxRows()[0]?.card.roomId).toBe('room-ops')
+  unsub()
+})
+
+test('room mute stays disabled when membership remains unknown', async () => {
+  const unsub = subscribeAuthoritativeHomeSources(() => undefined, {
+    buzz: {
+      subscribe: () => () => undefined,
+      startSubscription: async () => ({ started: true }),
+      listRooms: async () => ({ rooms: [{ id: 'room-ops', name: 'Ops', members: [] }] }),
+      getRoom: async () => ({ id: 'room-ops', name: 'Ops', members: [] }),
+      getWorkspaceManifest: async () => ({ version: 1, rooms: [{ id: 'room-ops', memberAgentIds: [] }] }),
+      status: async () => ({ state: 'open', pubkey: 'pk-me' })
+    }
+  })
+  await flushHomeSources()
+  setSessions([
+    makeSessionInfo({
+      id: 'stored-1',
+      title: 'ops',
+      profile: 'daedalus',
+      connection_id: 'conn-a'
+    })
+  ])
+  publishSessionState('runtime-1', {
+    ...createClientSessionState('stored-1'),
+    needsInput: true
+  })
+  setApprovalRequest({
+    command: 'rm',
+    description: 'delete',
+    requestId: 'req-unknown',
+    sessionId: 'runtime-1'
+  })
+  expect(collectApprovalInboxRows()[0]?.card.roomId).toBeUndefined()
+  unsub()
+})
+
+test('viewer handle comes from Buzz pubkey plus room display name, not Hermes profile id', async () => {
+  const unsub = subscribeAuthoritativeHomeSources(() => undefined, {
+    buzz: {
+      subscribe: () => () => undefined,
+      startSubscription: async () => ({ started: true }),
+      listRooms: async () => ({
+        rooms: [{ id: 'room-ops', name: 'Ops', members: [{ pubkey: 'pk-me', name: 'kelcee' }] }]
+      }),
+      status: async () => ({ state: 'open', pubkey: 'pk-me' })
+    }
+  })
+  await flushHomeSources()
+  expect(
+    classifyRoomLiveEvent(
+      {
+        id: 'me-at',
+        kind: 9,
+        content: '@kelcee please look'
+      },
+      'room-1'
+    )?.type
+  ).toBe('direct-mention')
+  expect(
+    classifyRoomLiveEvent(
+      {
+        id: 'profile-id',
+        kind: 9,
+        content: '@daedalus please look'
+      },
+      'room-1'
+    )
+  ).toBeNull()
+  expect(
+    classifyRoomLiveEvent(
+      {
+        id: 'settled-ordinary',
+        kind: 9,
+        content: 'turn finished'
+      },
+      'room-1'
+    )
+  ).toBeNull()
+  unsub()
 })
 
 test('empty snapshots still reproject the approval inbox', () => {

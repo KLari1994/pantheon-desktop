@@ -15,6 +15,8 @@ export interface ApprovalInboxRow {
 
 export class ApprovalInbox {
   private rows: ApprovalInboxRow[] = []
+  // Home/Needs You copies share this set. The core inline approval.tsx path
+  // keeps its own in-flight guard; that residual stays outside ticket files.
   private readonly inFlight = sharedApprovalInFlight
   private readonly listeners = new Set<() => void>()
   private currentBusyId: string | null = null

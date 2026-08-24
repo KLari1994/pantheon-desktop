@@ -64,7 +64,7 @@ test('every rendered source type has exact navigation and visible identity', () 
   fireEvent.click(screen.getByRole('button', { name: 'Open Review ready' }))
   expect(onNavigate.mock.calls.map(call => call[0])).toEqual([
     '/sess-1',
-    '/agents?bot=daedalus',
+    '/rooms/memberships?bot=daedalus',
     '/cron?job=job-1',
     '/artifacts?id=art-1',
     '/rooms?room=room-9',

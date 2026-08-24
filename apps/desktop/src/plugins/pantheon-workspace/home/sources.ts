@@ -10,7 +10,6 @@ import {
   $sessionStates,
   $stalledSessionIds,
   $workingSessionIds,
-  getRecentlySettledSessionIds,
   requestForOwnedSession
 } from '@/store/session-states'
 
@@ -33,7 +32,7 @@ const TYPED_EVENTS = new Set<HomeEventType>([
 ])
 
 const roomEvents = new Map<string, HomeSourceEvent>()
-let knownRooms: Array<{ id: string; memberNames: string[] }> = []
+let knownRooms: Array<{ id: string; memberNames: string[]; members: Array<{ pubkey?: string; name?: string }> }> = []
 let homeViewer: { pubkey?: string; name?: string } = {}
 
 export interface HomeSourceBuzz {
@@ -41,6 +40,8 @@ export interface HomeSourceBuzz {
   startSubscription: PantheonBuzzApi['startSubscription']
   listRooms: PantheonBuzzApi['listRooms']
   status: PantheonBuzzApi['status']
+  getRoom?: PantheonBuzzApi['getRoom']
+  getWorkspaceManifest?: PantheonBuzzApi['getWorkspaceManifest']
 }
 
 export function resetHomeSourceState(seed?: {
@@ -48,8 +49,33 @@ export function resetHomeSourceState(seed?: {
   viewer?: { pubkey?: string; name?: string }
 }): void {
   roomEvents.clear()
-  knownRooms = seed?.rooms ? [...seed.rooms] : []
+  knownRooms = seed?.rooms
+    ? seed.rooms.map(room => ({
+        id: room.id,
+        memberNames: [...room.memberNames],
+        members: room.memberNames.map(name => ({ name }))
+      }))
+    : []
   homeViewer = seed?.viewer ? { ...seed.viewer } : {}
+}
+
+function memberLabels(members: Array<{ pubkey?: string; name?: string } | string> | undefined): string[] {
+  return (members || []).flatMap(member => {
+    if (typeof member === 'string') return member ? [member] : []
+    return [member.pubkey, member.name].filter((value): value is string => Boolean(value))
+  })
+}
+
+function displayNameForPubkey(pubkey: string | undefined): string | undefined {
+  if (!pubkey) return undefined
+  const needle = pubkey.toLowerCase()
+  for (const room of knownRooms) {
+    const match = room.members.find(
+      member => member.pubkey?.toLowerCase() === needle && member.name && member.name.toLowerCase() !== needle
+    )
+    if (match?.name) return match.name
+  }
+  return undefined
 }
 
 function roomIdForAgent(botId: string): string | undefined {
@@ -179,34 +205,19 @@ export function collectAuthoritativeHomeEvents(): HomeSourceEvent[] {
       roomId: identity.roomId
     })
   }
-  for (const sessionId of getRecentlySettledSessionIds()) {
-    const identity = identityForSession(sessionId)
-    events.push({
-      type: 'long-running-completion',
-      sourceKind: 'session',
-      sourceId: sessionId,
-      agent: identity.agent,
-      context: identity.context,
-      machine: identity.machine,
-      timestamp: Date.now(),
-      title: 'Completed',
-      botId: identity.botId,
-      roomId: identity.roomId
-    })
-  }
   for (const job of $cronJobs.get()) {
-    const failed =
-      Boolean(job.last_error) || job.state === 'error' || job.state === 'failed' || job.state === 'exhausted'
-    if (!failed) continue
+    const exhausted = job.state === 'exhausted'
+    const failed = job.state === 'failed'
+    if (!exhausted && !failed) continue
     events.push({
-      type: 'exhausted-retry',
+      type: exhausted ? 'exhausted-retry' : 'failed',
       sourceKind: 'cron',
       sourceId: job.id,
       agent: job.name || 'cron',
       context: job.name || job.id,
       machine: host.state.connectionId.get() || 'local',
       timestamp: Date.now(),
-      title: job.last_error || 'Retries exhausted',
+      title: job.last_error || (exhausted ? 'Retries exhausted' : 'Failed'),
       botId: job.name || undefined
     })
   }
@@ -343,7 +354,7 @@ export function subscribeAuthoritativeHomeSources(
       else {
         const status = await client.status()
         if (cancelled) return
-        homeViewer = { pubkey: status.pubkey, name: host.state.profile.get() || undefined }
+        homeViewer = { pubkey: status.pubkey }
       }
       unsubBuzz = client.subscribe(event => {
         ingestBuzzBridgeEvent(event)
@@ -353,8 +364,41 @@ export function subscribeAuthoritativeHomeSources(
       if (cancelled) return
       knownRooms = page.rooms.map(room => ({
         id: room.id,
-        memberNames: room.members.flatMap(member => [member.pubkey, member.name].filter((value): value is string => Boolean(value)))
+        members: [...room.members],
+        memberNames: memberLabels(room.members)
       }))
+      const emptyRooms = knownRooms.filter(room => room.memberNames.length === 0)
+      if (emptyRooms.length > 0 && client.getRoom) {
+        for (const room of emptyRooms) {
+          try {
+            const detail = await client.getRoom({ roomId: room.id })
+            if (cancelled) return
+            room.members = [...detail.members]
+            room.memberNames = memberLabels(detail.members)
+          } catch {
+            /* keep empty membership honest */
+          }
+        }
+      }
+      const stillEmpty = knownRooms.filter(room => room.memberNames.length === 0)
+      if (stillEmpty.length > 0 && client.getWorkspaceManifest) {
+        try {
+          const manifest = await client.getWorkspaceManifest()
+          if (cancelled) return
+          for (const room of stillEmpty) {
+            const listed = (manifest.rooms || []).find(item => item.id === room.id)
+            const ids = listed?.memberAgentIds || []
+            if (ids.length === 0) continue
+            room.members = ids.map(id => ({ name: id }))
+            room.memberNames = memberLabels(ids)
+          }
+        } catch {
+          /* keep empty membership honest */
+        }
+      }
+      if (!deps?.viewer) {
+        homeViewer = { pubkey: homeViewer.pubkey, name: displayNameForPubkey(homeViewer.pubkey) }
+      }
       const roomIds = page.rooms.map(room => room.id)
       if (roomIds.length > 0) await client.startSubscription({ roomIds })
       if (!cancelled) emit()
