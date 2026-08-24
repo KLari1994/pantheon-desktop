@@ -2775,7 +2775,22 @@ export const zh: Translations = {
       notAvailable: '此后端无法更新。',
       failed: '后端更新失败。',
       noReturn: '后端未恢复在线。更新可能未完成——请检查后端主机。'
-    }
+    },
+    pantheonDeferredTitle: '更新已推迟',
+    pantheonDeferredBody: '有进行中的工作或状态未知时，Hermes 不会更新。',
+    pantheonBlockers: {
+      statusUnavailable: '活动状态未知，因此已推迟更新。',
+      activeAgent: '仍有智能体在工作。',
+      streamingSession: '仍有会话在流式输出。',
+      activeTerminalProcess: '智能体终端仍有活动进程。',
+      computerUseActive: '计算机使用任务仍在进行。',
+      unsavedDraft: '存在未保存的草稿。',
+      bridgeUnhealthy: 'Buzz 桥接不健康。'
+    },
+    rollbackTitle: '恢复上一可用版本',
+    rollbackAction: '回滚',
+    rollbackDone: '已恢复上一可用版本。',
+    rollbackFailed: '回滚未完成。'
   },
 
   install: {

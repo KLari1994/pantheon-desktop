@@ -2600,7 +2600,22 @@ export const en: Translations = {
       notAvailable: 'Update not available for this backend.',
       failed: 'Backend update failed.',
       noReturn: 'Backend didn’t come back online. The update may not have completed — check the backend host.'
-    }
+    },
+    pantheonDeferredTitle: 'Update deferred',
+    pantheonDeferredBody: 'Hermes will not update while work is active or status is unknown.',
+    pantheonBlockers: {
+      statusUnavailable: 'Activity status is unknown, so the update is deferred.',
+      activeAgent: 'An agent is still working.',
+      streamingSession: 'A session is still streaming.',
+      activeTerminalProcess: 'An agent terminal still has a live process.',
+      computerUseActive: 'Computer-use work is still active.',
+      unsavedDraft: 'There is an unsaved draft.',
+      bridgeUnhealthy: 'The Buzz bridge is not healthy.'
+    },
+    rollbackTitle: 'Restore previous build',
+    rollbackAction: 'Roll back',
+    rollbackDone: 'Previous working build restored.',
+    rollbackFailed: 'Rollback did not finish.'
   },
 
   install: {

@@ -104,6 +104,30 @@ export function resolvePosixScriptHandoff(
   }
 }
 
+export function resolveRollbackHandoff(
+  updateRoot: string,
+  marker: { backupDir: string; previousCommit?: string | null },
+  deps: ResolveUpdateScriptHandoffDeps = {}
+): UpdateScriptHandoff | null {
+  const windows = resolveUpdateScriptHandoff(updateRoot, { ...deps, isWindows: true })
+  const posix = resolvePosixScriptHandoff(updateRoot, { ...deps, isWindows: false })
+  const isWindows = deps.isWindows ?? process.platform === 'win32'
+  const base = isWindows ? windows : posix
+
+  if (!base) {
+    return null
+  }
+
+  const rollbackArgs = isWindows
+    ? ['-Rollback', '-BackupDir', marker.backupDir, ...(marker.previousCommit ? ['-PreviousCommit', marker.previousCommit] : [])]
+    : ['--rollback', '--backup-dir', marker.backupDir, ...(marker.previousCommit ? ['--previous-commit', marker.previousCommit] : [])]
+
+  return {
+    ...base,
+    args: [...base.args, ...rollbackArgs]
+  }
+}
+
 /**
  * Wrap a PowerShell hand-off invocation so it survives a detached, hidden
  * spawn from Electron.
@@ -428,7 +452,7 @@ export function observeUpdaterHandoff(
 
     const timer = setTimeoutFn(() => finish({ ok: true }), settleMs)
 
-    observable.once('error', onError)
-    observable.once('exit', onExit)
+    observable.once?.('error', onError)
+    observable.once?.('exit', onExit)
   })
 }

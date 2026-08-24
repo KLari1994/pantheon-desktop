@@ -42,6 +42,25 @@ vi.mock('@/store/connections', () => ({
   refreshConnectionsRegistry: () => Promise.resolve($mockConnectionsRegistry.get())
 }))
 
+const { atom: workingAtom } = await import('nanostores')
+const $mockWorkingSessionIds = workingAtom<string[]>([])
+const $mockComposerDraft = workingAtom('')
+const $mockDraftTitles = workingAtom<Record<string, string>>({})
+const $mockTerminals = workingAtom<Array<{ kind: string; procId?: string }>>([])
+
+vi.mock('@/store/session-states', () => ({
+  $workingSessionIds: $mockWorkingSessionIds
+}))
+
+vi.mock('@/store/composer', () => ({
+  $composerDraft: $mockComposerDraft,
+  $draftTitles: $mockDraftTitles
+}))
+
+vi.mock('@/app/right-sidebar/terminal/terminals', () => ({
+  $terminals: $mockTerminals
+}))
+
 const checkHermesUpdateSpy = vi.fn()
 const updateHermesSpy = vi.fn()
 const getActionStatusSpy = vi.fn()
@@ -61,6 +80,7 @@ const {
   reportBackendContract,
   applyUpdates,
   applyEverythingUpdate,
+  gatherPantheonActivity,
   hasMultipleUpdateTargets,
   $updateApply,
   $updateEverything,
@@ -625,6 +645,10 @@ describe('applyUpdates terminal state', () => {
     dismissSpy.mockClear()
     applyMock.mockReset()
     resetUpdateApplyState()
+    $mockWorkingSessionIds.set([])
+    $mockComposerDraft.set('')
+    $mockDraftTitles.set({})
+    $mockTerminals.set([])
     $updateOverlayOpen.set(true)
     ;(globalThis as unknown as { window: unknown }).window = {
       hermesDesktop: { updates: { apply: applyMock } }
@@ -1213,5 +1237,61 @@ describe('startUpdatePoller', () => {
     await vi.advanceTimersByTimeAsync(0)
 
     expect(checkMock).toHaveBeenCalled()
+  })
+})
+
+describe('pantheon preflight', () => {
+  const applyMock = vi.fn()
+
+  beforeEach(() => {
+    applyMock.mockReset()
+    resetUpdateApplyState()
+    $mockWorkingSessionIds.set([])
+    $mockComposerDraft.set('')
+    $mockDraftTitles.set({})
+    $mockTerminals.set([])
+    ;(globalThis as unknown as { window: unknown }).window = {
+      hermesDesktop: { updates: { apply: applyMock } }
+    }
+  })
+
+  afterEach(() => {
+    delete (globalThis as unknown as { window?: unknown }).window
+  })
+
+  it('defers applyUpdates when a working session is active', async () => {
+    $mockWorkingSessionIds.set(['sess-1'])
+    const result = await applyUpdates()
+    expect(result).toMatchObject({ ok: false, error: 'pantheon-preflight-blocked' })
+    expect(applyMock).not.toHaveBeenCalled()
+    expect($updateApply.get().stage).toBe('error')
+    expect($updateApply.get().error).toBe('pantheon-preflight-blocked')
+  })
+
+  it('treats computer-use as any working session and ignores idle user terminals', async () => {
+    $mockWorkingSessionIds.set([])
+    $mockTerminals.set([{ kind: 'user' }])
+    const snapshot = await gatherPantheonActivity()
+    expect(snapshot.computerUseActive).toBe(false)
+    expect(snapshot.activeTerminalProcess).toBe(false)
+    $mockWorkingSessionIds.set(['sess-1'])
+    $mockTerminals.set([{ kind: 'agent', procId: 'p1' }])
+    const busy = await gatherPantheonActivity()
+    expect(busy.computerUseActive).toBe(true)
+    expect(busy.activeTerminalProcess).toBe(true)
+  })
+
+  it('defers when the Buzz status call throws', async () => {
+    ;(globalThis as unknown as { window: unknown }).window = {
+      hermesDesktop: { updates: { apply: applyMock } },
+      pantheonBuzz: {
+        status: async () => {
+          throw new Error('bridge down')
+        }
+      }
+    }
+    const result = await applyUpdates()
+    expect(result.error).toBe('pantheon-preflight-blocked')
+    expect(applyMock).not.toHaveBeenCalled()
   })
 })

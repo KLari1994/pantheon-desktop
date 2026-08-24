@@ -39,7 +39,7 @@ ORIGINAL_ARGS=("$@")
 INSTALL_ROOT="" BRANCH="main" DESKTOP_PID=0 RELAUNCH_TARGET=""
 RELAUNCH_CWD="" SANDBOX_FALLBACK=0 RELAUNCH_ARGS=()
 NO_UI=0 NO_MARKER_CLEANUP=0 SELF_TEST_UI=0 SELF_TEST_GATE=0 SELF_TEST_MARKER=0
-HANDOFF_DAEMONIZED=0
+HANDOFF_DAEMONIZED=0 ROLLBACK=0 BACKUP_DIR="" PREVIOUS_COMMIT=""
 while [ $# -gt 0 ]; do
   case "$1" in
     --install-root) INSTALL_ROOT="$2"; shift 2 ;;
@@ -54,6 +54,9 @@ while [ $# -gt 0 ]; do
     --self-test-gate) SELF_TEST_GATE=1; shift ;;
     --daemonized) HANDOFF_DAEMONIZED=1; shift ;;
     --self-test-marker) SELF_TEST_MARKER=1; NO_UI=1; NO_MARKER_CLEANUP=1; shift ;;
+    --rollback) ROLLBACK=1; shift ;;
+    --backup-dir) BACKUP_DIR="$2"; shift 2 ;;
+    --previous-commit) PREVIOUS_COMMIT="$2"; shift 2 ;;
     --) shift; RELAUNCH_ARGS=("$@"); shift $# ;;
     *) echo "unknown arg: $1" >&2; exit 64 ;;
   esac
@@ -506,6 +509,17 @@ start_ui
 HERMES_BIN="$INSTALL_ROOT/venv/bin/hermes"
 [ -x "$HERMES_BIN" ] || { FINAL_CODE=3 FINAL_MSG="Update aborted: $HERMES_BIN is missing. The install needs repair (run the Hermes installer or hermes doctor)."; log "$FINAL_MSG"; exit 3; }
 
+if [ "$ROLLBACK" -eq 1 ]; then
+  log "rollback requested; skipping hermes update (backup-dir=${BACKUP_DIR:-none})"
+  if [ -n "$PREVIOUS_COMMIT" ]; then
+    git -C "$INSTALL_ROOT" checkout --force "$PREVIOUS_COMMIT" || {
+      FINAL_CODE=3 FINAL_MSG="Rollback aborted: cannot restore previous commit $PREVIOUS_COMMIT."
+      log "$FINAL_MSG"; exit 3
+    }
+  fi
+  CODE=0
+  OUT="rollback"
+else
 # Run FROM the install root: `hermes update` resolves the tree it mutates
 # from the working directory, and we inherit the Desktop's cwd (which can be
 # an unrelated repo — updating THAT instead of the install is the failure
@@ -554,6 +568,7 @@ if [ "$CODE" -eq 0 ] && printf '%s' "$OUT" | grep -q "Desktop build failed"; the
     FINAL_CODE=6 FINAL_MSG="Code and dependencies updated, but the Desktop app rebuild failed - you are running the previous build. Run hermes desktop --force-build from a terminal to retry."
     exit 6
   }
+fi
 fi
 
 if [ "$CODE" -eq 0 ]; then FINAL_CODE=0 FINAL_MSG="Update complete."
