@@ -1,6 +1,5 @@
-import { expect, test, vi } from 'vitest'
-
 import type { PluginContext } from '@hermes/plugin-sdk'
+import { expect, test, vi } from 'vitest'
 
 import { NEW_CHAT_ROUTE } from '@/app/routes'
 
@@ -9,16 +8,19 @@ import plugin from './plugin'
 function fakeCtx() {
   const contributions: Array<{ id: string; area: string; order?: number; data?: { path?: string; label?: string } }> = []
   const disposers: Array<() => void> = []
+
   return {
     contributions,
     disposers,
     source: 'plugin:pantheon-workspace',
     register: (contribution: (typeof contributions)[number]) => {
       contributions.push(contribution)
+
       return () => undefined
     },
     registerMany: (items: Array<(typeof contributions)[number]>) => {
       contributions.push(...items)
+
       return () => undefined
     },
     onDispose: (fn: () => void) => {
@@ -37,7 +39,7 @@ function fakeCtx() {
       set: () => undefined,
       remove: () => undefined
     },
-    i18n: { register: () => undefined, t: {} }
+    i18n: { register: vi.fn(), t: {} }
   }
 }
 
@@ -48,13 +50,26 @@ test('registers /home and places Home nav before Rooms', () => {
   expect(paths).toContain('/home')
   expect(NEW_CHAT_ROUTE).not.toBe('/home')
   const homeNav = ctx.contributions.find(item => item.data?.label === 'Home')
+  const cronNav = ctx.contributions.find(item => item.data?.label === 'Cron Center')
   const roomsNav = ctx.contributions.find(item => item.data?.label === 'Rooms')
   expect(homeNav).toBeTruthy()
+  expect(cronNav).toBeTruthy()
   expect(roomsNav).toBeTruthy()
-  expect((homeNav?.order ?? 99) < (roomsNav?.order ?? 0)).toBe(true)
+  expect((homeNav?.order ?? 99) < (cronNav?.order ?? 0)).toBe(true)
+  expect((cronNav?.order ?? 99) < (roomsNav?.order ?? 0)).toBe(true)
   expect(ctx.contributions.findIndex(item => item.data?.label === 'Home')).toBeLessThan(
+    ctx.contributions.findIndex(item => item.data?.label === 'Cron Center')
+  )
+  expect(ctx.contributions.findIndex(item => item.data?.label === 'Cron Center')).toBeLessThan(
     ctx.contributions.findIndex(item => item.data?.label === 'Rooms')
   )
+})
+
+test('registers /cron-center and the plugin locale bundle', () => {
+  const ctx = fakeCtx()
+  plugin.register(ctx as unknown as PluginContext)
+  expect(ctx.contributions.some(item => item.area === 'routes' && item.data?.path === '/cron-center')).toBe(true)
+  expect(ctx.i18n.register).toHaveBeenCalled()
 })
 
 test('Home uses the only host nav API; permanent sidebar items stay ahead of contributions', () => {

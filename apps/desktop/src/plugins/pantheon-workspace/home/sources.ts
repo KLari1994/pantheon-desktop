@@ -209,16 +209,20 @@ export function collectAuthoritativeHomeEvents(): HomeSourceEvent[] {
     const exhausted = job.state === 'exhausted'
     const failed = job.state === 'failed'
     if (!exhausted && !failed) continue
+    const connectionId = host.state.connectionId.get() || 'local'
+    const profile = host.state.profile.get() || 'agent'
     events.push({
       type: exhausted ? 'exhausted-retry' : 'failed',
       sourceKind: 'cron',
       sourceId: job.id,
       agent: job.name || 'cron',
       context: job.name || job.id,
-      machine: host.state.connectionId.get() || 'local',
+      machine: connectionId,
       timestamp: Date.now(),
       title: job.last_error || (exhausted ? 'Retries exhausted' : 'Failed'),
-      botId: job.name || undefined
+      botId: job.name || undefined,
+      connectionId,
+      profile
     })
   }
   events.push(...roomEvents.values())
@@ -247,7 +251,7 @@ export function toNotificationEvent(event: HomeSourceEvent): NotificationEvent |
   return {
     id: event.id || `${event.type}:${event.sourceKind}:${event.sourceId}:${event.requestId || ''}`,
     type,
-    target: { kind: event.sourceKind, href: registeredHref(event.sourceKind, event.sourceId) },
+    target: { kind: event.sourceKind, href: registeredHref(event.sourceKind, event.sourceId, { connectionId: event.connectionId, profile: event.profile }) },
     botId: event.botId,
     roomId: event.roomId || (event.sourceKind === 'room' ? event.sourceId : undefined)
   }
