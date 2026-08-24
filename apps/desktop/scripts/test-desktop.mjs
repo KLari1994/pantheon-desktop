@@ -322,6 +322,16 @@ function validateBundle() {
   if (!stamp.branch || typeof stamp.branch !== 'string') {
     die(`install-stamp.json is missing the branch field: ${JSON.stringify(stamp)}`)
   }
+  // Pantheon provenance: packaged stamp must carry upstream Hermes + Buzz pins
+  // (schemaVersion 1 additive fields). Without these, a thin install cannot
+  // distinguish downstream app SHA from the Hermes runtime pin.
+  const sha40 = /^[0-9a-f]{40}$/
+  if (!stamp.upstreamHermesCommit || typeof stamp.upstreamHermesCommit !== 'string' || !sha40.test(stamp.upstreamHermesCommit)) {
+    die(`install-stamp.json is missing a usable upstreamHermesCommit field: ${JSON.stringify(stamp)}`)
+  }
+  if (!stamp.buzzCompatibilityCommit || typeof stamp.buzzCompatibilityCommit !== 'string' || !sha40.test(stamp.buzzCompatibilityCommit)) {
+    die(`install-stamp.json is missing a usable buzzCompatibilityCommit field: ${JSON.stringify(stamp)}`)
+  }
 
   // Positive assertion: node-pty native deps shipped
   const native = expectedNativeDepPaths()
