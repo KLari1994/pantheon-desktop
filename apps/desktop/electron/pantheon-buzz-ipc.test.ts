@@ -48,7 +48,7 @@ afterEach(() => {
   handlers.clear()
 })
 
-test('spawn uses shell false and strips key-shaped env/args', () => {
+test('spawn uses shell false, hides the Windows console, and strips key-shaped env/args', () => {
   const canary = `nsec1${'qpzry9x8gf2tvdw0s3jn54khce6mua7l'}`
   const hexCanary = 'ab'.repeat(32)
   let captured: { args: string[]; command: string; options: Record<string, unknown> } | undefined
@@ -64,6 +64,7 @@ test('spawn uses shell false and strips key-shaped env/args', () => {
   })
 
   assert.equal(captured?.options.shell, false)
+  assert.equal(captured?.options.windowsHide, true)
   assert.deepEqual(captured?.args, ['--relay-url', 'https://relay.example.test'])
   const env = captured?.options.env as Record<string, string>
   assert.equal(env.LEAK, undefined)

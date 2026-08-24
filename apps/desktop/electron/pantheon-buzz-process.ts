@@ -122,6 +122,7 @@ export function createPantheonBuzzProcess(options: BuzzProcessOptions): Pantheon
     try {
       const next = spawnImpl(options.binaryPath, args, {
         shell: false,
+        windowsHide: true,
         env,
         stdio: ['pipe', 'pipe', 'pipe']
       })
