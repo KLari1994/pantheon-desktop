@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState, useSyncExternalStore } from 'react'
 import {
   type HermesPlugin,
   host,
+  type PluginContext,
   type RouteContribution,
   ROUTES_AREA,
   SIDEBAR_NAV_AREA,
@@ -19,7 +20,10 @@ import {
 
 import { RoomMemberships } from './agents/room-memberships'
 import { resolveAgentPubkey, resolveMemberAgent, selectMembershipAgent } from './agents/resolve-agent'
+import { HomePage } from './home/home-page'
+import { HomeStore } from './home/store'
 import { applyRoomMembership } from './manifest/store'
+import { NotificationCoordinator } from './notifications/coordinator'
 import { RoomList } from './rooms/room-list'
 import { RoomWorkspace } from './rooms/room-workspace'
 import {
@@ -306,6 +310,37 @@ export function diagnosticsFromSessions(
   }))
 }
 
+const homeStore = new HomeStore()
+
+function HomeRoute() {
+  return <HomePage onNavigate={href => host.navigate(href)} store={homeStore} />
+}
+
+function bindHomeNotifications(ctx: PluginContext) {
+  const coordinator = new NotificationCoordinator({
+    toast: input => {
+      host.notify({
+        kind: 'info',
+        title: input.title,
+        message: input.message || input.title || 'Needs you',
+        action: { label: 'Open', onClick: input.onActivate }
+      })
+    },
+    native: input => {
+      ctx.os.notify({ title: input.title || 'Pantheon', body: input.message || input.title || 'Needs you', onActivate: input.onActivate })
+    },
+    navigate: href => host.navigate(href),
+    focused: () => typeof document !== 'undefined' && document.hasFocus()
+  })
+  coordinator.hydrate([])
+  queueMicrotask(() => {
+    const generation = homeStore.beginHydration()
+    homeStore.applyRefresh([], generation)
+  })
+  coordinator.start()
+  return () => coordinator.dispose()
+}
+
 const plugin: HermesPlugin = {
   id: 'pantheon-workspace',
   name: 'Pantheon Rooms',
@@ -314,7 +349,20 @@ const plugin: HermesPlugin = {
   register(ctx) {
     ;(globalThis as { __PantheonAgentRooms?: typeof AgentEditorRoomsMount }).__PantheonAgentRooms =
       AgentEditorRoomsMount
+    const disposeNotifications = bindHomeNotifications(ctx)
     ctx.registerMany([
+      {
+        id: 'home-page',
+        area: ROUTES_AREA,
+        data: { path: '/home' } satisfies RouteContribution,
+        render: () => <HomeRoute />
+      },
+      {
+        id: 'home-nav',
+        area: SIDEBAR_NAV_AREA,
+        order: 20,
+        data: { codicon: 'home', label: 'Home', path: '/home' } satisfies SidebarNavContribution
+      },
       {
         id: 'page',
         area: ROUTES_AREA,
@@ -335,8 +383,10 @@ const plugin: HermesPlugin = {
       }
     ])
     ctx.onDispose(() => {
+      disposeNotifications()
       delete (globalThis as { __PantheonAgentRooms?: typeof AgentEditorRoomsMount }).__PantheonAgentRooms
-      if (typeof host.navigate === 'function' && window.location.pathname.startsWith('/rooms')) {
+      const path = window.location.pathname
+      if (typeof host.navigate === 'function' && (path.startsWith('/rooms') || path === '/home')) {
         host.navigate('/')
       }
     })
