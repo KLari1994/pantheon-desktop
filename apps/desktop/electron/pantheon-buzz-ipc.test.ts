@@ -1,5 +1,8 @@
 import assert from 'node:assert/strict'
 import { EventEmitter } from 'node:events'
+import fs from 'node:fs'
+import os from 'node:os'
+import path from 'node:path'
 import { PassThrough } from 'node:stream'
 
 import { afterEach, test } from 'vitest'
@@ -160,14 +163,16 @@ test('sanitizeBridgeEnv allowlists PATH and drops secret-bearing keys', () => {
 })
 
 test('workspace config supplies relay URL and ignores env escape hatches', () => {
+  const homeDir = path.join('home', 'user', '.hermes')
+  const workspacePath = path.join(homeDir, 'pantheon', 'workspace.json')
   const files: Record<string, string> = {
-    '/home/user/.hermes/pantheon/workspace.json': JSON.stringify({
+    [workspacePath]: JSON.stringify({
       buzz: { relayUrl: 'https://community.example.test' }
     })
   }
   assert.equal(
     resolveBuzzRelayUrl({
-      homeDir: '/home/user/.hermes',
+      homeDir,
       readFile: filePath => files[filePath]
     }),
     'https://community.example.test'
