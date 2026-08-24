@@ -14,7 +14,8 @@ const first: ApprovalProjection = {
   machine: 'win',
   sessionId: 'sess-1',
   requestId: 'req-1',
-  choices: ['once', 'session', 'deny']
+  choices: ['once', 'session', 'deny'],
+  botId: 'bot-daedalus'
 }
 
 const duplicate: ApprovalProjection = { ...first, context: 'inline copy' }

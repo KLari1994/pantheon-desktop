@@ -46,14 +46,31 @@ test('every rendered source type has exact navigation and visible identity', () 
     source({ type: 'approval', sourceKind: 'session', sourceId: 'sess-1', requestId: 'r1', title: 'Allow rm' }),
     source({ type: 'running', sourceKind: 'bot', sourceId: 'daedalus', title: 'Coding' }),
     source({ type: 'stalled', sourceKind: 'cron', sourceId: 'job-1', title: 'Stalled cron' }),
-    source({ type: 'long-running-completion', sourceKind: 'artifact', sourceId: 'art-1', title: 'Wrote file' })
+    source({ type: 'long-running-completion', sourceKind: 'artifact', sourceId: 'art-1', title: 'Wrote file' }),
+    source({ type: 'direct-mention', sourceKind: 'room', sourceId: 'room-9', title: 'Mention' }),
+    source({ type: 'merge-decision', sourceKind: 'project', sourceId: 'proj-1', title: 'Project ready' }),
+    source({ type: 'review-decision', sourceKind: 'pr', sourceId: 'pr-7', title: 'Review ready' })
   ])
   render(<HomePage store={store} onNavigate={onNavigate} />)
   expect(screen.getAllByText('Daedalus').length).toBeGreaterThan(0)
   expect(screen.getAllByText('ops').length).toBeGreaterThan(0)
   expect(screen.getAllByText('win').length).toBeGreaterThan(0)
   fireEvent.click(screen.getByRole('button', { name: 'Open Allow rm' }))
-  expect(onNavigate).toHaveBeenCalledWith('/sess-1')
+  fireEvent.click(screen.getByRole('button', { name: 'Open Coding' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Open Stalled cron' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Open Wrote file' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Open Mention' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Open Project ready' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Open Review ready' }))
+  expect(onNavigate.mock.calls.map(call => call[0])).toEqual([
+    '/sess-1',
+    '/agents?bot=daedalus',
+    '/cron?job=job-1',
+    '/artifacts?id=art-1',
+    '/rooms?room=room-9',
+    '/rooms?project=proj-1',
+    '/rooms?pr=pr-7'
+  ])
 })
 
 test('loading, degraded, and empty states are textual', () => {

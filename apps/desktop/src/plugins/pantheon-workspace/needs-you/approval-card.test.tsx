@@ -14,7 +14,8 @@ const card: ApprovalProjection = {
   machine: 'windows-workstation',
   sessionId: 'sess-1',
   requestId: 'req-1',
-  choices: ['once', 'session', 'deny']
+  choices: ['once', 'session', 'deny'],
+  botId: 'bot-daedalus'
 }
 
 test('renders agent, context, action, machine, and accessible actions', () => {

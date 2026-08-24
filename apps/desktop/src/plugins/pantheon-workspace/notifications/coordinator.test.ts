@@ -104,6 +104,24 @@ test('teardown removes subscriptions and handlers', () => {
   expect(unsubscribe).toHaveBeenCalledTimes(1)
 })
 
+test('live mute getter is read at ingest time', () => {
+  const toast = vi.fn()
+  let mutedBots: string[] = []
+  const coordinator = new NotificationCoordinator({
+    toast,
+    native: vi.fn(),
+    navigate: vi.fn(),
+    focused: () => true,
+    mutes: () => ({ mutedBots, mutedRooms: [] })
+  })
+  coordinator.hydrate([])
+  coordinator.ingest(event({ type: 'approval', id: 'mute-1', botId: 'bot-daedalus' }))
+  expect(toast).toHaveBeenCalledTimes(1)
+  mutedBots = ['bot-daedalus']
+  coordinator.ingest(event({ type: 'approval', id: 'mute-2', botId: 'bot-daedalus' }))
+  expect(toast).toHaveBeenCalledTimes(1)
+})
+
 test('notification failures do not block projection refresh or retry-loop', () => {
   const refresh = vi.fn()
   const coordinator = new NotificationCoordinator({

@@ -81,15 +81,15 @@ test('every source kind has a typed exact navigation target', () => {
     botId: 'daedalus',
     href: '/agents?bot=daedalus'
   })
-  expect(navigationTarget('room', 'room-9')).toEqual({ kind: 'room', roomId: 'room-9', href: '/rooms/room-9' })
+  expect(navigationTarget('room', 'room-9')).toEqual({ kind: 'room', roomId: 'room-9', href: '/rooms?room=room-9' })
   expect(navigationTarget('session', 'sess-1')).toEqual({ kind: 'session', sessionId: 'sess-1', href: '/sess-1' })
   expect(navigationTarget('cron', 'job-3')).toEqual({ kind: 'cron', jobId: 'job-3', href: '/cron?job=job-3' })
   expect(navigationTarget('project', 'proj-1')).toEqual({
     kind: 'project',
     projectId: 'proj-1',
-    href: '/rooms/proj-1'
+    href: '/rooms?project=proj-1'
   })
-  expect(navigationTarget('pr', 'pr-7')).toEqual({ kind: 'pr', prId: 'pr-7', href: '/rooms/pr-7' })
+  expect(navigationTarget('pr', 'pr-7')).toEqual({ kind: 'pr', prId: 'pr-7', href: '/rooms?pr=pr-7' })
   expect(navigationTarget('artifact', 'art-2')).toEqual({
     kind: 'artifact',
     artifactId: 'art-2',

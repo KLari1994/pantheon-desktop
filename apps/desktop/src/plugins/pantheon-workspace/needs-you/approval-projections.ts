@@ -23,6 +23,9 @@ export interface ApprovalProjection {
   sessionId: string | null
   requestId?: string
   choices: ApprovalChoice[]
+  botId: string
+  roomId?: string
+  owner?: ApprovalOwnerRoute
 }
 
 export interface ApprovalRespondInput {
@@ -54,7 +57,14 @@ export function approvalLogicalId(request: ApprovalSource, owner?: ApprovalOwner
 
 export function projectApproval(
   request: ApprovalSource,
-  identity: { agent: string; context: string; machine: string; owner?: ApprovalOwnerRoute }
+  identity: {
+    agent: string
+    context: string
+    machine: string
+    owner?: ApprovalOwnerRoute
+    botId?: string
+    roomId?: string
+  }
 ): ApprovalProjection {
   const allowed = new Set(ALLOWED)
   const raw = request.choices?.filter((choice): choice is ApprovalChoice => allowed.has(choice as ApprovalChoice))
@@ -66,7 +76,10 @@ export function projectApproval(
     machine: identity.machine,
     sessionId: request.sessionId,
     requestId: request.requestId,
-    choices: raw && raw.length > 0 ? raw : [...ALLOWED]
+    choices: raw && raw.length > 0 ? raw : [...ALLOWED],
+    botId: identity.botId || identity.owner?.profile || identity.agent,
+    roomId: identity.roomId,
+    owner: identity.owner
   }
 }
 

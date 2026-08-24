@@ -58,4 +58,6 @@ export interface HomeSourceEvent {
   status?: string
   requestId?: string
   id?: string
+  botId?: string
+  roomId?: string
 }

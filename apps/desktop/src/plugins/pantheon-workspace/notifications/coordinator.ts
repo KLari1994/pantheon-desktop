@@ -15,7 +15,7 @@ export interface NotificationCoordinatorOptions {
   focused: () => boolean
   subscribe?: (ingest: (event: NotificationEvent) => void) => () => void
   onRefresh?: () => void
-  mutes?: NotificationMutes
+  mutes?: NotificationMutes | (() => NotificationMutes)
 }
 
 export class NotificationCoordinator {
@@ -48,7 +48,8 @@ export class NotificationCoordinator {
       return
     }
     this.seen.add(event.id)
-    const decision = classifyNotificationEvent(event, this.options.mutes || { mutedBots: [], mutedRooms: [] })
+    const mutes = typeof this.options.mutes === 'function' ? this.options.mutes() : this.options.mutes
+    const decision = classifyNotificationEvent(event, mutes || { mutedBots: [], mutedRooms: [] })
     if (decision === 'notify' && this.hydrated) {
       const input: NotificationDoorInput = {
         id: event.id,

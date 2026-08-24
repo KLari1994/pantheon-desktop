@@ -38,10 +38,16 @@ export function NeedsYouList({
             onRespond={choice => onRespond(card, choice)}
           />
           <div className="mt-1 flex gap-2">
-            <button onClick={() => onMute({ kind: 'bot', id: card.agent })} type="button">
+            <button onClick={() => onMute({ kind: 'bot', id: card.botId })} type="button">
               Mute notifications from {card.agent}
             </button>
-            <button onClick={() => onMute({ kind: 'room', id: card.context })} type="button">
+            <button
+              disabled={!card.roomId}
+              onClick={() => {
+                if (card.roomId) onMute({ kind: 'room', id: card.roomId })
+              }}
+              type="button"
+            >
               Mute notifications from {card.context}
             </button>
           </div>

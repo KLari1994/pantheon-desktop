@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, useSyncExternalStore } from 'react'
+import { useSearchParams } from 'react-router'
 
 import {
   type HermesPlugin,
@@ -21,9 +22,20 @@ import {
 import { RoomMemberships } from './agents/room-memberships'
 import { resolveAgentPubkey, resolveMemberAgent, selectMembershipAgent } from './agents/resolve-agent'
 import { HomePage } from './home/home-page'
+import { startHomeIngestion } from './home/ingest'
+import { pickRoomId, registeredHref } from './home/navigation'
+import {
+  collectApprovalInboxRows,
+  collectAuthoritativeHomeEvents,
+  createPluginApprovalInbox,
+  subscribeAuthoritativeHomeSources,
+  toNotificationEvent
+} from './home/sources'
 import { HomeStore } from './home/store'
 import { applyRoomMembership } from './manifest/store'
+import type { ApprovalProjection } from './needs-you/approval-projections'
 import { NotificationCoordinator } from './notifications/coordinator'
+import { loadMutes, muteScope, type MuteState } from './notifications/mutes'
 import { RoomList } from './rooms/room-list'
 import { RoomWorkspace } from './rooms/room-workspace'
 import {
@@ -38,10 +50,20 @@ function useStoreValue<T>(store: { get: () => T; listen: (listener: (next: T) =>
   return useSyncExternalStore(store.listen, store.get, store.get)
 }
 
+function useRoomsSearch(): string {
+  try {
+    const [params] = useSearchParams()
+    return params.toString()
+  } catch {
+    return typeof window === 'undefined' ? '' : window.location.search.replace(/^\?/, '')
+  }
+}
+
 function RoomsPage() {
   const store = useMemo(() => new RoomsStore(undefined, undefined), [])
   const rooms = useStoreValue(store.$rooms)
   const windows = useStoreValue(store.$windows)
+  const search = useRoomsSearch()
   const [status, setStatus] = useState<BuzzStatus>({ state: 'connecting' })
   const [selected, setSelected] = useState<BuzzRoom | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -74,9 +96,12 @@ function RoomsPage() {
             store.ingestEvent(roomId, event.event as RoomLiveEvent)
           }
         })
-        const first = page.rooms[0]
-        if (first) {
-          await selectRoom(store, first.id, setSelected)
+        const targetId = pickRoomId(
+          page.rooms.map(room => room.id),
+          search
+        )
+        if (targetId) {
+          await selectRoom(store, targetId, setSelected)
           await client.startSubscription({ roomIds: page.rooms.map(room => room.id) })
         }
       } catch (err) {
@@ -88,7 +113,7 @@ function RoomsPage() {
       cancelled = true
       unsubscribe()
     }
-  }, [store])
+  }, [search, store])
 
   useEffect(() => {
     if (!selected) return
@@ -311,12 +336,56 @@ export function diagnosticsFromSessions(
 }
 
 const homeStore = new HomeStore()
+const homeInbox = createPluginApprovalInbox()
+let muteStorage: PluginContext['storage'] | null = null
+let muteState: MuteState = { key: 'notification-mutes-v1:pantheon:local', mutedBots: [], mutedRooms: [] }
+
+function currentMuteScope() {
+  return {
+    workspace: host.state.profile.get() || 'pantheon',
+    connectionId: host.state.connectionId.get() || 'local'
+  }
+}
 
 function HomeRoute() {
-  return <HomePage onNavigate={href => host.navigate(href)} store={homeStore} />
+  const [cards, setCards] = useState(homeInbox.cards())
+  const [busyId, setBusyId] = useState(homeInbox.busyId())
+  const [errors, setErrors] = useState(homeInbox.errors())
+  useEffect(
+    () =>
+      homeInbox.listen(() => {
+        setCards(homeInbox.cards())
+        setBusyId(homeInbox.busyId())
+        setErrors(homeInbox.errors())
+      }),
+    []
+  )
+  return (
+    <HomePage
+      approvals={{
+        busyId,
+        cards,
+        errors,
+        onMute: target => {
+          if (!muteStorage) return
+          muteState = muteScope(muteStorage, currentMuteScope(), target)
+        },
+        onNavigate: (card: ApprovalProjection) => {
+          host.navigate(registeredHref('session', card.sessionId || card.id))
+        },
+        onRespond: (card, choice) => {
+          void homeInbox.respond(card, choice)
+        }
+      }}
+      onNavigate={href => host.navigate(href)}
+      store={homeStore}
+    />
+  )
 }
 
 function bindHomeNotifications(ctx: PluginContext) {
+  muteStorage = ctx.storage
+  muteState = loadMutes(ctx.storage, currentMuteScope())
   const coordinator = new NotificationCoordinator({
     toast: input => {
       host.notify({
@@ -330,15 +399,41 @@ function bindHomeNotifications(ctx: PluginContext) {
       ctx.os.notify({ title: input.title || 'Pantheon', body: input.message || input.title || 'Needs you', onActivate: input.onActivate })
     },
     navigate: href => host.navigate(href),
-    focused: () => typeof document !== 'undefined' && document.hasFocus()
+    focused: () => typeof document !== 'undefined' && document.hasFocus(),
+    mutes: () => muteState,
+    onRefresh: () => {
+      homeInbox.replace(collectApprovalInboxRows())
+    }
   })
-  coordinator.hydrate([])
-  queueMicrotask(() => {
-    const generation = homeStore.beginHydration()
-    homeStore.applyRefresh([], generation)
+  const runtime = startHomeIngestion({
+    store: homeStore,
+    listEvents: collectAuthoritativeHomeEvents,
+    subscribe: subscribeAuthoritativeHomeSources,
+    onHydrate: events => {
+      coordinator.hydrate(
+        events.flatMap(event => {
+          const next = toNotificationEvent(event)
+          return next ? [next] : []
+        })
+      )
+      homeInbox.replace(collectApprovalInboxRows())
+    },
+    notifications: {
+      subscribe: ingest =>
+        subscribeAuthoritativeHomeSources(events => {
+          for (const event of events) {
+            const next = toNotificationEvent(event)
+            if (next) ingest(next)
+          }
+        }),
+      ingest: event => coordinator.ingest(event as Parameters<NotificationCoordinator['ingest']>[0])
+    }
   })
-  coordinator.start()
-  return () => coordinator.dispose()
+  runtime.startNotifications()
+  return () => {
+    runtime.dispose()
+    coordinator.dispose()
+  }
 }
 
 const plugin: HermesPlugin = {

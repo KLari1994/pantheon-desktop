@@ -1,3 +1,4 @@
+import { registeredHref } from './navigation'
 import {
   HOME_SECTIONS,
   type HomeEventType,
@@ -45,21 +46,22 @@ const DEFAULT_STATUS: Record<string, string> = {
 }
 
 export function navigationTarget(kind: HomeSourceKind, sourceId: string): HomeNavigationTarget {
+  const href = registeredHref(kind, sourceId)
   switch (kind) {
     case 'bot':
-      return { kind, botId: sourceId, href: `/agents?bot=${encodeURIComponent(sourceId)}` }
+      return { kind, botId: sourceId, href }
     case 'room':
-      return { kind, roomId: sourceId, href: `/rooms/${sourceId}` }
+      return { kind, roomId: sourceId, href }
     case 'session':
-      return { kind, sessionId: sourceId, href: `/${sourceId}` }
+      return { kind, sessionId: sourceId, href }
     case 'cron':
-      return { kind, jobId: sourceId, href: `/cron?job=${encodeURIComponent(sourceId)}` }
+      return { kind, jobId: sourceId, href }
     case 'project':
-      return { kind, projectId: sourceId, href: `/rooms/${sourceId}` }
+      return { kind, projectId: sourceId, href }
     case 'pr':
-      return { kind, prId: sourceId, href: `/rooms/${sourceId}` }
+      return { kind, prId: sourceId, href }
     case 'artifact':
-      return { kind, artifactId: sourceId, href: `/artifacts?id=${encodeURIComponent(sourceId)}` }
+      return { kind, artifactId: sourceId, href }
   }
 }
 

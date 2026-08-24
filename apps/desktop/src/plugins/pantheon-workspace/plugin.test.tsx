@@ -63,3 +63,12 @@ test('binds a notification coordinator and disposes it', () => {
   expect(ctx.disposers.length).toBeGreaterThan(0)
   expect(() => ctx.disposers.forEach(dispose => dispose())).not.toThrow()
 })
+
+test('registers the one-segment /rooms route rather than /rooms/:id', () => {
+  const ctx = fakeCtx()
+  plugin.register(ctx as unknown as PluginContext)
+  const roomPaths = ctx.contributions.filter(item => item.area === 'routes').map(item => item.data?.path)
+  expect(roomPaths).toContain('/rooms')
+  expect(roomPaths.some(path => path?.includes('/rooms/'))).toBe(true)
+  expect(roomPaths.some(path => path === '/rooms/:id' || path?.startsWith('/rooms/:'))).toBe(false)
+})
