@@ -8,7 +8,8 @@ import {
   fromFallback,
   fromLocalGit,
   isFallbackCommit,
-  resolveStamp
+  resolveStamp,
+  buildStampPayload
 } from './write-build-stamp.mjs'
 
 test('fromCI reads GITHUB_SHA / GITHUB_REF_NAME', () => {
@@ -83,4 +84,20 @@ test('resolveStamp falls back when neither CI nor git is available', () => {
     dirty: false,
     source: 'fallback'
   })
+})
+
+test('buildStampPayload records downstream SHA plus upstream Hermes and Buzz pins', () => {
+  const payload = buildStampPayload({
+    commit: 'e'.repeat(40),
+    branch: 'staging',
+    dirty: false,
+    source: 'ci'
+  })
+  assert.equal(payload.commit, 'e'.repeat(40))
+  assert.equal(payload.branch, 'staging')
+  assert.equal(payload.schemaVersion, 1)
+  assert.equal(payload.upstreamHermesCommit, 'c584d15cdc31e1ebf3989c426ed05fb2ddb0c9fc')
+  assert.equal(payload.buzzCompatibilityCommit, '0720f5380ce8a6c050afac159f8462c06cd51ab5')
+  assert.match(payload.upstreamHermesCommit, /^[0-9a-f]{40}$/)
+  assert.match(payload.buzzCompatibilityCommit, /^[0-9a-f]{40}$/)
 })

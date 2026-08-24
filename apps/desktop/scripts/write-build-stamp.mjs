@@ -11,7 +11,9 @@
  *     "branch":        "<branch name>",
  *     "builtAt":       "<ISO 8601 UTC timestamp>",
  *     "dirty":         true|false,
- *     "source":        "ci" | "local" | "fallback"
+ *     "source":        "ci" | "local" | "fallback",
+ *     "upstreamHermesCommit": "<40-char SHA>",
+ *     "buzzCompatibilityCommit": "<40-char SHA>"
  *   }
  *
  * Source preference order:
@@ -37,6 +39,10 @@ const STAMP_SCHEMA_VERSION = 1
 /** All-zero placeholder used when no real commit can be resolved. */
 export const FALLBACK_COMMIT = "0000000000000000000000000000000000000000"
 export const FALLBACK_BRANCH = "main"
+
+/** Upstream pins recorded in every packaged stamp (schema stays 1; additive). */
+export const UPSTREAM_HERMES_COMMIT = "c584d15cdc31e1ebf3989c426ed05fb2ddb0c9fc"
+export const BUZZ_COMPATIBILITY_COMMIT = "0720f5380ce8a6c050afac159f8462c06cd51ab5"
 
 const DESKTOP_ROOT = resolve(import.meta.dirname, "..")
 const REPO_ROOT = resolve(DESKTOP_ROOT, "..", "..")
@@ -114,6 +120,24 @@ export function isFallbackCommit(commit) {
   return typeof commit === "string" && /^0{7,40}$/.test(commit)
 }
 
+/**
+ * Packaged install-stamp JSON. `commit` is the downstream SHA; the two
+ * extra fields record the Hermes and Buzz pins the stamp script cannot
+ * learn from git on this fork.
+ */
+export function buildStampPayload(stamp, builtAt = new Date().toISOString()) {
+  return {
+    schemaVersion: STAMP_SCHEMA_VERSION,
+    commit: stamp.commit,
+    branch: stamp.branch,
+    builtAt,
+    dirty: stamp.dirty,
+    source: stamp.source,
+    upstreamHermesCommit: UPSTREAM_HERMES_COMMIT,
+    buzzCompatibilityCommit: BUZZ_COMPATIBILITY_COMMIT
+  }
+}
+
 function main() {
   const stamp = resolveStamp()
   if (!stamp || !stamp.commit) {
@@ -149,14 +173,7 @@ function main() {
     )
   }
 
-  const payload = {
-    schemaVersion: STAMP_SCHEMA_VERSION,
-    commit: stamp.commit,
-    branch: stamp.branch,
-    builtAt: new Date().toISOString(),
-    dirty: stamp.dirty,
-    source: stamp.source
-  }
+  const payload = buildStampPayload(stamp)
 
   mkdirSync(OUT_DIR, { recursive: true })
   writeFileSync(OUT_FILE, JSON.stringify(payload, null, 2) + "\n", "utf8")
