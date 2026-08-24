@@ -59,6 +59,12 @@ export function muteScope(storage: MuteStorage, scope: MuteScope, target: MuteTa
   return write(storage, current)
 }
 
+export function mutesForCurrentScope(storage: MuteStorage, scope: MuteScope, current?: MuteState): MuteState {
+  const key = mutesKey(scope)
+  if (current?.key === key) return current
+  return loadMutes(storage, scope)
+}
+
 export function unmuteScope(storage: MuteStorage, scope: MuteScope, target: MuteTarget): MuteState {
   const current = loadMutes(storage, scope)
   if (target.kind === 'bot') current.mutedBots = current.mutedBots.filter(id => id !== target.id)

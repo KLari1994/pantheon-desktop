@@ -11,6 +11,7 @@ import {
   type SidebarNavContribution
 } from '@hermes/plugin-sdk'
 
+import { openSession } from '@/app/open-session'
 import {
   desktopBuzzClient,
   type BuzzRoom,
@@ -18,13 +19,16 @@ import {
   type WorkspaceAgent,
   type WorkspaceManifest
 } from '@/pantheon/buzz-client'
+import { openArtifact } from '@/store/artifacts'
+import { setCronFocusJobId } from '@/store/cron'
 
 import { RoomMemberships } from './agents/room-memberships'
 import { resolveAgentPubkey, resolveMemberAgent, selectMembershipAgent } from './agents/resolve-agent'
 import { HomePage } from './home/home-page'
 import { startHomeIngestion } from './home/ingest'
-import { pickRoomId, registeredHref } from './home/navigation'
+import { openHomeTarget, pickRoomId, registeredHref } from './home/navigation'
 import {
+  applyHomeSourceSnapshot,
   collectApprovalInboxRows,
   collectAuthoritativeHomeEvents,
   createPluginApprovalInbox,
@@ -35,7 +39,7 @@ import { HomeStore } from './home/store'
 import { applyRoomMembership } from './manifest/store'
 import type { ApprovalProjection } from './needs-you/approval-projections'
 import { NotificationCoordinator } from './notifications/coordinator'
-import { loadMutes, muteScope, type MuteState } from './notifications/mutes'
+import { loadMutes, muteScope, mutesForCurrentScope, type MuteState } from './notifications/mutes'
 import { RoomList } from './rooms/room-list'
 import { RoomWorkspace } from './rooms/room-workspace'
 import {
@@ -347,6 +351,21 @@ function currentMuteScope() {
   }
 }
 
+function refreshMuteScope() {
+  if (!muteStorage) return
+  muteState = mutesForCurrentScope(muteStorage, currentMuteScope(), muteState)
+}
+
+function navigateHome(href: string, owner?: { connectionId: string; profile: string }) {
+  openHomeTarget(href, {
+    navigate: path => host.navigate(path),
+    openSession,
+    setCronFocusJobId,
+    openArtifact,
+    owner
+  })
+}
+
 function HomeRoute() {
   const [cards, setCards] = useState(homeInbox.cards())
   const [busyId, setBusyId] = useState(homeInbox.busyId())
@@ -368,16 +387,19 @@ function HomeRoute() {
         errors,
         onMute: target => {
           if (!muteStorage) return
+          refreshMuteScope()
           muteState = muteScope(muteStorage, currentMuteScope(), target)
         },
         onNavigate: (card: ApprovalProjection) => {
-          host.navigate(registeredHref('session', card.sessionId || card.id))
+          navigateHome(registeredHref('session', card.sessionId || card.id), card.owner)
         },
         onRespond: (card, choice) => {
-          void homeInbox.respond(card, choice)
+          void homeInbox.respond(card, choice).then(() => {
+            homeInbox.replace(collectApprovalInboxRows())
+          })
         }
       }}
-      onNavigate={href => host.navigate(href)}
+      onNavigate={href => navigateHome(href)}
       store={homeStore}
     />
   )
@@ -386,6 +408,8 @@ function HomeRoute() {
 function bindHomeNotifications(ctx: PluginContext) {
   muteStorage = ctx.storage
   muteState = loadMutes(ctx.storage, currentMuteScope())
+  const unsubProfile = host.state.profile.listen(() => refreshMuteScope())
+  const unsubConnection = host.state.connectionId.listen(() => refreshMuteScope())
   const coordinator = new NotificationCoordinator({
     toast: input => {
       host.notify({
@@ -398,9 +422,12 @@ function bindHomeNotifications(ctx: PluginContext) {
     native: input => {
       ctx.os.notify({ title: input.title || 'Pantheon', body: input.message || input.title || 'Needs you', onActivate: input.onActivate })
     },
-    navigate: href => host.navigate(href),
+    navigate: href => navigateHome(href),
     focused: () => typeof document !== 'undefined' && document.hasFocus(),
-    mutes: () => muteState,
+    mutes: () => {
+      refreshMuteScope()
+      return muteState
+    },
     onRefresh: () => {
       homeInbox.replace(collectApprovalInboxRows())
     }
@@ -421,16 +448,18 @@ function bindHomeNotifications(ctx: PluginContext) {
     notifications: {
       subscribe: ingest =>
         subscribeAuthoritativeHomeSources(events => {
-          for (const event of events) {
-            const next = toNotificationEvent(event)
-            if (next) ingest(next)
-          }
+          applyHomeSourceSnapshot(events, {
+            replaceInbox: rows => homeInbox.replace(rows),
+            ingestNotification: ingest
+          })
         }),
       ingest: event => coordinator.ingest(event as Parameters<NotificationCoordinator['ingest']>[0])
     }
   })
   runtime.startNotifications()
   return () => {
+    unsubProfile()
+    unsubConnection()
     runtime.dispose()
     coordinator.dispose()
   }
@@ -455,6 +484,8 @@ const plugin: HermesPlugin = {
       {
         id: 'home-nav',
         area: SIDEBAR_NAV_AREA,
+        // Host sidebar renders [...SIDEBAR_NAV, ...contributions]. There is no
+        // contribution placement API that inserts before permanent items.
         order: 20,
         data: { codicon: 'home', label: 'Home', path: '/home' } satisfies SidebarNavContribution
       },

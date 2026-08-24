@@ -1,6 +1,6 @@
 import { expect, test } from 'vitest'
 
-import { isMuted, loadMutes, muteScope, unmuteScope, type MuteStorage } from './mutes'
+import { isMuted, loadMutes, muteScope, mutesForCurrentScope, unmuteScope, type MuteStorage } from './mutes'
 
 function memory(): MuteStorage & { writes: number; workExecuted: boolean } {
   const bag = new Map<string, unknown>()
@@ -51,4 +51,13 @@ test('mute changes notification delivery only, not work execution', () => {
   unmuteScope(storage, scope, { kind: 'bot', id: 'Daedalus' })
   expect(storage.workExecuted).toBe(true)
   expect(isMuted(loadMutes(storage, scope), { kind: 'bot', id: 'Daedalus' })).toBe(false)
+})
+
+test('scope changes reload mutes instead of keeping the previous connection key', () => {
+  const storage = memory()
+  muteScope(storage, { workspace: 'pantheon', connectionId: 'conn-a' }, { kind: 'room', id: 'room-1' })
+  const stale = loadMutes(storage, { workspace: 'pantheon', connectionId: 'conn-a' })
+  const next = mutesForCurrentScope(storage, { workspace: 'pantheon', connectionId: 'conn-b' }, stale)
+  expect(next.key).toBe('notification-mutes-v1:pantheon:conn-b')
+  expect(next.mutedRooms).toEqual([])
 })

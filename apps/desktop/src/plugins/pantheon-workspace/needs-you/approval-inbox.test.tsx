@@ -3,7 +3,7 @@ import { afterEach, expect, test, vi } from 'vitest'
 
 import { ApprovalInbox } from './approval-inbox'
 import { NeedsYouList } from './needs-you-list'
-import { projectApproval, type ApprovalOwnerRoute, type ApprovalSource } from './approval-projections'
+import { projectApproval, sharedApprovalInFlight, type ApprovalOwnerRoute, type ApprovalSource } from './approval-projections'
 
 afterEach(() => cleanup())
 
@@ -83,4 +83,35 @@ test('mute clicks pass stable bot and room ids, not display labels', () => {
   fireEvent.click(screen.getByRole('button', { name: 'Mute notifications from session sess-1' }))
   expect(onMute).toHaveBeenCalledWith({ kind: 'bot', id: 'bot-daedalus' })
   expect(onMute).toHaveBeenCalledWith({ kind: 'room', id: 'room-ops' })
+})
+
+test('separate inboxes share one in-flight map so double-submit is rejected', async () => {
+  sharedApprovalInFlight.clear()
+  const hold = () => new Promise(resolve => {
+    setTimeout(resolve, 20)
+  })
+  const firstInbox = new ApprovalInbox({
+    requestOwned: async () => hold(),
+    clear: () => undefined
+  })
+  const secondInbox = new ApprovalInbox({
+    requestOwned: async () => hold(),
+    clear: () => undefined
+  })
+  const card = projectApproval(request, {
+    agent: 'Daedalus',
+    context: 'ops',
+    machine: 'win',
+    owner,
+    botId: 'bot-daedalus',
+    roomId: 'room-ops'
+  })
+  firstInbox.replace([{ request, card }])
+  secondInbox.replace([{ request, card }])
+  const first = firstInbox.respond(card, 'once')
+  const second = await secondInbox.respond(card, 'deny')
+  expect(second.ok).toBe(false)
+  if (second.ok === false) expect(second.reason).toBe('in-flight')
+  await first
+  sharedApprovalInFlight.clear()
 })

@@ -57,6 +57,14 @@ test('registers /home and places Home nav before Rooms', () => {
   )
 })
 
+test('Home uses the only host nav API; permanent sidebar items stay ahead of contributions', () => {
+  const ctx = fakeCtx()
+  plugin.register(ctx as unknown as PluginContext)
+  const homeNav = ctx.contributions.find(item => item.data?.label === 'Home')
+  expect(homeNav?.area).toBe('sidebar.nav')
+  expect(Object.keys(homeNav?.data || {}).sort()).toEqual(['codicon', 'label', 'path'])
+})
+
 test('binds a notification coordinator and disposes it', () => {
   const ctx = fakeCtx()
   plugin.register(ctx as unknown as PluginContext)

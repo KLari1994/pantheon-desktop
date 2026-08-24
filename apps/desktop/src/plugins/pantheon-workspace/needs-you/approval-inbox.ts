@@ -1,5 +1,6 @@
 import {
   respondToApproval,
+  sharedApprovalInFlight,
   type ApprovalChoice,
   type ApprovalProjection,
   type ApprovalRespondDeps,
@@ -14,7 +15,7 @@ export interface ApprovalInboxRow {
 
 export class ApprovalInbox {
   private rows: ApprovalInboxRow[] = []
-  private readonly inFlight = new Set<string>()
+  private readonly inFlight = sharedApprovalInFlight
   private readonly listeners = new Set<() => void>()
   private currentBusyId: string | null = null
   private currentErrors: Record<string, string> = {}

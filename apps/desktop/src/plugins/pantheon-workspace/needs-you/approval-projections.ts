@@ -48,6 +48,8 @@ export type ApprovalRespondResult =
 
 const ALLOWED: ApprovalChoice[] = ['once', 'session', 'deny']
 
+export const sharedApprovalInFlight = new Set<string>()
+
 export function approvalLogicalId(request: ApprovalSource, owner?: ApprovalOwnerRoute): string {
   if (request.requestId) return `approval:${request.requestId}`
   const connectionId = owner?.connectionId || 'unknown'
