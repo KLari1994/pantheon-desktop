@@ -13,6 +13,8 @@ import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import type { HermesGateway } from '@/hermes'
 import { useI18n } from '@/i18n'
 import { notifyError } from '@/store/notifications'
+import { describeRollbackPreview } from '@/pantheon/destination'
+import { rollbackMachineName } from '@/app/session/hooks/use-prompt-actions/rewind'
 
 type ThreadLoadingState = 'response' | 'session'
 
@@ -83,10 +85,18 @@ export const Thread = memo(function Thread({
     const { messageId, text, userOrdinal } = restoreConfirmTarget
 
     closeRestoreConfirm()
-    void Promise.resolve(onRestoreToMessage(messageId, { text, userOrdinal })).catch((error: unknown) => {
+    void Promise.resolve(
+      onRestoreToMessage(messageId, {
+        text,
+        userOrdinal,
+        approved: true,
+        worktree: cwd || '(no worktree)',
+        machine: rollbackMachineName()
+      })
+    ).catch((error: unknown) => {
       notifyError(error, 'Restore failed')
     })
-  }, [closeRestoreConfirm, onRestoreToMessage, restoreConfirmTarget])
+  }, [closeRestoreConfirm, cwd, onRestoreToMessage, restoreConfirmTarget])
 
   const requestRestoreConfirm = useCallback((messageId: string, target: RestoreMessageTarget) => {
     setRestoreConfirmTarget({ messageId, ...target })
@@ -174,7 +184,13 @@ export const Thread = memo(function Thread({
         <ThreadTimeline />
         <ConfirmDialog
           confirmLabel={copy.restoreConfirm}
-          description={copy.restoreBody}
+          description={`${copy.restoreBody} ${
+            describeRollbackPreview({
+              sessionId: sessionId || 'session',
+              worktree: cwd || '(no worktree)',
+              machine: rollbackMachineName()
+            }).summary
+          }`}
           destructive
           onClose={closeRestoreConfirm}
           onConfirm={confirmRestore}

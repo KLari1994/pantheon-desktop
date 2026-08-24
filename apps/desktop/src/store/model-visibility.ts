@@ -260,3 +260,5 @@ export function setProviderVisibility(
 
   return next
 }
+
+export { showModelPicker } from '@/pantheon/destination'

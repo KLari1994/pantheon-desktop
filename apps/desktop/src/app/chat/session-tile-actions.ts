@@ -41,7 +41,9 @@ import {
   planEdit,
   planReload,
   planRestore,
+  previewRollback,
   rebindSurvivorRowIds,
+  rollbackMachineName,
   runRewindSubmit,
   type SurvivorUserRowIds
 } from '../session/hooks/use-prompt-actions/rewind'
@@ -415,7 +417,8 @@ export function useSessionTileActions({ requestGateway, runtimeId, scope, stored
       interruptFirst: boolean,
       truncateMessageId?: string,
       truncateRowId?: number,
-      sourceText?: string
+      sourceText?: string,
+      rollback?: { worktree: string; machine: string; approved?: boolean }
     ) =>
       runRewindSubmit(
         requestGateway,
@@ -429,7 +432,8 @@ export function useSessionTileActions({ requestGateway, runtimeId, scope, stored
           onSessionRecovered: bindRecoveredRuntime
         },
         truncateRowId,
-        sourceText
+        sourceText,
+        rollback
       ),
     [bindRecoveredRuntime, requestGateway]
   )
@@ -489,10 +493,17 @@ export function useSessionTileActions({ requestGateway, runtimeId, scope, stored
   )
 
   const restoreToMessage = useCallback(
-    async (messageId: string, target?: { text?: string; userOrdinal?: number | null }) => {
+    async (messageId: string, target?: { text?: string; userOrdinal?: number | null; approved?: boolean; worktree?: string; machine?: string }) => {
       const sessionId = runtimeIdRef.current
       const messages = readMessages()
       const plan = planRestore(messages, messageId, target)
+      const worktree = target?.worktree || '(no worktree)'
+      const machine = target?.machine || rollbackMachineName()
+      const preview = previewRollback({ sessionId, worktree, machine, approved: target?.approved })
+
+      if (!preview.allowed) {
+        throw new Error(preview.summary)
+      }
 
       clearSessionTodos(sessionId)
       resetSessionBackground(sessionId)
@@ -513,7 +524,8 @@ export function useSessionTileActions({ requestGateway, runtimeId, scope, stored
             interruptFirst,
             plan.truncateMessageId,
             plan.truncateRowId,
-            plan.sourceText
+            plan.sourceText,
+            { worktree, machine, approved: true }
           )
         )
       } catch (err) {

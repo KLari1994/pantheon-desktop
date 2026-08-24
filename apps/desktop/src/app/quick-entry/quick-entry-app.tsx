@@ -8,6 +8,7 @@ import {
   quickComposerReducer,
   type QuickComposerState
 } from '@/store/quick-entry'
+import { encodeRoomQuickTarget } from '@/pantheon/destination'
 
 /**
  * The Quick Entry composer — the whole renderer surface of the global-hotkey
@@ -59,6 +60,9 @@ export function QuickEntryApp() {
       dispatch({
         connected: payload?.connected === true,
         sessions: Array.isArray(payload?.sessions) ? payload.sessions : [],
+        rooms: Array.isArray(payload?.rooms) ? payload.rooms : [],
+        bridgeHealthy: payload?.bridgeHealthy === true,
+        destinationMemory: payload?.destinationMemory,
         type: 'state'
       })
     })
@@ -187,6 +191,11 @@ export function QuickEntryApp() {
             {state.sessions.map(session => (
               <option key={session.id} value={session.id}>
                 {session.title}
+              </option>
+            ))}
+            {state.rooms.map(room => (
+              <option key={room.id} value={encodeRoomQuickTarget(room.id)}>
+                Room: {room.title}
               </option>
             ))}
           </select>

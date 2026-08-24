@@ -15,7 +15,7 @@ import { startPointerDrag } from '@/lib/pointer-drag'
 import { $bindings, bindingsFor } from '@/store/keybinds'
 
 import { $layoutEditMode } from '../../edit-mode'
-import { resetLayoutTree } from '../store'
+import { applyPantheonLayoutReset } from '@/pantheon/layout-presets'
 
 import { LayoutPicker } from './layout-picker'
 
@@ -92,7 +92,7 @@ export function TreeEditBar() {
           </p>
         </div>
         <div className="flex shrink-0 items-center gap-1.5" onPointerDown={e => e.stopPropagation()}>
-          <Button onClick={resetLayoutTree} size="sm" variant="ghost">
+          <Button onClick={() => applyPantheonLayoutReset()} size="sm" variant="ghost">
             {t.zones.reset}
           </Button>
           <Button onClick={() => $layoutEditMode.set(false)} size="sm" variant="outline">
