@@ -20,7 +20,7 @@ test('RoomsPage initializes from the encoded registered query, not the first roo
 test('every source kind has a registered one-segment path', () => {
   expect(registeredHref('bot', 'daedalus')).toBe('/rooms/memberships?bot=daedalus')
   expect(registeredHref('session', 'sess-1')).toBe('/sess-1')
-  expect(registeredHref('cron', 'job-3')).toBe('/cron?job=job-3')
+  expect(registeredHref('cron', 'job-3')).toBe('/cron-center?job=job-3')
   expect(registeredHref('artifact', 'art-2')).toBe('/artifacts?id=art-2')
   expect(registeredHref('room', 'room-9').startsWith('/rooms')).toBe(true)
 })
@@ -36,9 +36,11 @@ test('openHomeTarget uses the APIs those surfaces actually consume', () => {
     workspaceMode: 'sessions',
     ownerRoute: owner
   })
-  openHomeTarget('/cron?job=job-3', { navigate, openSession, setCronFocusJobId, openArtifact, owner })
-  expect(setCronFocusJobId).toHaveBeenCalledWith('job-3')
-  expect(navigate).toHaveBeenCalledWith('/cron')
+  openHomeTarget('/cron-center?job=job-3', { navigate, openSession, setCronFocusJobId, openArtifact, owner })
+  expect(setCronFocusJobId).not.toHaveBeenCalled()
+  expect(navigate).toHaveBeenCalledWith('/cron-center?job=job-3')
+  openHomeTarget('/cron?job=job-legacy', { navigate, openSession, setCronFocusJobId, openArtifact, owner })
+  expect(navigate).toHaveBeenCalledWith('/cron-center?job=job-legacy')
   openHomeTarget('/artifacts?id=art-2', { navigate, openSession, setCronFocusJobId, openArtifact, owner })
   expect(openArtifact).toHaveBeenCalledWith('art-2')
   openHomeTarget('/rooms/memberships?bot=daedalus', { navigate, openSession, setCronFocusJobId, openArtifact, owner })
