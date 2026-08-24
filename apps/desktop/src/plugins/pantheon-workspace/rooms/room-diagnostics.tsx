@@ -20,6 +20,18 @@ export function deriveBindingHealth(input: {
   return 'unknown'
 }
 
+export function liveDiagnosticRoute(
+  owner?: { connectionId?: string | null; profile?: string | null } | null,
+  ambient?: { connectionId?: string | null; profile?: string | null },
+  runtimeSessionId?: string | null
+): { connectionId?: string; profile?: string; runtimeSessionId?: string } {
+  return {
+    connectionId: owner?.connectionId || ambient?.connectionId || undefined,
+    profile: owner?.profile || ambient?.profile || undefined,
+    runtimeSessionId: runtimeSessionId || undefined
+  }
+}
+
 export function diagnosticRuntimeForAgent(
   agent: { connectionId: string; profile: string; machineId?: string },
   live?: { connectionId?: string | null; profile?: string | null; runtimeSessionId?: string | null }
