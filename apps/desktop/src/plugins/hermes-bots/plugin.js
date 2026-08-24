@@ -134,6 +134,50 @@ function setActivityToasts(enabled) {
   }
 }
 
+/** Shipped defaults for optional Bot Mode surfaces. Upstream Hermes ships both true;
+ *  Pantheon ships both false (BOT-06, BOT-07). Persisted overrides win. */
+const SURFACE_DEFAULTS = { showLocalGroups: false, showRoutines: false }
+const $showLocalGroups = atom(SURFACE_DEFAULTS.showLocalGroups)
+const $showRoutines = atom(SURFACE_DEFAULTS.showRoutines)
+
+function persistSurfacePref(key, enabled) {
+  try {
+    Promise.resolve(pluginCtx?.storage?.set?.(key, enabled)).catch(() => undefined)
+  } catch {
+    /* storage unavailable — pref holds for this window only */
+  }
+}
+
+function setShowLocalGroups(enabled) {
+  $showLocalGroups.set(enabled)
+  persistSurfacePref('show-local-groups', enabled)
+}
+
+function setShowRoutines(enabled) {
+  $showRoutines.set(enabled)
+  persistSurfacePref('show-routines', enabled)
+}
+
+function hydrateSurfacePref(storage, key, store, fallback) {
+  let next = fallback
+  try {
+    const value = storage?.get?.(key)
+    if (typeof value === 'boolean') {
+      next = value
+    } else if (value && typeof value.then === 'function') {
+      Promise.resolve(value)
+        .then(resolved => {
+          if (typeof resolved === 'boolean') store.set(resolved)
+        })
+        .catch(() => undefined)
+    }
+  } catch {
+    /* no storage — shipped default stays */
+  }
+  store.set(next)
+  return next
+}
+
 /** Detect new inbound activity from a fresh roster: last_active moved past
  *  the watermark for a bot whose chat isn't on screen -> unread + toast.
  *  Watermarks follow botActivitySession (canonical Bot Chat included) —
@@ -7863,6 +7907,7 @@ function BotRow({ bot, onDelete, onEdit, onGroup, showHandle }) {
   const botsHomeFronted = useValue($botsHomeFronted)
   const activeGroup = useValue($groupChatWorkspace)
   const allMeta = useValue($botMeta)
+  const showLocalGroups = useValue($showLocalGroups)
   const meta = botRosterMeta(bot, allMeta)
   const hidden = isBotHidden(bot, allMeta)
   const pinned = isBotPinned(bot, allMeta)
@@ -8125,10 +8170,12 @@ function BotRow({ bot, onDelete, onEdit, onGroup, showHandle }) {
             onSelect: () => void ensureBotMetadata(bot).then(() => onEdit(bot)).catch(error => host.notifyError?.(error, 'Could not load bot')),
             children: 'Edit Profile'
           }),
-          jsx(ContextMenuItem, {
+          showLocalGroups
+            ? jsx(ContextMenuItem, {
             onSelect: () => void ensureBotMetadata(bot).then(() => onGroup(bot)).catch(error => host.notifyError?.(error, 'Could not load bot groups')),
             children: groups.length ? `Groups: ${groups.join(', ')}…` : 'Manage groups…'
-          }),
+          })
+            : null,
           jsx(ContextMenuItem, {
             onSelect: () => {
               host.notify({ kind: 'info', message: `Duplicating ${displayName(bot, meta)}…` })
@@ -9197,6 +9244,13 @@ function EditProfileDialog({ bot, open, onClose }) {
               ? jsx('div', {
                   className: 'rounded-md border border-(--ui-stroke-secondary) p-3',
                   children: jsx(AdvancedProfileConfig, { bot, state: adv, setState: setAdv })
+                })
+              : null,
+            typeof globalThis.__PantheonAgentRooms === 'function'
+              ? jsx(globalThis.__PantheonAgentRooms, {
+                  bot,
+                  connectionId: bot.connectionId || bot.route?.connectionId,
+                  profile: bot.route?.profile || bot.name
                 })
               : null
           ]
@@ -13625,6 +13679,7 @@ function BotsPane() {
   const [collapsedRosterSections, setCollapsedRosterSections] = useState(() => new Set())
   const hiddenSectionRef = useRef(null)
   const activityToasts = useValue($activityToasts)
+  const showLocalGroups = useValue($showLocalGroups)
   const groupChatName = useValue($groupChatWorkspace)
   // Main-tab ownership is a module Map; this rev subscription makes the
   // shouldRenderGroupChatInPane gate below reactive to tab open/close
@@ -13712,8 +13767,9 @@ function BotsPane() {
       activityFilter
     )
   )
-  const groupNames = groupChatNames(allMeta, groupRooms)
-  const groupRows = groupNames
+  const groupNames = showLocalGroups ? groupChatNames(allMeta, groupRooms) : []
+  const groupRows = showLocalGroups
+    ? groupChatNames(allMeta, groupRooms)
     .map(name => ({ name, members: groupChatMemberBots(name, roster, allMeta) }))
     .filter(row => groupMatchesRosterFilters(row.name, row.members, allMeta, query, gatewayFilter))
     .map(row => ({
@@ -13729,6 +13785,7 @@ function BotsPane() {
         ) || row.members.some(member => activeRosterKeys.has(botRosterKey(member)))
     }))
     .filter(row => rowKindFilter !== 'bots' && rosterActivityMatches(row, activityFilter))
+    : []
   const botRows =
     rowKindFilter === 'groups'
       ? []
@@ -13852,7 +13909,7 @@ function BotsPane() {
     : null
   const groupChatMembers = groupChatName ? groupChatMemberBots(groupChatName, roster, allMeta) : []
 
-  if (shouldRenderGroupChatInPane(groupChatName) && groupChatMembers.length) {
+  if (showLocalGroups && shouldRenderGroupChatInPane(groupChatName) && groupChatMembers.length) {
     return jsx(GroupChatWorkspace, { group: groupChatName, members: groupChatMembers })
   }
 
@@ -14008,11 +14065,13 @@ function BotsPane() {
                         onSelect: () => setCreateOpen(true),
                         children: [jsx(Codicon, { name: 'hubot', className: 'mr-1.5' }), 'New Bot']
                       }),
-                      jsxs(DropdownMenuItem, {
+                      showLocalGroups
+                        ? jsxs(DropdownMenuItem, {
                         disabled: activeSourceRoster.length < 2,
                         onSelect: () => setGroupCreateOpen(true),
                         children: [jsx(Codicon, { name: 'organization', className: 'mr-1.5' }), 'New Group Chat']
                       })
+                        : null
                     ]
                   })
                 ]
@@ -14076,9 +14135,9 @@ function BotsPane() {
                         align: 'end',
                         children: [
                           ...[
-                            ['all', 'Bots and group chats'],
+                            ['all', showLocalGroups ? 'Bots and group chats' : 'Bots'],
                             ['bots', 'Bots only'],
-                            ['groups', 'Group chats only']
+                            ...(showLocalGroups ? [['groups', 'Group chats only']] : [])
                           ].map(([value, label]) =>
                             jsxs(
                               DropdownMenuItem,
@@ -14252,7 +14311,7 @@ function BotsPane() {
                       children: [
                         ...(showGatewaySections
                           ? [
-                              sortedGroupRows.length ? renderGroupChatSection() : null,
+                              showLocalGroups && sortedGroupRows.length ? renderGroupChatSection() : null,
                               ...gatewaySections.sections.map(renderGatewaySection)
                             ].filter(Boolean)
                           : rosterRows.map(row =>
@@ -14319,14 +14378,16 @@ function BotsPane() {
         },
         roster: activeSourceRoster
       }),
-      jsx(CreateGroupChatDialog, {
+      showLocalGroups
+        ? jsx(CreateGroupChatDialog, {
         open: groupCreateOpen,
         // Full multi-source roster: group chats can seat bots from other
         // registered connections — their turns route to their own machines.
         roster,
         onClose: () => setGroupCreateOpen(false),
         onCreated: groupName => openGroupChat(groupName)
-      }),
+      })
+        : null,
       jsx(EditProfileDialog, {
         bot: editing,
         open: Boolean(editing),
@@ -14335,7 +14396,7 @@ function BotsPane() {
           void refetch()
         }
       }),
-      grouping ? jsx(GroupDialog, { bot: grouping, onClose: () => setGrouping(null) }) : null,
+      showLocalGroups && grouping ? jsx(GroupDialog, { bot: grouping, onClose: () => setGrouping(null) }) : null,
       jsx(ConfirmDialog, {
         open: Boolean(deleting),
         title: 'Delete bot and profile?',
@@ -14366,7 +14427,8 @@ function BotsPane() {
           host.notify({ kind: 'success', message: `Deleted profile ${name}` })
         }
       }),
-      jsx(ConfirmDialog, {
+      showLocalGroups
+        ? jsx(ConfirmDialog, {
         open: Boolean(deletingGroup),
         title: 'Delete group chat?',
         description: deletingGroup
@@ -14383,6 +14445,7 @@ function BotsPane() {
           host.notify({ kind: 'success', message: `Deleted group “${deletingGroup.name}”` })
         }
       })
+        : null
     ]
   })
 }
@@ -14397,6 +14460,18 @@ export default {
     pluginCtx = ctx
     groupChatSyncDisposed = false
     startFaceClock()
+    const showLocalGroups = hydrateSurfacePref(
+      ctx.storage,
+      'show-local-groups',
+      $showLocalGroups,
+      SURFACE_DEFAULTS.showLocalGroups
+    )
+    const showRoutines = hydrateSurfacePref(
+      ctx.storage,
+      'show-routines',
+      $showRoutines,
+      SURFACE_DEFAULTS.showRoutines
+    )
     // The cross-connection relay rides every gateway socket this Desktop
     // holds: roster sync + envelope drain/deliver/reply loops.
     startBotRelay()
@@ -14519,6 +14594,7 @@ export default {
 
     // Hydrate persisted group-chat room logs (epoch/running are runtime-only
     // and always reset — a loop can't survive a window reload anyway).
+    if (showLocalGroups) {
     try {
       Promise.resolve(ctx.storage?.get?.('group-chats'))
         .then(async value => {
@@ -14562,6 +14638,7 @@ export default {
     } catch {
       /* no storage — rooms start empty */
     }
+    }
 
     // Routines follow the chat you're in: track the focused chat's owner
     // profile (falls back to the live gateway profile on older desktops —
@@ -14572,7 +14649,9 @@ export default {
     // duplicate listener per cycle (same survives-disable class as the face
     // clock before its onDispose hook — these kept firing until app restart).
     const unbindProfileListener = bindProfileSync($focusedBotOwner)
-    const unbindGatewayListener = host.state.gateway.listen(handleSessionsGatewayTransition)
+    const unbindGatewayListener = showLocalGroups
+      ? host.state.gateway.listen(handleSessionsGatewayTransition)
+      : null
 
     if (typeof ctx.onDispose === 'function') {
       ctx.onDispose(() => {
@@ -14667,7 +14746,7 @@ export default {
       let unregisterRoutines = null
 
       const syncRoutinesPane = () => {
-        if (botChatOwnsWorkspace()) {
+        if (showRoutines && botChatOwnsWorkspace()) {
           unregisterRoutines ??= registerRoutinesPane()
         } else if (unregisterRoutines) {
           unregisterRoutines()
@@ -14822,7 +14901,7 @@ export default {
           closeBotsHomeWorkspace()
         })
       }
-    } else {
+    } else if (showRoutines) {
       registerRoutinesPane()
     }
 

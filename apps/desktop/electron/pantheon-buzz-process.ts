@@ -56,6 +56,7 @@ export interface BuzzBridgeRequestResult {
 
 export interface PantheonBuzzProcess {
   request(method: string, params?: Record<string, unknown>): Promise<unknown>
+  onEvent(callback: (frame: unknown) => void): () => void
   dispose(): void
 }
 
@@ -78,6 +79,7 @@ export function createPantheonBuzzProcess(options: BuzzProcessOptions): Pantheon
   let disposed = false
   let buffer = ''
   const pending = new Map<string, { resolve: (value: unknown) => void; reject: (error: Error) => void; timer: ReturnType<typeof setTimeout> }>()
+  const eventListeners = new Set<(frame: unknown) => void>()
 
   const args = options.relayUrl ? ['--relay-url', options.relayUrl] : []
   const env = sanitizeBridgeEnv(options.env ?? process.env)
@@ -134,9 +136,14 @@ export function createPantheonBuzzProcess(options: BuzzProcessOptions): Pantheon
       return
     }
     try {
-      const parsed = JSON.parse(line) as { id?: string; ok?: boolean; result?: unknown; error?: { message?: string } }
+      const parsed = JSON.parse(line) as { id?: string; ok?: boolean; result?: unknown; error?: { message?: string }; type?: string }
       const waiter = parsed.id ? pending.get(parsed.id) : undefined
       if (!waiter) {
+        if (parsed.type) {
+          for (const listener of eventListeners) {
+            listener(parsed)
+          }
+        }
         return
       }
       clearTimeout(waiter.timer)
@@ -170,6 +177,12 @@ export function createPantheonBuzzProcess(options: BuzzProcessOptions): Pantheon
           reject(new Error('buzz bridge unavailable'))
         }
       })
+    },
+    onEvent(callback) {
+      eventListeners.add(callback)
+      return () => {
+        eventListeners.delete(callback)
+      }
     },
     dispose() {
       disposed = true

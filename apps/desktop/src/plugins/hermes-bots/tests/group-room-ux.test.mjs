@@ -69,3 +69,12 @@ test('stranded replies get a bounded background harvest after the loop settles (
   assert.match(harvester.slice(0, 1600), /HARVEST_MAX_TRIES/)
   assert.match(harvester.slice(0, 1600), /room\.running/)
 })
+
+test('Pantheon hides local group UI behind $showLocalGroups', () => {
+  assert.match(source, /const showLocalGroups = useValue\(\$showLocalGroups\)/)
+  assert.match(source, /showLocalGroups \? groupChatNames/)
+  assert.match(source, /showLocalGroups && shouldRenderGroupChatInPane/)
+  assert.match(source, /showLocalGroups[\s\S]+New Group Chat/)
+  assert.match(source, /showLocalGroups\s*\n\s*\? jsx\(CreateGroupChatDialog/)
+  assert.match(source, /showLocalGroups && grouping \? jsx\(GroupDialog/)
+})

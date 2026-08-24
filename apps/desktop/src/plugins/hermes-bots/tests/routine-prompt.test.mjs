@@ -177,6 +177,16 @@ test('system: the direct-file plugin still registers its panes', () => {
   const registered = []
   runtime.plugin.register({ storage: { get: () => null }, register: entry => registered.push(entry) })
   assert.equal(registered.some(entry => entry.id === 'pane'), true)
+  assert.equal(registered.some(entry => entry.id === 'routines'), false)
+})
+
+test('system: persisted show-routines restores the Cronjobs pane', () => {
+  const runtime = load()
+  const registered = []
+  runtime.plugin.register({
+    storage: { get: key => (key === 'show-routines' ? true : null) },
+    register: entry => registered.push(entry)
+  })
   assert.equal(registered.some(entry => entry.id === 'routines'), true)
 })
 

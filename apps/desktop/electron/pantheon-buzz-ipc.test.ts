@@ -15,7 +15,8 @@ import {
   resolveBuzzRelayUrl,
   RESTART_BACKOFF_MS,
   sanitizeBridgeEnv,
-  validateMessageLimit
+  validateMessageLimit,
+  broadcastPantheonBuzzEvent
 } from './pantheon-buzz-ipc'
 import { createPantheonBuzzProcess } from './pantheon-buzz-process'
 
@@ -195,4 +196,120 @@ test('spawn error is swallowed so the desktop shell stays up', () => {
   })
   child.emit('error', new Error('ENOENT'))
   handle.dispose()
+})
+
+test('write IPC channels are allowlisted and validators reject oversized payloads', async () => {
+  assert.deepEqual(Object.values(PANTHEON_BUZZ_IPC).sort(), [
+    'pantheon-buzz:members.add',
+    'pantheon-buzz:members.remove',
+    'pantheon-buzz:messages.send',
+    'pantheon-buzz:messages.window',
+    'pantheon-buzz:reactions.add',
+    'pantheon-buzz:reactions.remove',
+    'pantheon-buzz:rooms.get',
+    'pantheon-buzz:rooms.list',
+    'pantheon-buzz:status',
+    'pantheon-buzz:subscribe.start',
+    'pantheon-buzz:subscribe.stop',
+    'pantheon-buzz:workspace.manifest',
+    'pantheon-buzz:workspace.updateRoomMembership'
+  ].sort())
+  const api = registerPantheonBuzzIpc({
+    ipcMain: ipcMain as never,
+    createProcess: () => ({
+      request: async () => ({}),
+      onEvent: () => () => undefined,
+      dispose: () => undefined
+    })
+  })
+  await assert.rejects(async () => {
+    await handlers.get(PANTHEON_BUZZ_IPC.sendMessage)!({}, { roomId: 'room-a', content: 'x'.repeat(64 * 1024 + 1) })
+  })
+  await assert.rejects(async () => {
+    await handlers.get(PANTHEON_BUZZ_IPC.addReaction)!({}, { roomId: 'room-a', targetEventId: 'evt-1', emoji: '🙂'.repeat(65) })
+  })
+  api.dispose()
+})
+
+test('sidecar events fan out and skip key-shaped frames', () => {
+  const forwarded: unknown[] = []
+  let emit: ((frame: unknown) => void) | undefined
+  const api = registerPantheonBuzzIpc({
+    ipcMain: ipcMain as never,
+    broadcast: (_channel, payload) => forwarded.push(payload),
+    createProcess: () => ({
+      request: async () => ({}),
+      onEvent: callback => {
+        emit = callback
+        return () => undefined
+      },
+      dispose: () => undefined
+    })
+  })
+  emit?.({ type: 'room.event', room_id: 'room-a', event: { id: 'evt-2' } })
+  emit?.({ type: 'room.event', event: { secret: 'ab'.repeat(32) } })
+  assert.equal(forwarded.length, 1)
+  assert.equal((forwarded[0] as { room_id: string }).room_id, 'room-a')
+  api.dispose()
+})
+
+test('production default broadcasts sidecar events when no broadcaster is injected', () => {
+  const sent: unknown[] = []
+  const windows = [
+    {
+      isDestroyed: () => false,
+      webContents: {
+        isDestroyed: () => false,
+        send: (_channel: string, payload: unknown) => sent.push(payload)
+      }
+    }
+  ]
+  let emit: ((frame: unknown) => void) | undefined
+  const api = registerPantheonBuzzIpc({
+    ipcMain: ipcMain as never,
+    createProcess: () => ({
+      request: async () => ({}),
+      onEvent: callback => {
+        emit = callback
+        return () => undefined
+      },
+      dispose: () => undefined
+    })
+  })
+  emit?.({ type: 'room.event', room_id: 'room-b', event: { id: 'evt-9' } })
+  broadcastPantheonBuzzEvent('pantheon-buzz:event', { type: 'room.event', room_id: 'room-b' }, windows)
+  assert.equal(sent.length, 1)
+  assert.equal((sent[0] as { room_id: string }).room_id, 'room-b')
+  api.dispose()
+})
+
+test('workspace manifest read and membership update round-trip', async () => {
+  const homeDir = fs.mkdtempSync(path.join(os.tmpdir(), 'pantheon-buzz-manifest-'))
+  try {
+    const filePath = path.join(homeDir, 'pantheon', 'workspace.json')
+    fs.mkdirSync(path.dirname(filePath), { recursive: true })
+    fs.writeFileSync(filePath, JSON.stringify({ version: 1, buzz: { relayUrl: 'https://relay.example.test' } }))
+    const api = registerPantheonBuzzIpc({
+      ipcMain: ipcMain as never,
+      homeDir,
+      createProcess: () => ({
+        request: async () => ({}),
+        onEvent: () => () => undefined,
+        dispose: () => undefined
+      })
+    })
+    const read = await handlers.get(PANTHEON_BUZZ_IPC.workspaceManifest)!({}) as Record<string, unknown>
+    assert.equal((read.buzz as { relayUrl: string }).relayUrl, 'https://relay.example.test')
+    const updated = await handlers.get(PANTHEON_BUZZ_IPC.updateRoomMembership)!({}, {
+      roomId: 'room-a',
+      kind: 'office',
+      memberAgentIds: ['agent-1']
+    }) as { rooms: Array<{ id: string; memberAgentIds: string[] }> }
+    assert.deepEqual(updated.rooms[0], { id: 'room-a', kind: 'office', name: 'room-a', memberAgentIds: ['agent-1'] })
+    const persisted = JSON.parse(fs.readFileSync(filePath, 'utf8')) as typeof updated
+    assert.deepEqual(persisted.rooms[0].memberAgentIds, ['agent-1'])
+    api.dispose()
+  } finally {
+    fs.rmSync(homeDir, { recursive: true, force: true })
+  }
 })

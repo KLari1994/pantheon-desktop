@@ -22,7 +22,7 @@ fn response_json(outcome: &HandleOutcome) -> Value {
 fn unknown_method_returns_error_and_does_not_exit() {
     let id = Uuid::new_v4();
     let outcome = handle(&format!(
-        r#"{{"id":"{id}","method":"messages.send","params":{{}}}}"#
+        r#"{{"id":"{id}","method":"rooms.destroy","params":{{}}}}"#
     ));
     assert!(!outcome.should_exit);
     let body = response_json(&outcome);
@@ -155,6 +155,12 @@ fn successful_payload_keeps_public_hex_identifiers() {
                 rooms: vec![BuzzRoom {
                     id: "aa".repeat(32),
                     name: "General".into(),
+                    about: None,
+                    kind: None,
+                    visibility: None,
+                    ttl_seconds: None,
+                    expires_at: None,
+                    self_role: None,
                     members: vec![],
                 }],
                 next_cursor: None,
