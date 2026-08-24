@@ -220,3 +220,10 @@ test('shape: hiding never filters mentions, group flows, or the meta/activity sw
   )
   assert.doesNotMatch(mentions, /hidden/i)
 })
+
+test('shape: local group render sites stay gated by $showLocalGroups', () => {
+  assert.match(pluginSource, /const showLocalGroups = useValue\(\$showLocalGroups\)/)
+  assert.match(pluginSource, /showLocalGroups \? groupChatNames/)
+  const botRow = pluginSource.slice(pluginSource.indexOf('function BotRow('), pluginSource.indexOf('// ── model picker'))
+  assert.match(botRow, /showLocalGroups[\s\S]+Manage groups/)
+})

@@ -37,13 +37,13 @@ test('routines pane rides Bots visibility via feature-detected host.paneVisibili
   assert.match(source, /unregisterRoutines \?\?= registerRoutinesPane\(\)/)
   assert.match(source, /unregisterRoutines\(\)\s*\n\s*unregisterRoutines = null/)
   // Ownership, not mere visibility: an actual bot chat must own the center.
-  assert.match(source, /if \(botChatOwnsWorkspace\(\)\) \{/)
+  assert.match(source, /if \(showRoutines && botChatOwnsWorkspace\(\)\) \{/)
   // None of the lifecycle listeners may survive plugin disable.
   assert.match(source, /ctx\.onDispose\(\(\) => \{\s*\n\s*stopSidebarSync\(\)/)
   assert.match(source, /stopGroupSync\(\)/)
   assert.match(source, /stopFocusSync\?\.\(\)/)
 })
 
-test('older desktops without the SDK export keep the always-registered pane', () => {
-  assert.match(source, /\} else \{\s*\n\s*registerRoutinesPane\(\)\s*\n\s*\}/)
+test('older desktops without the SDK export keep the always-registered pane when routines are on', () => {
+  assert.match(source, /\} else if \(showRoutines\) \{\s*\n\s*registerRoutinesPane\(\)\s*\n\s*\}/)
 })
