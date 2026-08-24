@@ -175,7 +175,7 @@ function ensureNsis() {
   if (process.env.HERMES_DESKTOP_SKIP_BUILD === '1' && resolveNsisPath()) {
     return
   }
-  run('npm', ['run', 'dist:win:nsis'])
+  run('npm', ['run', 'dist:win:nsis', '--', '--publish', 'never'])
 }
 
 function openApp() {

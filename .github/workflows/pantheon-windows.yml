@@ -36,7 +36,7 @@ jobs:
         run: npm -w apps/desktop run typecheck
 
       - name: Pantheon contract tests
-        run: npm -w apps/desktop exec vitest run src/pantheon/brand.test.ts src/pantheon/parity-contract.test.ts src/pantheon/release-coverage.test.ts electron/update-remote.test.ts
+        run: npm -w apps/desktop exec vitest run src/pantheon/brand.test.ts src/pantheon/parity-contract.test.ts src/pantheon/release-coverage.test.ts src/pantheon/windows-release-contract.test.ts electron/update-remote.test.ts
 
       - name: Windows manual matrix receipt
         shell: bash
