@@ -17,6 +17,19 @@ vi.mock('@/contrib/events', () => ({ onGatewayEvent: vi.fn() }))
 vi.mock('@/hermes', () => ({ deleteProfile: vi.fn(), getLogs: vi.fn(), getStatus: vi.fn() }))
 vi.mock('@/store/notifications', () => ({ notify: vi.fn(), notifyError: vi.fn() }))
 vi.mock('@/store/system-actions', () => ({ runGatewayRestart: vi.fn() }))
+vi.mock('@/store/preview', () => ({ openPreview: vi.fn() }))
+vi.mock('@/store/layout', () => ({ revealFileInTree: vi.fn() }))
+vi.mock('@/store/review', () => ({ openReview: vi.fn() }))
+vi.mock('@/store/projects', async () => {
+  const { atom } = await import('nanostores')
+
+  return {
+    $projects: atom([]),
+    $projectTree: atom(null),
+    refreshProjects: vi.fn(),
+    refreshProjectTree: vi.fn()
+  }
+})
 vi.mock('@/store/session', async () => {
   const { atom } = await import('nanostores')
 
@@ -66,6 +79,7 @@ vi.mock('@/store/profile', async () => {
     $activeGatewayProfile: atom('remote-worker'),
     $gatewaySwapTarget: atom(null),
     $profiles: profiles,
+    $showAllProfiles: atom(false),
     ensureGatewayAgent: vi.fn(),
     ensureGatewayProfile: vi.fn(),
     newSessionInAgent: vi.fn(),
@@ -82,6 +96,7 @@ vi.mock('@/store/gateway', async () => {
 
   return {
     $gateway: atom(null),
+    activeGateway: vi.fn(() => null),
     activeGatewayConnectionId: vi.fn(() => 'local'),
     ensureGatewayForAgent: vi.fn(),
     openGatewayForAgent: vi.fn(),
