@@ -129,16 +129,18 @@ export function readSandboxMarker(userDataDir: string, { readFileSync = fs.readF
   }
 }
 
+export interface SandboxMarkerFs {
+  mkdirSync?: typeof fs.mkdirSync
+  writeFileSync?: typeof fs.writeFileSync
+}
+
 export function writeSandboxMarker(
   userDataDir: string,
   marker: SandboxMarker,
   {
     mkdirSync = fs.mkdirSync,
     writeFileSync = fs.writeFileSync
-  }: {
-    mkdirSync?: typeof fs.mkdirSync
-    writeFileSync?: typeof fs.writeFileSync
-  } = {}
+  }: SandboxMarkerFs = {}
 ): void {
   const dir = String(userDataDir || '')
 
@@ -148,6 +150,20 @@ export function writeSandboxMarker(
 
   mkdirSync(dir, { recursive: true })
   writeFileSync(sandboxMarkerPath(dir), `${JSON.stringify(marker)}\n`, 'utf8')
+}
+
+export function tryWriteSandboxMarker(
+  userDataDir: string,
+  marker: SandboxMarker,
+  deps: SandboxMarkerFs = {}
+): { ok: true } | { ok: false; error: unknown } {
+  try {
+    writeSandboxMarker(userDataDir, marker, deps)
+
+    return { ok: true }
+  } catch (error) {
+    return { ok: false, error }
+  }
 }
 
 export interface SandboxLaunchDecision {
