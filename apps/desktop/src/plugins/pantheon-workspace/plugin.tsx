@@ -13,19 +13,22 @@ import {
   desktopBuzzClient,
   type BuzzRoom,
   type BuzzStatus,
+  type WorkspaceAgent,
   type WorkspaceManifest
 } from '@/pantheon/buzz-client'
 
 import { RoomMemberships } from './agents/room-memberships'
+import { resolveAgentPubkey, resolveMemberAgent, selectMembershipAgent } from './agents/resolve-agent'
 import { applyRoomMembership } from './manifest/store'
 import { RoomList } from './rooms/room-list'
 import { RoomWorkspace } from './rooms/room-workspace'
 import {
   deriveBindingHealth,
+  diagnosticRuntimeForAgent,
   loadRoomDiagnostics,
   type RoomDiagnosticRow
 } from './rooms/room-diagnostics'
-import { RoomsStore } from './rooms/store'
+import { type RoomLiveEvent, RoomsStore } from './rooms/store'
 
 function useStoreValue<T>(store: { get: () => T; listen: (listener: (next: T) => void) => () => void }): T {
   return useSyncExternalStore(store.listen, store.get, store.get)
@@ -39,6 +42,7 @@ function RoomsPage() {
   const [selected, setSelected] = useState<BuzzRoom | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [diagnostics, setDiagnostics] = useState<RoomDiagnosticRow[]>([])
+  const [manifest, setManifest] = useState<WorkspaceManifest>({ version: 1, rooms: [] })
 
   useEffect(() => {
     let cancelled = false
@@ -48,9 +52,11 @@ function RoomsPage() {
         const client = desktopBuzzClient()
         const nextStatus = await client.status()
         const page = await client.listRooms()
+        const nextManifest = await client.getWorkspaceManifest().catch(() => ({ version: 1, rooms: [] }))
         if (cancelled) return
         store.mergeRooms(page.rooms)
         setStatus(nextStatus)
+        setManifest(nextManifest)
         unsubscribe = client.subscribe(event => {
           if (event.type === 'relay.status') {
             setStatus(current => ({ ...current, state: event.state, error: event.error }))
@@ -61,7 +67,7 @@ function RoomsPage() {
           }
           const roomId = event.roomId || event.room_id
           if (event.type === 'room.event' && roomId && event.event && typeof event.event === 'object') {
-            store.ingestEvent(roomId, event.event as { id?: string; content?: string; created_at?: number; pubkey?: string })
+            store.ingestEvent(roomId, event.event as RoomLiveEvent)
           }
         })
         const first = page.rooms[0]
@@ -83,13 +89,34 @@ function RoomsPage() {
   useEffect(() => {
     if (!selected) return
     let cancelled = false
+    const agents = (manifest.agents || []) as Array<WorkspaceAgent & { pubkey?: string }>
+    const live = {
+      connectionId: host.state.connectionId.get(),
+      profile: host.state.profile.get(),
+      runtimeSessionId: host.state.focusedSessionId.get()
+    }
+    const lastEventAt = windows[selected.id]?.messages.at(-1)?.createdAt
     void Promise.all(
-      (selected.members.length ? selected.members : [{ pubkey: selected.id, name: selected.name }]).map(member =>
-        loadRoomDiagnostics((route, method, params) => host.requestProfile(route as never, method, params), {
-          route: { connectionId: member.pubkey, profile: member.name || member.pubkey },
-          lastEventAt: windows[selected.id]?.messages.at(-1)?.createdAt
+      selected.members.map(async member => {
+        const agent = resolveMemberAgent(member, agents)
+        if (!agent) {
+          return [
+            {
+              agent: member.name || member.pubkey,
+              connectionId: '',
+              lastEventAt,
+              health: 'unknown' as const
+            }
+          ]
+        }
+        const runtime = diagnosticRuntimeForAgent(agent, live)
+        return loadRoomDiagnostics((route, method, params) => host.requestProfile(route as never, method, params), {
+          route: { connectionId: agent.connectionId, profile: agent.profile },
+          machine: runtime.machine,
+          runtimeSessionId: runtime.runtimeSessionId,
+          lastEventAt
         })
-      )
+      })
     )
       .then(groups => {
         if (!cancelled) setDiagnostics(groups.flat())
@@ -100,7 +127,7 @@ function RoomsPage() {
     return () => {
       cancelled = true
     }
-  }, [selected, status.compatibilityCommit, windows])
+  }, [selected, status.compatibilityCommit, windows, manifest])
 
   if (error) return <div className="p-4 text-sm text-(--ui-text-secondary)">{error}</div>
   if (!selected) return <div className="p-4 text-sm text-(--ui-text-secondary)">Loading rooms…</div>
@@ -136,6 +163,9 @@ function RoomsPage() {
         onReact={(targetEventId, emoji) => {
           void desktopBuzzClient().addReaction({ roomId: selected.id, targetEventId, emoji })
         }}
+        onRemoveReaction={reactionEventId => {
+          void desktopBuzzClient().removeReaction({ roomId: selected.id, reactionEventId })
+        }}
         onInvite={pubkey => {
           if (!pubkey) return
           void desktopBuzzClient().inviteMember({ roomId: selected.id, pubkey })
@@ -147,19 +177,30 @@ function RoomsPage() {
           if (!failed?.nonce || !failed.content) return
           const nonce = failed.nonce
           void desktopBuzzClient()
-            .sendMessage({ roomId: selected.id, content: failed.content })
+            .sendMessage({
+              roomId: selected.id,
+              content: failed.content,
+              threadRootId: failed.threadRootId,
+              attachments: failed.attachments
+            })
             .then(result => store.ackOptimistic(nonce, result.eventId))
             .catch(() => store.failOptimistic(nonce))
         }}
         onRemove={() => {
           if (failed?.nonce) store.removeOptimistic(failed.nonce)
         }}
-        onSend={async (content, mentions) => {
+        onSend={async (content, mentions, extras) => {
           const client = desktopBuzzClient()
           const nonce = `${Date.now()}`
           store.queueOptimistic(selected.id, content, nonce)
           try {
-            const result = await client.sendMessage({ roomId: selected.id, content, mentions })
+            const result = await client.sendMessage({
+              roomId: selected.id,
+              content,
+              mentions,
+              threadRootId: extras?.threadRootId,
+              attachments: extras?.attachments
+            })
             store.ackOptimistic(nonce, result.eventId)
           } catch {
             store.failOptimistic(nonce)
@@ -182,7 +223,15 @@ async function selectRoom(
   setSelected(detail)
 }
 
-function AgentRoomsMount() {
+export function AgentEditorRoomsMount({
+  bot,
+  connectionId,
+  profile
+}: {
+  bot?: { name?: string; connectionId?: string; route?: { connectionId?: string; profile?: string } }
+  connectionId?: string
+  profile?: string
+}) {
   const [manifest, setManifest] = useState<WorkspaceManifest>({ version: 1, rooms: [] })
   const [liveRooms, setLiveRooms] = useState<BuzzRoom[]>([])
   useEffect(() => {
@@ -203,17 +252,25 @@ function AgentRoomsMount() {
       cancelled = true
     }
   }, [])
-  const agent = manifest.agents?.[0]
-  if (!agent) {
-    return <div className="p-4 text-sm text-(--ui-text-secondary)">No workspace agents</div>
+  const selected = {
+    connectionId: connectionId || bot?.route?.connectionId || bot?.connectionId || host.state.connectionId.get() || undefined,
+    profile: profile || bot?.route?.profile || bot?.name || host.state.profile.get() || undefined
+  }
+  const agentRecord = selectMembershipAgent((manifest.agents || []) as Array<WorkspaceAgent & { pubkey?: string }>, selected)
+  if (!agentRecord) {
+    return <div className="p-4 text-sm text-(--ui-text-secondary)">Select a bot in the Agent Editor to manage rooms</div>
+  }
+  const pubkey = resolveAgentPubkey(agentRecord, liveRooms)
+  if (!pubkey) {
+    return <div className="p-4 text-sm text-(--ui-text-secondary)">No Buzz pubkey for {agentRecord.profile}</div>
   }
   return (
     <RoomMemberships
       agent={{
-        id: agent.id,
-        connectionId: agent.connectionId,
-        profile: agent.profile,
-        pubkey: agent.id
+        id: agentRecord.id,
+        connectionId: agentRecord.connectionId,
+        profile: agentRecord.profile,
+        pubkey
       }}
       manifest={manifest}
       liveRooms={liveRooms}
@@ -221,11 +278,11 @@ function AgentRoomsMount() {
         const client = desktopBuzzClient()
         const current = (manifest.rooms || []).find(room => room.id === input.roomId)?.memberAgentIds || []
         const memberAgentIds = input.add
-          ? [...new Set([...current, input.pubkey])]
-          : current.filter(id => id !== input.pubkey)
+          ? [...new Set([...current, agentRecord.id])]
+          : current.filter(id => id !== agentRecord.id && id !== pubkey)
         const next = await applyRoomMembership(client, {
           roomId: input.roomId,
-          pubkey: input.pubkey,
+          pubkey,
           memberAgentIds,
           add: input.add
         })
@@ -255,6 +312,8 @@ const plugin: HermesPlugin = {
   description: 'Unified Buzz rooms through the key-safe local sidecar.',
   defaultEnabled: true,
   register(ctx) {
+    ;(globalThis as { __PantheonAgentRooms?: typeof AgentEditorRoomsMount }).__PantheonAgentRooms =
+      AgentEditorRoomsMount
     ctx.registerMany([
       {
         id: 'page',
@@ -272,10 +331,11 @@ const plugin: HermesPlugin = {
         id: 'agent-rooms',
         area: ROUTES_AREA,
         data: { path: '/rooms/memberships' } satisfies RouteContribution,
-        render: () => <AgentRoomsMount />
+        render: () => <AgentEditorRoomsMount />
       }
     ])
     ctx.onDispose(() => {
+      delete (globalThis as { __PantheonAgentRooms?: typeof AgentEditorRoomsMount }).__PantheonAgentRooms
       if (typeof host.navigate === 'function' && window.location.pathname.startsWith('/rooms')) {
         host.navigate('/')
       }

@@ -71,6 +71,7 @@ export interface WorkspaceAgent {
   profile: string
   machineId?: string
   residency?: string
+  pubkey?: string
 }
 
 export interface WorkspaceRoom {

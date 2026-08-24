@@ -15,7 +15,8 @@ import {
   resolveBuzzRelayUrl,
   RESTART_BACKOFF_MS,
   sanitizeBridgeEnv,
-  validateMessageLimit
+  validateMessageLimit,
+  broadcastPantheonBuzzEvent
 } from './pantheon-buzz-ipc'
 import { createPantheonBuzzProcess } from './pantheon-buzz-process'
 
@@ -249,6 +250,36 @@ test('sidecar events fan out and skip key-shaped frames', () => {
   emit?.({ type: 'room.event', event: { secret: 'ab'.repeat(32) } })
   assert.equal(forwarded.length, 1)
   assert.equal((forwarded[0] as { room_id: string }).room_id, 'room-a')
+  api.dispose()
+})
+
+test('production default broadcasts sidecar events when no broadcaster is injected', () => {
+  const sent: unknown[] = []
+  const windows = [
+    {
+      isDestroyed: () => false,
+      webContents: {
+        isDestroyed: () => false,
+        send: (_channel: string, payload: unknown) => sent.push(payload)
+      }
+    }
+  ]
+  let emit: ((frame: unknown) => void) | undefined
+  const api = registerPantheonBuzzIpc({
+    ipcMain: ipcMain as never,
+    createProcess: () => ({
+      request: async () => ({}),
+      onEvent: callback => {
+        emit = callback
+        return () => undefined
+      },
+      dispose: () => undefined
+    })
+  })
+  emit?.({ type: 'room.event', room_id: 'room-b', event: { id: 'evt-9' } })
+  broadcastPantheonBuzzEvent('pantheon-buzz:event', { type: 'room.event', room_id: 'room-b' }, windows)
+  assert.equal(sent.length, 1)
+  assert.equal((sent[0] as { room_id: string }).room_id, 'room-b')
   api.dispose()
 })
 

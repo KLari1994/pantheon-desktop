@@ -9245,6 +9245,13 @@ function EditProfileDialog({ bot, open, onClose }) {
                   className: 'rounded-md border border-(--ui-stroke-secondary) p-3',
                   children: jsx(AdvancedProfileConfig, { bot, state: adv, setState: setAdv })
                 })
+              : null,
+            typeof globalThis.__PantheonAgentRooms === 'function'
+              ? jsx(globalThis.__PantheonAgentRooms, {
+                  bot,
+                  connectionId: bot.connectionId || bot.route?.connectionId,
+                  profile: bot.route?.profile || bot.name
+                })
               : null
           ]
         }),

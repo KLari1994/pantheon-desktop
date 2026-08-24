@@ -1,6 +1,6 @@
 use buzz_bridge::{
-    handle_line, handle_line_with_pump, poll_subscription, redact_text, BuzzMember, BuzzMessage,
-    BuzzMessageWindow, BuzzRoom, BuzzRoomPage, BuzzStatus, CredentialStore, EventPump,
+    derive_self_role, handle_line, handle_line_with_pump, poll_subscription, redact_text, BuzzMember,
+    BuzzMessage, BuzzMessageWindow, BuzzRoom, BuzzRoomPage, BuzzStatus, CredentialStore, EventPump,
     FakeCredentialStore, FakeRelay, RelayAdapter, RelayError, BUZZ_COMPATIBILITY_COMMIT,
 };
 use serde_json::{json, Value};
@@ -241,4 +241,105 @@ fn subscribe_emits_room_event_frames() {
         }),
         "frames={frames:?}"
     );
+}
+
+struct ProductionShapedRelay {
+    signer: String,
+    members: Vec<BuzzMember>,
+}
+
+impl RelayAdapter for ProductionShapedRelay {
+    fn status(&self) -> Result<BuzzStatus, RelayError> {
+        Ok(BuzzStatus {
+            state: "open".into(),
+            error: None,
+            compatibility_commit: BUZZ_COMPATIBILITY_COMMIT.into(),
+            relay_url: Some("https://relay.example.test".into()),
+        })
+    }
+    fn list_rooms(&self, _cursor: Option<&str>) -> Result<BuzzRoomPage, RelayError> {
+        Ok(BuzzRoomPage {
+            rooms: vec![],
+            next_cursor: None,
+        })
+    }
+    fn get_room(&self, room_id: &str) -> Result<BuzzRoom, RelayError> {
+        let mut room = BuzzRoom {
+            id: room_id.into(),
+            name: "General".into(),
+            about: None,
+            kind: Some("office".into()),
+            visibility: Some("private".into()),
+            ttl_seconds: None,
+            expires_at: None,
+            self_role: None,
+            members: self.members.clone(),
+        };
+        room.self_role = derive_self_role(&room.members, Some(self.signer.as_str()));
+        Ok(room)
+    }
+    fn message_window(
+        &self,
+        _room_id: &str,
+        _before: Option<&str>,
+        _limit: u32,
+    ) -> Result<BuzzMessageWindow, RelayError> {
+        Ok(BuzzMessageWindow {
+            messages: vec![],
+            reactions: vec![],
+        })
+    }
+    fn publish(&self, event: &Value) -> Result<buzz_bridge::PublishResult, RelayError> {
+        Ok(buzz_bridge::PublishResult {
+            event_id: "evt-auth".into(),
+            created_at: event.get("created_at").and_then(Value::as_u64).unwrap_or(1),
+        })
+    }
+}
+
+#[test]
+fn production_shaped_owner_can_invite() {
+    let signer = "aa".repeat(32);
+    let relay = ProductionShapedRelay {
+        signer: signer.clone(),
+        members: vec![BuzzMember {
+            pubkey: signer,
+            name: None,
+            role: Some("owner".into()),
+        }],
+    };
+    let request = json!({
+        "id": Uuid::new_v4(),
+        "method": "members.add",
+        "params": { "roomId": "room-a", "pubkey": "bb".repeat(32) }
+    });
+    let outcome = handle_line(
+        request.to_string().as_bytes(),
+        &FakeCredentialStore::default(),
+        &relay,
+    );
+    assert_eq!(parse(&outcome)["ok"], true);
+}
+
+#[test]
+fn production_shaped_guest_is_role_denied() {
+    let relay = ProductionShapedRelay {
+        signer: "cc".repeat(32),
+        members: vec![BuzzMember {
+            pubkey: "aa".repeat(32),
+            name: None,
+            role: Some("owner".into()),
+        }],
+    };
+    let request = json!({
+        "id": Uuid::new_v4(),
+        "method": "members.add",
+        "params": { "roomId": "room-a", "pubkey": "bb".repeat(32) }
+    });
+    let outcome = handle_line(
+        request.to_string().as_bytes(),
+        &FakeCredentialStore::default(),
+        &relay,
+    );
+    assert_eq!(parse(&outcome)["error"]["code"], "role_denied");
 }

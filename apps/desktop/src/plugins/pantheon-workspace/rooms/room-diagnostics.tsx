@@ -11,10 +11,26 @@ export interface RoomDiagnosticRow {
   health: 'resumable' | 'missing' | 'unknown'
 }
 
-export function deriveBindingHealth(input: { storedSessionId?: string; runtimeSessionId?: string }): RoomDiagnosticRow['health'] {
+export function deriveBindingHealth(input: {
+  storedSessionId?: string
+  runtimeSessionId?: string
+}): RoomDiagnosticRow['health'] {
   if (input.storedSessionId && input.runtimeSessionId) return 'resumable'
   if (!input.storedSessionId) return 'missing'
   return 'unknown'
+}
+
+export function diagnosticRuntimeForAgent(
+  agent: { connectionId: string; profile: string; machineId?: string },
+  live?: { connectionId?: string | null; profile?: string | null; runtimeSessionId?: string | null }
+): { machine?: string; runtimeSessionId?: string } {
+  const matches =
+    Boolean(live?.connectionId && live.connectionId === agent.connectionId) &&
+    Boolean(live?.profile && live.profile === agent.profile)
+  return {
+    machine: agent.machineId,
+    runtimeSessionId: matches ? live?.runtimeSessionId || undefined : undefined
+  }
 }
 
 export async function loadRoomDiagnostics(

@@ -1,9 +1,9 @@
 import { Button, ScrollArea } from '@hermes/plugin-sdk'
 import { useMemo, useState } from 'react'
 
-import type { BuzzMember, BuzzReaction, BuzzRoom } from '@/pantheon/buzz-client'
+import type { BuzzReaction, BuzzRoom } from '@/pantheon/buzz-client'
 
-import { RoomComposer } from './room-composer'
+import { type ComposerExtras, RoomComposer } from './room-composer'
 import { RoomDiagnostics, type RoomDiagnosticRow } from './room-diagnostics'
 import type { RoomMessage } from './types'
 
@@ -20,6 +20,7 @@ export function RoomWorkspace({
   onRetry,
   onRemove,
   onReact,
+  onRemoveReaction,
   onInvite,
   onKick,
   onShowEarlier
@@ -32,10 +33,11 @@ export function RoomWorkspace({
   hasCredential?: boolean
   failed?: RoomMessage | null
   diagnostics?: RoomDiagnosticRow[]
-  onSend: (content: string, mentions: string[]) => void
+  onSend: (content: string, mentions: string[], extras?: ComposerExtras) => void
   onRetry?: () => void
   onRemove?: () => void
   onReact?: (targetEventId: string, emoji: string) => void
+  onRemoveReaction?: (reactionEventId: string) => void
   onInvite?: (pubkey: string) => void
   onKick?: (pubkey: string) => void
   onShowEarlier?: () => void
@@ -85,7 +87,14 @@ export function RoomWorkspace({
                     ))}
                     <div className="mt-1 flex flex-wrap gap-1">
                       {reactions.filter(reaction => reaction.targetEventId === message.id).map(reaction => (
-                        <span key={reaction.id}>{reaction.emoji}</span>
+                        <Button
+                          key={reaction.id}
+                          type="button"
+                          aria-label={`Remove ${reaction.emoji}`}
+                          onClick={() => onRemoveReaction?.(reaction.id)}
+                        >
+                          {reaction.emoji}
+                        </Button>
                       ))}
                       <Button type="button" onClick={() => onReact?.(message.id, '👍')}>React</Button>
                       <Button type="button" onClick={() => setThreadRoot(message.threadRootId || message.id)}>Thread</Button>
@@ -128,6 +137,7 @@ export function RoomWorkspace({
             members={room.members}
             disabled={!relayOpen || !hasCredential}
             failed={failed}
+            threadRootId={threadRoot}
             onSend={onSend}
             onRetry={onRetry}
             onRemove={onRemove}

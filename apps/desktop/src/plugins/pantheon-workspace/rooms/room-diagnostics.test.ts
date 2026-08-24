@@ -1,6 +1,6 @@
 import { expect, test, vi } from 'vitest'
 
-import { deriveBindingHealth, loadRoomDiagnostics } from './room-diagnostics'
+import { deriveBindingHealth, diagnosticRuntimeForAgent, loadRoomDiagnostics } from './room-diagnostics'
 
 test('health derivation branches', () => {
   expect(deriveBindingHealth({ storedSessionId: 's', runtimeSessionId: 'r' })).toBe('resumable')
@@ -38,4 +38,19 @@ test('diagnostics lists hidden sessions through requestProfile and never omits i
     lastEventAt: 99,
     health: 'resumable'
   })
+})
+
+test('runtime session is only supplied when the live route matches the agent', () => {
+  expect(
+    diagnosticRuntimeForAgent(
+      { connectionId: 'c2', profile: 'research', machineId: 'desk-2' },
+      { connectionId: 'c1', profile: 'ops', runtimeSessionId: 'live-1' }
+    )
+  ).toEqual({ machine: 'desk-2', runtimeSessionId: undefined })
+  expect(
+    diagnosticRuntimeForAgent(
+      { connectionId: 'c1', profile: 'ops', machineId: 'desk-1' },
+      { connectionId: 'c1', profile: 'ops', runtimeSessionId: 'live-1' }
+    )
+  ).toEqual({ machine: 'desk-1', runtimeSessionId: 'live-1' })
 })

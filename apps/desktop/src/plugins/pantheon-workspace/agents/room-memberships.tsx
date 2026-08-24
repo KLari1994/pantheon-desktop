@@ -33,7 +33,11 @@ export function RoomMemberships({
     <section className="space-y-2">
       <h3 className="text-sm font-medium">Room memberships</h3>
       {[...listed.entries()].map(([id, name]) => {
-        const inManifest = (manifest.rooms || []).some(room => room.id === id && room.memberAgentIds?.includes(agent.pubkey))
+        const inManifest = (manifest.rooms || []).some(
+          room =>
+            room.id === id &&
+            (room.memberAgentIds?.includes(agent.id) || room.memberAgentIds?.includes(agent.pubkey))
+        )
         const live = liveRooms.find(room => room.id === id)?.members.some(member => member.pubkey === agent.pubkey)
         const member = Boolean(inManifest || live)
         return (

@@ -1,3 +1,4 @@
+use std::collections::HashSet;
 use std::sync::Mutex;
 
 use serde::{Deserialize, Serialize};
@@ -8,7 +9,10 @@ use crate::protocol::BUZZ_COMPATIBILITY_COMMIT;
 
 pub const KIND_CHANNEL_METADATA: u16 = 39000;
 pub const KIND_CHANNEL_MEMBERS: u16 = 39002;
+pub const KIND_REACTION: u16 = 7;
+pub const KIND_DELETION: u16 = 5;
 pub const MESSAGE_KINDS: [u16; 5] = [9, 40002, 40008, 45001, 45003];
+pub const WINDOW_KINDS: [u16; 7] = [9, 40002, 40008, 45001, 45003, KIND_REACTION, KIND_DELETION];
 
 #[derive(Debug, Error)]
 pub enum RelayError {
@@ -423,6 +427,7 @@ impl RelayAdapter for StockBuzzRelay {
                     .collect();
             }
         }
+        room.self_role = derive_self_role(&room.members, self.signer_pubkey().as_deref());
         Ok(room)
     }
 
@@ -433,7 +438,7 @@ impl RelayAdapter for StockBuzzRelay {
         limit: u32,
     ) -> Result<BuzzMessageWindow, RelayError> {
         let mut filter = json!({
-            "kinds": MESSAGE_KINDS,
+            "kinds": WINDOW_KINDS,
             "#h": [room_id],
             "limit": limit
         });
@@ -441,12 +446,18 @@ impl RelayAdapter for StockBuzzRelay {
             filter["until"] = json!(before);
         }
         let events = self.query(filter)?;
+        let deleted = deletion_targets(&events);
         Ok(BuzzMessageWindow {
             messages: events
                 .iter()
                 .filter_map(|event| message_from_event(event, room_id))
+                .filter(|message| !deleted.contains(&message.id))
                 .collect(),
-            reactions: events.iter().filter_map(reaction_from_event).collect(),
+            reactions: events
+                .iter()
+                .filter_map(reaction_from_event)
+                .filter(|reaction| !deleted.contains(&reaction.id))
+                .collect(),
         })
     }
 
@@ -488,12 +499,51 @@ impl RelayAdapter for StockBuzzRelay {
             return Ok(vec![]);
         }
         self.query(json!({
-            "kinds": [9, 7, 5, 9000, 9001, KIND_CHANNEL_METADATA, KIND_CHANNEL_MEMBERS],
+            "kinds": [9, KIND_REACTION, KIND_DELETION, 9000, 9001, KIND_CHANNEL_METADATA, KIND_CHANNEL_MEMBERS],
             "#h": room_ids,
             "since": since,
             "limit": 200
         }))
     }
+}
+
+impl StockBuzzRelay {
+    fn signer_pubkey(&self) -> Option<String> {
+        Some(hex::encode(xonly_public_key(self.secret_hex.as_ref()?)?))
+    }
+}
+
+/// Match the sidecar signer against the authoritative membership list.
+/// Production `get_room()` starts with `self_role: None` from metadata events.
+pub fn derive_self_role(members: &[BuzzMember], signer_pubkey: Option<&str>) -> Option<String> {
+    let signer = signer_pubkey.filter(|value| !value.is_empty())?;
+    members
+        .iter()
+        .find(|member| member.pubkey.eq_ignore_ascii_case(signer))
+        .and_then(|member| member.role.clone())
+        .or_else(|| Some("guest".into()))
+}
+
+fn deletion_targets(events: &[Value]) -> HashSet<String> {
+    events
+        .iter()
+        .filter(|event| event.get("kind").and_then(Value::as_u64) == Some(KIND_DELETION as u64))
+        .flat_map(|event| {
+            event
+                .get("tags")
+                .and_then(Value::as_array)
+                .into_iter()
+                .flatten()
+                .filter_map(|tag| {
+                    let parts = tag.as_array()?;
+                    if parts.first().and_then(Value::as_str) == Some("e") {
+                        parts.get(1).and_then(Value::as_str).map(str::to_string)
+                    } else {
+                        None
+                    }
+                })
+        })
+        .collect()
 }
 
 fn room_from_event(event: &Value) -> Option<BuzzRoom> {

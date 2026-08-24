@@ -1,7 +1,7 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 
-import { ipcMain as defaultIpcMain, type IpcMain } from 'electron'
+import { BrowserWindow, ipcMain as defaultIpcMain, type IpcMain } from 'electron'
 
 import {
   createPantheonBuzzProcess,
@@ -139,6 +139,19 @@ export interface PantheonBuzzIpcDeps {
   broadcast?: (channel: string, payload: unknown) => void
 }
 
+export function broadcastPantheonBuzzEvent(
+  channel: string,
+  payload: unknown,
+  windows?: Array<{ isDestroyed(): boolean; webContents: { isDestroyed(): boolean; send(channel: string, payload: unknown): void } }>
+): void {
+  const list =
+    windows ?? (typeof BrowserWindow?.getAllWindows === 'function' ? BrowserWindow.getAllWindows() : [])
+  for (const win of list) {
+    if (win.isDestroyed() || win.webContents.isDestroyed()) continue
+    win.webContents.send(channel, payload)
+  }
+}
+
 export interface PantheonBuzzIpcHandle {
   dispose(): void
 }
@@ -226,7 +239,8 @@ export function registerPantheonBuzzIpc(deps?: PantheonBuzzIpcDeps): PantheonBuz
     if (frameContainsPrivateKey(frame)) {
       return
     }
-    deps?.broadcast?.('pantheon-buzz:event', frame)
+    const broadcast = deps?.broadcast ?? broadcastPantheonBuzzEvent
+    broadcast('pantheon-buzz:event', frame)
   })
 
   const handle = {

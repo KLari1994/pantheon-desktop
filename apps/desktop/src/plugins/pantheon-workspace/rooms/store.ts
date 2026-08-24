@@ -18,6 +18,30 @@ function atom<T>(initial: T) {
   }
 }
 
+export interface RoomLiveEvent {
+  id?: string
+  kind?: number
+  content?: string
+  created_at?: number
+  createdAt?: number
+  pubkey?: string
+  author?: string
+  threadRootId?: string
+  replyToId?: string
+  tags?: Array<Array<string | number> | string>
+}
+
+function eventTags(event: RoomLiveEvent, key: string): string[] {
+  return (event.tags || []).flatMap(tag => {
+    if (!Array.isArray(tag) || tag[0] !== key) return []
+    return typeof tag[1] === 'string' ? [tag[1]] : []
+  })
+}
+
+function eventTag(event: RoomLiveEvent, key: string): string | undefined {
+  return eventTags(event, key)[0]
+}
+
 export interface RoomWindowState {
   messages: RoomMessage[]
   reactions: BuzzReaction[]
@@ -101,10 +125,47 @@ export class RoomsStore {
     this.$windows.set(next)
   }
 
-  ingestEvent(roomId: string, event: { id?: string; content?: string; created_at?: number; pubkey?: string }): void {
-    if (!event.id) return
+  ingestEvent(roomId: string, event: RoomLiveEvent): void {
+    if (!event.id && event.kind !== 5 && event.kind !== 9000 && event.kind !== 9001 && event.kind !== 39000 && event.kind !== 39002) {
+      return
+    }
+    const kind = event.kind ?? 9
     const window = this.$windows.get()[roomId] || { messages: [], reactions: [] }
-    if (window.messages.some(message => message.id === event.id)) return
+    if (kind === 7) {
+      if (!event.id || window.reactions.some(reaction => reaction.id === event.id)) return
+      this.$windows.set({
+        ...this.$windows.get(),
+        [roomId]: {
+          ...window,
+          reactions: [
+            ...window.reactions,
+            {
+              id: event.id,
+              targetEventId: eventTag(event, 'e') || '',
+              emoji: event.content || '',
+              author: event.pubkey || event.author || 'unknown'
+            }
+          ]
+        }
+      })
+      return
+    }
+    if (kind === 5) {
+      const deleted = new Set(eventTags(event, 'e'))
+      if (deleted.size === 0) return
+      this.$windows.set({
+        ...this.$windows.get(),
+        [roomId]: {
+          messages: window.messages.filter(message => !deleted.has(message.id)),
+          reactions: window.reactions.filter(reaction => !deleted.has(reaction.id))
+        }
+      })
+      return
+    }
+    if (kind === 9000 || kind === 9001 || kind === 39000 || kind === 39002) {
+      return
+    }
+    if (!event.id || window.messages.some(message => message.id === event.id)) return
     this.$windows.set({
       ...this.$windows.get(),
       [roomId]: {
@@ -115,8 +176,10 @@ export class RoomsStore {
             id: event.id,
             roomId,
             content: event.content || '',
-            createdAt: event.created_at || Date.now(),
-            author: event.pubkey || 'unknown'
+            createdAt: event.created_at || event.createdAt || Date.now(),
+            author: event.pubkey || event.author || 'unknown',
+            threadRootId: event.threadRootId || eventTag(event, 'E') || eventTag(event, 'e'),
+            replyToId: event.replyToId || eventTag(event, 'e')
           }
         ]
       }

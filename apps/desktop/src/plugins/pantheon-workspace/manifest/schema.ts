@@ -7,6 +7,7 @@ export interface WorkspaceManifest {
     profile: string
     machineId?: string
     residency?: string
+    pubkey?: string
   }>
   rooms?: Array<{
     id: string

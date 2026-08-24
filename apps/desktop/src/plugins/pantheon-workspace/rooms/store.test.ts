@@ -68,3 +68,19 @@ test('store never persists session bindings', () => {
   expect(store.usedBindingCache()).toBe(false)
   expect([...store.storageKeysUsed]).toEqual([ROOMS_READ_WATERMARKS_KEY])
 })
+
+test('live events dispatch by kind into messages, reactions, and deletions', () => {
+  const store = new RoomsStore()
+  store.ingestEvent('room-a', { id: 'evt-1', kind: 9, content: 'hello', created_at: 1, pubkey: 'alice' })
+  store.ingestEvent('room-a', {
+    id: 'rx-1',
+    kind: 7,
+    content: '👍',
+    pubkey: 'bob',
+    tags: [['e', 'evt-1']]
+  })
+  store.ingestEvent('room-a', { id: 'rx-1-del', kind: 5, tags: [['e', 'rx-1']] })
+  store.ingestEvent('room-a', { id: 'mem-1', kind: 9000, content: 'invite', pubkey: 'carol' })
+  expect(store.$windows.get()['room-a']?.messages.map(message => message.id)).toEqual(['evt-1'])
+  expect(store.$windows.get()['room-a']?.reactions).toEqual([])
+})

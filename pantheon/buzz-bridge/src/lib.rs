@@ -17,7 +17,7 @@ pub use protocol::{
     BUZZ_COMPATIBILITY_COMMIT, MAX_FRAME_BYTES, MAX_ID_LEN, MAX_MESSAGE_LIMIT, MIN_MESSAGE_LIMIT,
 };
 pub use relay::{
-    production_relay, BuzzAttachment, BuzzMember, BuzzMessage, BuzzMessageWindow, BuzzReaction,
-    BuzzRoom, BuzzRoomPage, BuzzStatus, ClosedRelay, FakeRelay, PublishResult, RelayAdapter,
-    RelayError, StockBuzzRelay,
+    derive_self_role, production_relay, BuzzAttachment, BuzzMember, BuzzMessage, BuzzMessageWindow,
+    BuzzReaction, BuzzRoom, BuzzRoomPage, BuzzStatus, ClosedRelay, FakeRelay, PublishResult,
+    RelayAdapter, RelayError, StockBuzzRelay,
 };
