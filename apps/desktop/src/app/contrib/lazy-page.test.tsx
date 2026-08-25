@@ -43,7 +43,9 @@ describe('retryableLazy', () => {
     let fail = true
     const Loaded: ComponentType = () => <div data-testid="loaded-view">ready</div>
     const View = retryableLazy(async () => {
-      if (fail) throw new Error('first miss')
+      if (fail) {
+        throw new Error('first miss')
+      }
       return { default: Loaded }
     }, 'Capabilities')
 

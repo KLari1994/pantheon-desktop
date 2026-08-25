@@ -149,11 +149,11 @@ import { useDesktopIntegrations } from './hooks/use-desktop-integrations'
 import { usePetBridge } from './hooks/use-pet-bridge'
 import { useQuickEntryBridge } from './hooks/use-quick-entry-bridge'
 import { useSessionTileDelegate } from './hooks/use-session-tile-delegate'
+import { retryableLazy } from './lazy-page'
 import { McpInstallDeepLinkDialog } from './mcp-install-deeplink-dialog'
 import { $restartPreviewServer, useTitlebarToolContributions } from './panes'
 import { ChatRoutesSurface, SidebarSurface, StatusbarSurface, TerminalSurface } from './surfaces'
 import type { WiringActions, WiringApi } from './types'
-import { retryableLazy } from './lazy-page'
 import { viewLoaders } from './view-loaders'
 import { viewPrefetch } from './view-prefetch'
 import { findStoredIdForRuntimeId, resolveRoutingSessionId } from './wiring-routing'
@@ -193,7 +193,6 @@ export function ContribWiring({ children }: { children: ReactNode }) {
 
   const busyRef = useRef(false)
   const creatingSessionRef = useRef(false)
-  const didPrefetchViewsOnOpenRef = useRef(false)
   // Billing recovery routes to Settings → Billing from surfaces without router
   // context (the sticky toast). The shell owns `navigate`, so it consumes the
   // intent counter here; the ref skips the initial mount value.
@@ -888,11 +887,10 @@ export function ContribWiring({ children }: { children: ReactNode }) {
   }, [gatewayState, requestGateway])
 
   useEffect(() => {
-    if (gatewayState !== 'open' || didPrefetchViewsOnOpenRef.current) {
+    if ($gatewayState.get() !== 'open') {
       return
     }
 
-    didPrefetchViewsOnOpenRef.current = true
     return viewPrefetch.prefetchAllOnIdle()
   }, [gatewayState])
 

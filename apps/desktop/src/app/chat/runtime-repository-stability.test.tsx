@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
-import { renderHook } from '@testing-library/react'
 import type { ExternalStoreAdapter } from '@assistant-ui/react'
+import { renderHook } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
 
 import type { ChatMessage } from '@/lib/chat-messages'
@@ -33,7 +33,9 @@ describe('runtime repository / adapter stability across equivalent rerenders', (
     })
     const first = result.current
 
-    for (let i = 0; i < 5; i += 1) rerender({ msgs: MESSAGES })
+    for (let i = 0; i < 5; i += 1) {
+      rerender({ msgs: MESSAGES })
+    }
 
     expect(result.current).toBe(first)
   })

@@ -133,9 +133,9 @@ import { markSessionUnread } from '@/store/session-unread-remote'
 import { $archivedSessions, loadArchivedSessions } from '@/store/sidebar-archive'
 import { $sidebarSessionRankIds } from '@/store/sidebar-sort'
 
+import { viewPrefetch } from '../../contrib/view-prefetch'
 import { $routePathname, appViewForPath, SIDEBAR_NAV_AREA, sidebarNavActiveKey } from '../../routes'
 import type { SidebarNavItem } from '../../types'
-import { viewPrefetch } from '../../contrib/view-prefetch'
 
 import { SidebarCronJobsSection } from './cron-jobs-section'
 import { SidebarFilterMenu } from './filter-menu'
@@ -248,9 +248,15 @@ function searchResultToSession(result: SessionSearchResult): SessionInfo {
 }
 
 function navTargetPath(item: SidebarNavItem): string {
-  if (item.id === 'skills') return '/skills'
-  if (item.id === 'messaging') return '/messaging'
-  if (item.id === 'artifacts') return '/artifacts'
+  if (item.id === 'skills') {
+    return '/skills'
+  }
+  if (item.id === 'messaging') {
+    return '/messaging'
+  }
+  if (item.id === 'artifacts') {
+    return '/artifacts'
+  }
   return item.route ?? ''
 }
 
@@ -1421,8 +1427,6 @@ export function ChatSidebar({
                 const button = (
                   <SidebarMenuButton
                     aria-disabled={!isInteractive}
-                    onFocus={() => viewPrefetch.prefetch(navTargetPath(item))}
-                    onPointerEnter={() => viewPrefetch.prefetch(navTargetPath(item))}
                     className={cn(
                       // no-drag: these rows sit directly under the titlebar's
                       // [-webkit-app-region:drag] strips (app-shell.tsx), with only
@@ -1448,6 +1452,8 @@ export function ChatSidebar({
 
                       onNavigate(item)
                     }}
+                    onFocus={() => viewPrefetch.prefetch(navTargetPath(item))}
+                    onPointerEnter={() => viewPrefetch.prefetch(navTargetPath(item))}
                     tooltip={
                       item.keybindActionId
                         ? {
