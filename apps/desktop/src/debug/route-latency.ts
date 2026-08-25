@@ -26,6 +26,17 @@ let nextToken = 0
 let measuringToken: number | null = null
 let sawRouteCommit = false
 
+// HashRouter keeps the in-app path in location.hash. location.pathname is
+// `/` in dev and `/…/index.html` in the packaged build for every nav.
+export function currentRoute(): string {
+  const hash = window.location.hash
+  if (hash.startsWith('#')) {
+    return hash.slice(1).split('?')[0]
+  }
+
+  return window.location.pathname
+}
+
 function navLabel(node: Element): string {
   const labelled = node.closest('[aria-label]')
   const source = labelled?.getAttribute('aria-label') || node.textContent || ''
@@ -93,7 +104,7 @@ function onPointerDown(event: PointerEvent) {
   }
 
   requestAnimationFrame(() => {
-    beginMeasure(sawRouteCommit ? window.location.pathname : null)
+    beginMeasure(sawRouteCommit ? currentRoute() : null)
   })
 }
 
@@ -103,7 +114,7 @@ function onRouteCommit() {
   }
 
   sawRouteCommit = true
-  beginMeasure(window.location.pathname)
+  beginMeasure(currentRoute())
 }
 
 function install() {
@@ -148,5 +159,3 @@ declare global {
 }
 
 install()
-
-export {}
