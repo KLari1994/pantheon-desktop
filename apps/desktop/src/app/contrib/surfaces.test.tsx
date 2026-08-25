@@ -14,9 +14,13 @@ vi.mock('@/contrib/react/use-contributions', () => ({ useContributions: vi.fn() 
 vi.mock('@/store/connections', () => ({ $activeConnectionId: atom('local') }))
 vi.mock('@/store/gateway', () => ({ $gateway: atom<unknown>(null) }))
 vi.mock('@/store/profile', () => ({ $activeGatewayProfile: atom('default') }))
-vi.mock('@/store/session', () => ({
+vi.mock('@/store/session', async importOriginal => ({
+  ...(await importOriginal<typeof import('@/store/session')>()),
   $freshDraftReady: atom(false),
   $gatewayState: atom('open')
+}))
+vi.mock('@/components/assistant-ui/thread/status', () => ({
+  CenteredThreadSpinner: () => <div role="status">loading</div>
 }))
 vi.mock('../chat', () => ({
   ChatView: ({ gateway }: { gateway: { id?: string } | null }) => <div data-testid="gateway">{gateway?.id}</div>

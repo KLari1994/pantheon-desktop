@@ -8,9 +8,10 @@
  */
 
 import { useStore } from '@nanostores/react'
-import { lazy, memo, type ReactNode, Suspense, useMemo } from 'react'
+import { memo, type ReactNode, Suspense, useMemo } from 'react'
 import { Navigate, Route, Routes, useParams } from 'react-router'
 
+import { CenteredThreadSpinner } from '@/components/assistant-ui/thread/status'
 import { ContribBoundary, ContribRender } from '@/contrib/react/boundary'
 import { useContributions } from '@/contrib/react/use-contributions'
 import { $activeConnectionId } from '@/store/connections'
@@ -27,16 +28,24 @@ import { useStatusbarItems } from '../shell/hooks/use-statusbar-items'
 import { ModelMenuPanel } from '../shell/model-menu-panel'
 import { StatusbarControls } from '../shell/statusbar-controls'
 
+import { retryableLazy } from './lazy-page'
 import { latestChatActions, latestSidebarActions } from './latest-actions'
 import { setStatusbarItemGroup, useStatusbarContributions } from './panes'
 import type { SidebarActions, WiringActions } from './types'
+import { viewLoaders } from './view-loaders'
 
-// Same lazy-view split as DesktopController — pages load on demand. The
-// full-page views the workspace route table mounts live here; overlay views
-// (agents/settings/…) are the controller's and stay in wiring.tsx.
-const ArtifactsView = lazy(async () => ({ default: (await import('../artifacts')).ArtifactsView }))
-const MessagingView = lazy(async () => ({ default: (await import('../messaging')).MessagingView }))
-const SkillsView = lazy(async () => ({ default: (await import('../skills')).SkillsView }))
+const ArtifactsView = retryableLazy(
+  async () => ({ default: (await viewLoaders['/artifacts']()).ArtifactsView }),
+  'Artifacts'
+)
+const MessagingView = retryableLazy(
+  async () => ({ default: (await viewLoaders['/messaging']()).MessagingView }),
+  'Messaging'
+)
+const SkillsView = retryableLazy(
+  async () => ({ default: (await viewLoaders['/skills']()).SkillsView }),
+  'Capabilities'
+)
 
 export function LegacySessionRedirect() {
   const { sessionId } = useParams()
@@ -107,7 +116,7 @@ export const StatusbarSurface = memo(function StatusbarSurface({
 function page(view: ReactNode) {
   return (
     <div className="contents">
-      <Suspense fallback={null}>{view}</Suspense>
+      <Suspense fallback={<CenteredThreadSpinner />}>{view}</Suspense>
     </div>
   )
 }
