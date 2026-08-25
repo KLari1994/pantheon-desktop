@@ -1,8 +1,8 @@
 import { fireEvent, render, screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 
-import introCopyRaw from './intro-copy.jsonl?raw'
 import { Intro, resolveCopy, shouldOfferIntroSetup } from './intro'
+import introCopyRaw from './intro-copy.jsonl?raw'
 
 describe('Intro wordmark', () => {
   it('renders PANTHEON as the wordmark and accessible label', () => {
@@ -33,6 +33,7 @@ describe('landing copy branding', () => {
       const copy = resolveCopy('galactic-overlord', seed)
       expect(`${copy.headline} ${copy.body}`).not.toMatch(/hermes/i)
     }
+
     const labeled = resolveCopy('galactic-overlord', 0)
     expect(`${labeled.headline} ${labeled.body}`).toMatch(/Galactic Overlord/)
   })
