@@ -24,8 +24,8 @@ import {
   SAFE_STORAGE_ENCODING,
   SECRET_FILE_MODE,
   secretShapedValue,
-  sha256File,
   sensitiveFileBlockReason,
+  sha256File,
   tightenSecretFileMode,
   verifyPinnedArtifacts,
   writeSecretFileAtomic

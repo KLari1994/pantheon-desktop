@@ -1,5 +1,4 @@
 import { readFileSync } from 'node:fs'
-import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 import { describe, expect, it } from 'vitest'
@@ -32,6 +31,7 @@ describe('decidePantheonUpdate', () => {
       activeTerminalProcess: 'unknown',
       unsavedDraft: 'unknown'
     })
+
     expect(d).toEqual({ allowed: false, blockers: ['status-unavailable'] })
   })
 
@@ -78,6 +78,7 @@ describe('decidePantheonUpdate', () => {
       activeAgentCount: 1,
       streamingSession: 'unknown'
     })
+
     expect(d.allowed).toBe(false)
     expect(d.blockers).toEqual(['status-unavailable', 'active-agent'])
   })
