@@ -1,6 +1,6 @@
 import { expect, test } from 'vitest'
 
-import { projectHomeItems, type HomeSourceEvent } from './projections'
+import { type HomeSourceEvent, projectHomeItems } from './projections'
 import { HomeStore } from './store'
 
 function source(partial: Partial<HomeSourceEvent> & Pick<HomeSourceEvent, 'type' | 'sourceKind' | 'sourceId'>): HomeSourceEvent {
@@ -64,12 +64,14 @@ test('the same approval from two surfaces is one item', () => {
 
 test('store caches projections only and never persists task status', () => {
   const writes: string[] = []
+
   const store = new HomeStore({
     get: () => null,
     set: key => {
       writes.push(key)
     }
   })
+
   const generation = store.beginHydration()
   store.applyRefresh(projectHomeItems([source({ type: 'running', sourceKind: 'session', sourceId: 's2' })]), generation)
   expect(writes).toEqual([])

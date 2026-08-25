@@ -218,12 +218,18 @@ import { runNativeLogin } from './native-oauth-login'
 import { loadNativeTokenSet, type NativeTokenStoreIo, persistNativeTokenSet } from './native-token-store'
 import { serializeJsonBody, setJsonRequestHeaders } from './oauth-net-request'
 import {
+  readLatestBackupReceipt,
+  readRollbackMarker,
+  restorePantheonBackup,
+  restorePantheonRollbackAtBoot
+} from './pantheon-backup'
+import { disposePantheonBuzzIpc, registerPantheonBuzzIpc } from './pantheon-buzz-ipc'
+import {
   createParentStartMarkerResolver,
   electronProcessStartMarker,
   parentWatchdogEnv
 } from './parent-process-identity'
 import { registerPetOverlayIpc } from './pet-overlay-ipc'
-import { disposePantheonBuzzIpc, registerPantheonBuzzIpc } from './pantheon-buzz-ipc'
 import {
   buildRegistryProfileRoutes,
   localRouteFallbackProfiles,
@@ -310,12 +316,6 @@ import {
 } from './update-count'
 import { waitForUpdateClearance } from './update-gate'
 import { readLiveUpdateMarker, updateHandoffConflict, writeUpdateMarker } from './update-marker'
-import {
-  readLatestBackupReceipt,
-  readRollbackMarker,
-  restorePantheonBackup,
-  restorePantheonRollbackAtBoot
-} from './pantheon-backup'
 import { isOfficialSshRemote, OFFICIAL_REPO_HTTPS_URL } from './update-remote'
 import {
   collectRelaunchArgs,

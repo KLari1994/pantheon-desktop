@@ -15,11 +15,11 @@
 
 import { atom } from 'nanostores'
 
+import { hudHandoffForDestination, type PantheonDestination } from '@/pantheon/destination'
 import { requestComposerDraftSync } from '@/store/composer'
 import { $activeGatewayProfile, normalizeProfileKey } from '@/store/profile'
 import { $sessions, rememberedSessionProfile } from '@/store/session'
 import { isHudWindow } from '@/store/windows'
-import { hudHandoffForDestination, type PantheonDestination } from '@/pantheon/destination'
 
 /** Whether a HUD window is currently up. In the HUD's own renderer this is
  *  always true (it IS the HUD); in the main window it tracks the child so the

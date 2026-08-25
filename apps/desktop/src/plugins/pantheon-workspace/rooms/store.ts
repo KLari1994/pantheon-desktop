@@ -1,18 +1,21 @@
-import type { BuzzMessage, BuzzReaction, BuzzRoom } from '@/pantheon/buzz-client'
+import type { BuzzMessage, BuzzReaction, BuzzRoom } from '@hermes/plugin-sdk'
 
-import { ROOMS_READ_WATERMARKS_KEY, type OutgoingState, type RoomKind, type RoomMessage, type RoomSummary } from './types'
+import { type OutgoingState, type RoomKind, type RoomMessage, ROOMS_READ_WATERMARKS_KEY, type RoomSummary } from './types'
 
 function atom<T>(initial: T) {
   let value = initial
   const listeners = new Set<(next: T) => void>()
+
   return {
     get: () => value,
     set: (next: T) => {
       value = next
-      for (const listener of listeners) listener(next)
+
+      for (const listener of listeners) {listener(next)}
     },
     listen: (listener: (next: T) => void) => {
       listeners.add(listener)
+
       return () => listeners.delete(listener)
     }
   }
@@ -33,7 +36,8 @@ export interface RoomLiveEvent {
 
 function eventTags(event: RoomLiveEvent, key: string): string[] {
   return (event.tags || []).flatMap(tag => {
-    if (!Array.isArray(tag) || tag[0] !== key) return []
+    if (!Array.isArray(tag) || tag[0] !== key) {return []}
+
     return typeof tag[1] === 'string' ? [tag[1]] : []
   })
 }
@@ -62,6 +66,7 @@ export class RoomsStore {
     const previous = new Map(this.$rooms.get().map(room => [room.id, room]))
     const next = rooms.map(room => this.toSummary(room, previous.get(room.id)))
     this.$rooms.set(next)
+
     return next
   }
 
@@ -72,6 +77,7 @@ export class RoomsStore {
     const index = current.findIndex(row => row.id === room.id)
     const next = index === -1 ? [...current, summary] : current.map((row, i) => (i === index ? summary : row))
     this.$rooms.set(next)
+
     return summary
   }
 
@@ -79,12 +85,15 @@ export class RoomsStore {
     const current = this.$windows.get()[roomId] || { messages: [], reactions: [] }
     const pending = current.messages.filter(message => message.outgoing === 'pending')
     const byId = new Map<string, RoomMessage>()
+
     for (const message of [...current.messages.filter(row => row.outgoing !== 'pending'), ...messages.map(toRoomMessage)]) {
       byId.set(message.id, message)
     }
+
     const merged = [...byId.values(), ...pending].sort((a, b) => a.createdAt - b.createdAt)
     const next = { ...this.$windows.get(), [roomId]: { messages: merged, reactions } }
     this.$windows.set(next)
+
     return next[roomId]
   }
 
@@ -107,11 +116,13 @@ export class RoomsStore {
       replyToId: extras?.replyToId,
       attachments: extras?.attachments
     }
+
     const window = this.$windows.get()[roomId] || { messages: [], reactions: [] }
     this.$windows.set({
       ...this.$windows.get(),
       [roomId]: { ...window, messages: [...window.messages, row] }
     })
+
     return row
   }
 
@@ -125,9 +136,11 @@ export class RoomsStore {
 
   removeOptimistic(nonce: string): void {
     const next: Record<string, RoomWindowState> = {}
+
     for (const [roomId, window] of Object.entries(this.$windows.get())) {
       next[roomId] = { ...window, messages: window.messages.filter(message => message.nonce !== nonce) }
     }
+
     this.$windows.set(next)
   }
 
@@ -135,10 +148,12 @@ export class RoomsStore {
     if (!event.id && event.kind !== 5 && event.kind !== 9000 && event.kind !== 9001 && event.kind !== 39000 && event.kind !== 39002) {
       return
     }
+
     const kind = event.kind ?? 9
     const window = this.$windows.get()[roomId] || { messages: [], reactions: [] }
+
     if (kind === 7) {
-      if (!event.id || window.reactions.some(reaction => reaction.id === event.id)) return
+      if (!event.id || window.reactions.some(reaction => reaction.id === event.id)) {return}
       this.$windows.set({
         ...this.$windows.get(),
         [roomId]: {
@@ -154,11 +169,14 @@ export class RoomsStore {
           ]
         }
       })
+
       return
     }
+
     if (kind === 5) {
       const deleted = new Set(eventTags(event, 'e'))
-      if (deleted.size === 0) return
+
+      if (deleted.size === 0) {return}
       this.$windows.set({
         ...this.$windows.get(),
         [roomId]: {
@@ -166,12 +184,15 @@ export class RoomsStore {
           reactions: window.reactions.filter(reaction => !deleted.has(reaction.id))
         }
       })
+
       return
     }
+
     if (kind === 9000 || kind === 9001 || kind === 39000 || kind === 39002) {
       return 'refresh-room'
     }
-    if (!event.id || window.messages.some(message => message.id === event.id)) return
+
+    if (!event.id || window.messages.some(message => message.id === event.id)) {return}
     this.$windows.set({
       ...this.$windows.get(),
       [roomId]: {
@@ -205,6 +226,7 @@ export class RoomsStore {
   reconnectKeepPending(): void {
     const windows = this.$windows.get()
     const next: Record<string, RoomWindowState> = {}
+
     for (const [roomId, window] of Object.entries(windows)) {
       next[roomId] = {
         ...window,
@@ -213,6 +235,7 @@ export class RoomsStore {
         )
       }
     }
+
     this.$windows.set(next)
   }
 
@@ -222,29 +245,34 @@ export class RoomsStore {
 
   private patchOutgoing(nonce: string, patch: Partial<RoomMessage>): void {
     const next: Record<string, RoomWindowState> = {}
+
     for (const [roomId, window] of Object.entries(this.$windows.get())) {
       next[roomId] = {
         ...window,
         messages: window.messages.map(message => (message.nonce === nonce ? { ...message, ...patch } : message))
       }
     }
+
     this.$windows.set(next)
   }
 
   private readWatermarks(): Record<string, number> {
     this.storageKeysUsed.add(ROOMS_READ_WATERMARKS_KEY)
     const raw = this.storage?.get?.(ROOMS_READ_WATERMARKS_KEY)
+
     return raw && typeof raw === 'object' ? { ...(raw as Record<string, number>) } : {}
   }
 
   private isUnread(roomId: string, createdAt?: number): boolean {
-    if (!createdAt) return false
+    if (!createdAt) {return false}
     const marks = this.readWatermarks()
+
     return createdAt > (marks[roomId] || 0)
   }
 
   private toSummary(room: BuzzRoom, prior?: RoomSummary): RoomSummary {
     const latest = this.$windows.get()[room.id]?.messages.at(-1)
+
     return {
       id: room.id,
       kind: (room.kind as RoomKind) || prior?.kind || 'office',
@@ -258,9 +286,10 @@ export class RoomsStore {
   }
 
   private deriveNeedsYou(message?: RoomMessage): boolean {
-    if (!message || !this.owner) return false
+    if (!message || !this.owner) {return false}
     const haystack = message.content.toLowerCase()
     const mentions = message.mentions || []
+
     return Boolean(
       (this.owner.pubkey && mentions.some(mention => mention.toLowerCase() === this.owner?.pubkey?.toLowerCase())) ||
         (this.owner.name && haystack.includes(`@${this.owner.name.toLowerCase()}`)) ||
@@ -271,23 +300,28 @@ export class RoomsStore {
 
 function eventAttachments(event: RoomLiveEvent): RoomMessage['attachments'] {
   const attachments = (event.tags || []).flatMap(tag => {
-    if (!Array.isArray(tag) || tag[0] !== 'imeta') return []
+    if (!Array.isArray(tag) || tag[0] !== 'imeta') {return []}
     let url: string | undefined
     let mimeType = 'application/octet-stream'
     let name: string | undefined
     let sizeBytes: number | undefined
+
     for (const part of tag.slice(1)) {
-      if (typeof part !== 'string') continue
-      if (part.startsWith('url ')) url = part.slice(4)
-      else if (part.startsWith('m ')) mimeType = part.slice(2)
-      else if (part.startsWith('alt ')) name = part.slice(4)
+      if (typeof part !== 'string') {continue}
+
+      if (part.startsWith('url ')) {url = part.slice(4)}
+      else if (part.startsWith('m ')) {mimeType = part.slice(2)}
+      else if (part.startsWith('alt ')) {name = part.slice(4)}
       else if (part.startsWith('size ')) {
         const parsed = Number(part.slice(5))
-        if (Number.isFinite(parsed)) sizeBytes = parsed
+
+        if (Number.isFinite(parsed)) {sizeBytes = parsed}
       }
     }
+
     return url ? [{ url, mimeType, name, sizeBytes }] : []
   })
+
   return attachments.length ? attachments : undefined
 }
 

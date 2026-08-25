@@ -1,7 +1,7 @@
-import { projectHomeItems } from './projections'
-import type { HomeStore } from './store'
-import type { HomeSourceEvent } from './types'
-import type { NotificationEvent } from '../notifications/policy'
+import { projectHomeItems } from './home/projections'
+import type { HomeStore } from './home/store'
+import type { HomeSourceEvent } from './home/types'
+import type { NotificationEvent } from './notifications/policy'
 
 export interface HomeNotificationBridge {
   subscribe: (ingest: (event: NotificationEvent) => void) => () => void
@@ -21,9 +21,11 @@ export function startHomeIngestion(options: HomeIngestionOptions): {
   dispose: () => void
 } {
   let disposed = false
+
   const apply = (events: HomeSourceEvent[]) => {
-    if (disposed) return
+    if (disposed) {return}
     const generation = options.store.beginHydration()
+
     try {
       options.store.applyRefresh(projectHomeItems(events), generation)
     } catch {
@@ -33,16 +35,17 @@ export function startHomeIngestion(options: HomeIngestionOptions): {
 
   const unsubscribeSnapshot = options.subscribe(events => apply(events))
   queueMicrotask(() => {
-    if (disposed) return
+    if (disposed) {return}
     const events = options.listEvents()
     apply(events)
     options.onHydrate?.(events)
   })
 
   let unsubscribeNotifications: () => void = () => undefined
+
   return {
     startNotifications() {
-      if (!options.notifications) return
+      if (!options.notifications) {return}
       unsubscribeNotifications = options.notifications.subscribe(event => options.notifications?.ingest(event))
     },
     dispose() {

@@ -16,12 +16,12 @@ const room = {
 test('role-gates invite and remove, shows TTL-less chat, and hides credential UI', () => {
   render(
     <RoomWorkspace
-      room={room}
+      hasCredential
       messages={[{ id: 'evt-1', roomId: 'room-a', content: 'hello', createdAt: 1, author: 'Alice', threadRootId: 'evt-1' }]}
+      onSend={() => undefined}
       reactions={[{ id: 'r1', targetEventId: 'evt-1', emoji: '👍', author: 'bob' }]}
       relayOpen
-      hasCredential
-      onSend={() => undefined}
+      room={room}
     />
   )
   expect(screen.getByRole('heading', { name: 'General' })).toBeTruthy()
@@ -37,13 +37,13 @@ test('reactions can be removed and thread reply stays selected', () => {
   const onSend = vi.fn()
   render(
     <RoomWorkspace
-      room={{ ...room, selfRole: 'admin' }}
+      hasCredential
       messages={[{ id: 'evt-1', roomId: 'room-a', content: 'hello', createdAt: 1, author: 'Alice', threadRootId: 'evt-1' }]}
+      onRemoveReaction={onRemoveReaction}
+      onSend={onSend}
       reactions={[{ id: 'r1', targetEventId: 'evt-1', emoji: '👍', author: 'bob' }]}
       relayOpen
-      hasCredential
-      onSend={onSend}
-      onRemoveReaction={onRemoveReaction}
+      room={{ ...room, selfRole: 'admin' }}
     />
   )
   fireEvent.click(screen.getByRole('button', { name: 'Remove 👍' }))

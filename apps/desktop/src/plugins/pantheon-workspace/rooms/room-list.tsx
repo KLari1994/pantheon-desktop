@@ -1,11 +1,13 @@
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { useRef } from 'react'
 
-import { VIRTUALIZE_THRESHOLD, type RoomSummary } from './types'
+import { type RoomSummary, VIRTUALIZE_THRESHOLD } from './types'
 
 function hashHue(value: string): string {
   let hash = 0
-  for (const char of value) hash = (hash * 31 + char.charCodeAt(0)) % 360
+
+  for (const char of value) {hash = (hash * 31 + char.charCodeAt(0)) % 360}
+
   return `hsl(${hash} 55% 55%)`
 }
 
@@ -20,6 +22,7 @@ export function RoomList({
 }) {
   const parentRef = useRef<HTMLDivElement>(null)
   const virtualize = rooms.length >= VIRTUALIZE_THRESHOLD
+
   const virtualizer = useVirtualizer({
     count: rooms.length,
     getScrollElement: () => parentRef.current,
@@ -30,17 +33,17 @@ export function RoomList({
 
   const renderRow = (room: RoomSummary) => (
     <button
-      type="button"
-      key={room.id}
-      data-room-id={room.id}
       className={`flex w-full items-start gap-2 rounded-md px-2 py-2 text-left ${selectedId === room.id ? 'bg-(--chrome-action-hover)' : ''}`}
+      data-room-id={room.id}
+      key={room.id}
       onClick={() => onSelect(room.id)}
+      type="button"
     >
-      <div className="flex -space-x-1" aria-hidden="true">
+      <div aria-hidden="true" className="flex -space-x-1">
         {room.memberAgentIds.slice(0, 3).map(id => (
           <span
-            key={id}
             className="inline-block size-5 rounded-full border border-(--ui-stroke-tertiary)"
+            key={id}
             style={{ background: hashHue(id) }}
           />
         ))}
@@ -49,7 +52,7 @@ export function RoomList({
         <div className="flex items-center gap-2">
           <span className="truncate text-sm font-medium">{room.name}</span>
           <span className="text-[0.65rem] uppercase text-(--ui-text-tertiary)">{room.kind}</span>
-          {room.unread ? <span className="size-2 rounded-full bg-(--ui-accent)" aria-label="Unread" /> : null}
+          {room.unread ? <span aria-label="Unread" className="size-2 rounded-full bg-(--ui-accent)" /> : null}
           {room.needsYou ? (
             <span className="rounded bg-amber-500/20 px-1 text-[0.65rem] text-amber-700">Needs You</span>
           ) : null}
@@ -61,13 +64,13 @@ export function RoomList({
   )
 
   return (
-    <div ref={parentRef} className="h-full overflow-auto" data-virtualized={virtualize ? 'true' : 'false'}>
+    <div className="h-full overflow-auto" data-virtualized={virtualize ? 'true' : 'false'} ref={parentRef}>
       {virtualize ? (
         <div style={{ height: virtualizer.getTotalSize(), position: 'relative' }}>
           {virtualizer.getVirtualItems().map(item => (
             <div
-              key={item.key}
               data-index={item.index}
+              key={item.key}
               ref={virtualizer.measureElement}
               style={{ position: 'absolute', top: 0, transform: `translateY(${item.start}px)`, width: '100%' }}
             >

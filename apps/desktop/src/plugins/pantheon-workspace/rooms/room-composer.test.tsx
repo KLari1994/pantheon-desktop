@@ -10,10 +10,10 @@ test('enter sends and failed sends offer retry/remove', () => {
   const onRetry = vi.fn()
   render(
     <RoomComposer
-      members={[{ pubkey: 'alice', name: 'Alice' }]}
       failed={{ id: 'pending:1', roomId: 'room-a', content: 'x', createdAt: 1, author: 'you', outgoing: 'failed' }}
-      onSend={onSend}
+      members={[{ pubkey: 'alice', name: 'Alice' }]}
       onRetry={onRetry}
+      onSend={onSend}
     />
   )
   const box = screen.getByLabelText('Room message')
@@ -34,8 +34,8 @@ test('composer can attach a descriptor and keep thread root', () => {
   render(
     <RoomComposer
       members={[{ pubkey: 'alice', name: 'Alice' }]}
-      threadRootId="evt-1"
       onSend={onSend}
+      threadRootId="evt-1"
     />
   )
   fireEvent.change(screen.getByLabelText('Attachment URL'), { target: { value: 'https://files.example/a.png' } })

@@ -34,9 +34,9 @@ import { downloadGatewayMediaFile, isRemoteGateway } from '@/lib/media'
 import { normalize } from '@/lib/text'
 import { fmtDayTime } from '@/lib/time'
 import { cn } from '@/lib/utils'
-import { notify, notifyError } from '@/store/notifications'
-import { filterArtifactIndex, indexArtifact, type ArtifactIndexFilters } from '@/plugins/pantheon-workspace/artifacts/index-contract'
+import { type ArtifactIndexFilters, filterArtifactIndex, indexArtifact } from '@/plugins/pantheon-workspace/artifacts/index-contract'
 import { openArtifactSource } from '@/plugins/pantheon-workspace/artifacts/provenance'
+import { notify, notifyError } from '@/store/notifications'
 
 import { useRefreshHotkey } from '../hooks/use-refresh-hotkey'
 import { useRouteEnumParam } from '../hooks/use-route-enum-param'
@@ -359,6 +359,7 @@ export function ArtifactsView({ setStatusbarItemGroup: _setStatusbarItemGroup, .
             }
           }
         )
+
         return
       }
 
@@ -366,13 +367,13 @@ export function ArtifactsView({ setStatusbarItemGroup: _setStatusbarItemGroup, .
     },
     [navigate]
   )
+
   const cellCtx: CellCtx = useMemo(() => ({ onOpen: openArtifact, onOpenChat: openChat }), [openArtifact, openChat])
 
   return (
     <PageSearchShell
       {...props}
       activeTab={kindFilter}
-      onSearchChange={setQuery}
       filters={
         <div className="flex flex-wrap gap-2 text-xs">
           {(['agent', 'office', 'project', 'pr', 'room', 'session', 'machine', 'fileType'] as const).map(facet => (
@@ -400,6 +401,7 @@ export function ArtifactsView({ setStatusbarItemGroup: _setStatusbarItemGroup, .
           ))}
         </div>
       }
+      onSearchChange={setQuery}
       onTabChange={id => setKindFilter(id as typeof kindFilter)}
       searchHidden={counts.all === 0}
       searchHints={searchHints}

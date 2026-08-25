@@ -2,7 +2,7 @@ import { cleanup, render, screen } from '@testing-library/react'
 import { afterEach, expect, test, vi } from 'vitest'
 
 import { RoomList } from './room-list'
-import { VIRTUALIZE_THRESHOLD, type RoomSummary } from './types'
+import { type RoomSummary, VIRTUALIZE_THRESHOLD } from './types'
 
 vi.mock('@tanstack/react-virtual', () => ({
   useVirtualizer: ({ count }: { count: number }) => ({
@@ -29,7 +29,7 @@ function room(index: number): RoomSummary {
 
 test('virtualizes at the 25-room threshold', () => {
   const rooms = Array.from({ length: VIRTUALIZE_THRESHOLD }, (_, index) => room(index))
-  const { container } = render(<RoomList rooms={rooms} onSelect={() => undefined} />)
+  const { container } = render(<RoomList onSelect={() => undefined} rooms={rooms} />)
   expect(container.firstElementChild?.getAttribute('data-virtualized')).toBe('true')
   expect(screen.getByLabelText('Unread')).toBeTruthy()
   expect(screen.getByText('Needs You')).toBeTruthy()

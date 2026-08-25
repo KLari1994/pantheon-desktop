@@ -8,8 +8,8 @@ import { describe, expect, it } from 'vitest'
 import {
   buildCompatibilityReceipt,
   evaluateCompatibility,
-  writeCompatibilityReceipt,
-  type PantheonCompatibilityReceipt
+  type PantheonCompatibilityReceipt,
+  writeCompatibilityReceipt
 } from './pantheon-compatibility'
 
 function tmpRoot(tag: string) {
@@ -87,22 +87,26 @@ describe('buildCompatibilityReceipt', () => {
     const unpinnedHome = tmpRoot('unpinned')
     const unpinnedResources = path.join(unpinnedHome, 'resources')
     writeFile(unpinnedResources, binary, 'bridge')
+
     const unpinned = buildCompatibilityReceipt({
       hermesHome: unpinnedHome,
       updateRoot: path.join(unpinnedHome, 'src'),
       resourcesPath: unpinnedResources
     })
+
     expect(unpinned.result).toBe('incompatible')
     expect(unpinned.buzzBridge.integrity).toBe('unpinned')
   })
 
   it('stays compatible when the bridge binary is absent', () => {
     const home = tmpRoot('absent')
+
     const receipt = buildCompatibilityReceipt({
       hermesHome: home,
       updateRoot: path.join(home, 'src'),
       resourcesPath: path.join(home, 'resources')
     })
+
     expect(receipt.buzzBridge.present).toBe(false)
     expect(receipt.buzzBridge.integrity).toBe('missing')
     expect(receipt.result).toBe('compatible')
@@ -121,6 +125,7 @@ describe('buildCompatibilityReceipt', () => {
 
   it('writes a receipt under HERMES_HOME/pantheon/receipts', () => {
     const home = tmpRoot('write')
+
     const receipt: PantheonCompatibilityReceipt = {
       schemaVersion: 1,
       createdAt: '2026-08-24T12:00:00.000Z',
@@ -133,6 +138,7 @@ describe('buildCompatibilityReceipt', () => {
       result: 'compatible',
       reasons: ['buzz-bridge-absent']
     }
+
     const dest = writeCompatibilityReceipt(home, receipt)
     expect(dest).toContain(`${path.join('pantheon', 'receipts')}${path.sep}compatibility-`)
     expect(JSON.parse(fs.readFileSync(dest, 'utf8')).schemaVersion).toBe(1)

@@ -33,8 +33,10 @@ function empty(key: string): MuteState {
 export function loadMutes(storage: MuteStorage, scope: MuteScope): MuteState {
   const key = mutesKey(scope)
   const raw = storage.get<unknown>(key, empty(key))
-  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return empty(key)
+
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {return empty(key)}
   const value = raw as { mutedBots?: unknown; mutedRooms?: unknown }
+
   return {
     key,
     mutedBots: Array.isArray(value.mutedBots) ? value.mutedBots.filter((id): id is string => typeof id === 'string') : [],
@@ -48,26 +50,34 @@ export function isMuted(state: MuteState, target: MuteTarget): boolean {
 
 function write(storage: MuteStorage, state: MuteState): MuteState {
   storage.set(state.key, { mutedBots: state.mutedBots, mutedRooms: state.mutedRooms })
+
   return state
 }
 
 export function muteScope(storage: MuteStorage, scope: MuteScope, target: MuteTarget): MuteState {
   const current = loadMutes(storage, scope)
-  if (isMuted(current, target)) return current
-  if (target.kind === 'bot') current.mutedBots = [...current.mutedBots, target.id]
-  else current.mutedRooms = [...current.mutedRooms, target.id]
+
+  if (isMuted(current, target)) {return current}
+
+  if (target.kind === 'bot') {current.mutedBots = [...current.mutedBots, target.id]}
+  else {current.mutedRooms = [...current.mutedRooms, target.id]}
+
   return write(storage, current)
 }
 
 export function mutesForCurrentScope(storage: MuteStorage, scope: MuteScope, current?: MuteState): MuteState {
   const key = mutesKey(scope)
-  if (current?.key === key) return current
+
+  if (current?.key === key) {return current}
+
   return loadMutes(storage, scope)
 }
 
 export function unmuteScope(storage: MuteStorage, scope: MuteScope, target: MuteTarget): MuteState {
   const current = loadMutes(storage, scope)
-  if (target.kind === 'bot') current.mutedBots = current.mutedBots.filter(id => id !== target.id)
-  else current.mutedRooms = current.mutedRooms.filter(id => id !== target.id)
+
+  if (target.kind === 'bot') {current.mutedBots = current.mutedBots.filter(id => id !== target.id)}
+  else {current.mutedRooms = current.mutedRooms.filter(id => id !== target.id)}
+
   return write(storage, current)
 }

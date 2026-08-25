@@ -6,17 +6,17 @@ import {
   canAutoSpeakReplies,
   canDictate,
   decideDestinationSend,
-  destinationFromQuickTarget,
   describeRollbackPreview,
+  destinationFromQuickTarget,
+  type DestinationMemory,
   hudHandoffForDestination,
   isPantheonDestination,
+  type PantheonDestination,
   rememberDestination,
   restoreLastBot,
   restoreLastRoom,
   restoreQuickTarget,
-  showModelPicker,
-  type DestinationMemory,
-  type PantheonDestination
+  showModelPicker
 } from './destination'
 
 const sessionDest: PantheonDestination = {

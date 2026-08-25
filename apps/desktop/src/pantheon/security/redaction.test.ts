@@ -5,13 +5,13 @@ import path from 'node:path'
 
 import { describe, expect, it } from 'vitest'
 
-import { isPrivateKeyShaped, sanitizeBridgeEnv } from '../../../electron/pantheon-buzz-process'
 import {
   pantheonAdapterInstallBlockReason,
   secretShapedValue,
   verifyPinnedArtifacts
 } from '../../../electron/hardening'
 import { createPantheonUpdateBackup } from '../../../electron/pantheon-backup'
+import { isPrivateKeyShaped, sanitizeBridgeEnv } from '../../../electron/pantheon-buzz-process'
 import { buildCompatibilityReceipt } from '../../../electron/pantheon-compatibility'
 import { resolveUpdateScriptHandoff, wrapHandoffForDetachedConsole } from '../../../electron/updater-process'
 
@@ -63,6 +63,7 @@ describe('desktop security receipts', () => {
       RELAY: 'a'.repeat(64),
       LANG: 'C'
     })
+
     expect(env).toEqual({ PATH: '/usr/bin', LANG: 'C' })
   })
 
@@ -93,6 +94,7 @@ describe('desktop security receipts', () => {
       isWindows: true,
       fileExists: candidate => candidate.endsWith('windows.ps1')
     })
+
     expect(handoff).toBeTruthy()
     const wrapped = wrapHandoffForDetachedConsole(handoff!, ['--branch', 'staging'])
     const joined = [...wrapped.args, ...handoff!.args].join(' ')
@@ -104,9 +106,11 @@ describe('desktop security receipts', () => {
   it('rejects a tampered adapter and remote adapter identifiers', () => {
     const root = tmp('pin')
     writeFile(root, 'buzz-bridge/buzz-bridge', 'tampered')
+
     const result = verifyPinnedArtifacts(root, [
       { relPath: 'buzz-bridge/buzz-bridge', sha256: '0'.repeat(64) }
     ])
+
     expect(result.ok).toBe(false)
     expect(result.failures[0]?.reason).toBe('hash-mismatch')
     expect(pantheonAdapterInstallBlockReason('https://github.com/acme/buzz-bridge')).toMatch(/rejected/)

@@ -51,9 +51,10 @@ const ALLOWED: ApprovalChoice[] = ['once', 'session', 'deny']
 export const sharedApprovalInFlight = new Set<string>()
 
 export function approvalLogicalId(request: ApprovalSource, owner?: ApprovalOwnerRoute): string {
-  if (request.requestId) return `approval:${request.requestId}`
+  if (request.requestId) {return `approval:${request.requestId}`}
   const connectionId = owner?.connectionId || 'unknown'
   const profile = owner?.profile || 'unknown'
+
   return `approval-legacy:${connectionId}:${profile}:${request.sessionId || ''}`
 }
 
@@ -70,6 +71,7 @@ export function projectApproval(
 ): ApprovalProjection {
   const allowed = new Set(ALLOWED)
   const raw = request.choices?.filter((choice): choice is ApprovalChoice => allowed.has(choice as ApprovalChoice))
+
   return {
     id: approvalLogicalId(request, identity.owner),
     agent: identity.agent,
@@ -90,8 +92,10 @@ export async function respondToApproval(
   deps: ApprovalRespondDeps
 ): Promise<ApprovalRespondResult> {
   const id = approvalLogicalId(input.request, input.owner)
-  if (input.inFlight.has(id)) return { ok: false, reason: 'in-flight' }
+
+  if (input.inFlight.has(id)) {return { ok: false, reason: 'in-flight' }}
   input.inFlight.add(id)
+
   try {
     await deps.requestOwned(input.request.sessionId, 'approval.respond', {
       choice: input.choice,
@@ -99,10 +103,13 @@ export async function respondToApproval(
       session_id: input.request.sessionId ?? undefined
     })
     const current = input.currentRequest?.()
+
     if (current && current.requestId && input.request.requestId && current.requestId !== input.request.requestId) {
       return { ok: false, reason: 'stale' }
     }
+
     deps.clear(input.request.sessionId, input.request.requestId)
+
     return { ok: true, settledId: id }
   } catch (error) {
     return { ok: false, reason: 'failed', error: error instanceof Error ? error.message : String(error) }

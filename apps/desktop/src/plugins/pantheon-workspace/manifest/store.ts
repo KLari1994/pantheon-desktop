@@ -1,4 +1,4 @@
-import type { PantheonBuzzApi, WorkspaceManifest } from '@/pantheon/buzz-client'
+import type { PantheonBuzzApi, WorkspaceManifest } from '@hermes/plugin-sdk'
 
 import { parseWorkspaceManifest } from './schema'
 
@@ -10,12 +10,14 @@ export async function applyRoomMembership(
     roomId: input.roomId,
     memberAgentIds: input.memberAgentIds
   })
+
   try {
     if (input.add) {
       await api.inviteMember({ roomId: input.roomId, pubkey: input.pubkey })
     } else {
       await api.removeMember({ roomId: input.roomId, pubkey: input.pubkey })
     }
+
     return parseWorkspaceManifest(manifest)
   } catch (error) {
     await api.updateRoomMembership({

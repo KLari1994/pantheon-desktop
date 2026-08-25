@@ -1,14 +1,14 @@
 import { expect, test } from 'vitest'
 
 import {
-  GROK_BOT_BADGE,
-  GROK_EDITOR_FIELDS,
   afterRemove,
   badgeForMessage,
   canAutoAdd,
   canInvite,
   canReceive,
-  canSend
+  canSend,
+  GROK_BOT_BADGE,
+  GROK_EDITOR_FIELDS
 } from './room-policy'
 
 test('room access is invite-only', () => {

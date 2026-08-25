@@ -18,15 +18,15 @@
 import { atom } from 'nanostores'
 
 import {
+  applyDestinationSelection,
   decideDestinationSend,
   destinationFromQuickTarget,
+  type DestinationMemory,
   isPantheonDestination,
+  type PantheonDestination,
   rememberDestination,
   restoreQuickTarget,
-  ROOM_TARGET_PREFIX,
-  applyDestinationSelection,
-  type DestinationMemory,
-  type PantheonDestination
+  ROOM_TARGET_PREFIX
 } from '@/pantheon/destination'
 
 export interface QuickEntryState {
@@ -146,7 +146,7 @@ export interface QuickEntrySubmitPayload {
   /** QUICK_TARGET_CURRENT, QUICK_TARGET_NEW, a stored session id, or room:<id>. */
   target: string
   text: string
-  destination?: import('@/pantheon/destination').PantheonDestination
+  destination?: PantheonDestination
 }
 
 /**
@@ -292,6 +292,7 @@ export function quickComposerReducer(state: QuickComposerState, event: QuickComp
       const rooms = event.rooms ?? state.rooms
       const destinationMemory = event.destinationMemory ?? state.destinationMemory
       const targetStillValid = event.connected && targetStillOffered(state, event.sessions, rooms)
+
       const target = targetStillValid
         ? state.target
         : withRestoredTarget(state, destinationMemory, event.sessions, rooms)
@@ -332,9 +333,11 @@ export function quickComposerReducer(state: QuickComposerState, event: QuickComp
         }
 
         const remembered = destinationToRemember(decision.destination)
+
         const destinationMemory = remembered
           ? rememberDestination(state.destinationMemory, remembered)
           : state.destinationMemory
+
         const send: QuickEntrySubmitPayload =
           decision.channel === 'buzz' || remembered
             ? { target: state.target, text, destination: remembered ?? decision.destination }
@@ -357,6 +360,7 @@ export function quickComposerReducer(state: QuickComposerState, event: QuickComp
         currentSessionId: QUICK_TARGET_CURRENT,
         currentAgentId: state.profileDefaultAgentId
       })
+
       const ambient = selected
         ? applyDestinationSelection(selected, { profileDefaultAgentId: state.profileDefaultAgentId })
         : { profileDefaultAgentId: state.profileDefaultAgentId }

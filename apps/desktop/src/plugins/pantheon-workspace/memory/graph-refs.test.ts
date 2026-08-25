@@ -1,7 +1,7 @@
 import { expect, test } from 'vitest'
 
-import { aggregateMemoryReferences } from './scope'
 import { memorySliceFromGraph } from './graph-refs'
+import { aggregateMemoryReferences } from './scope'
 
 const opsRoute = {
   connectionId: 'local',

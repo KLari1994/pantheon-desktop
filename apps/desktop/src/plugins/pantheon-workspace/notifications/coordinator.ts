@@ -33,23 +33,26 @@ export class NotificationCoordinator {
   }
 
   hydrate(events: NotificationEvent[]): void {
-    for (const event of events) this.seen.add(event.id)
+    for (const event of events) {this.seen.add(event.id)}
     this.hydrated = true
   }
 
   start(): void {
-    if (!this.options.subscribe) return
+    if (!this.options.subscribe) {return}
     this.unsubscribe = this.options.subscribe(event => this.ingest(event))
   }
 
   ingest(event: NotificationEvent): void {
     if (this.seen.has(event.id)) {
       this.options.onRefresh?.()
+
       return
     }
+
     this.seen.add(event.id)
     const mutes = typeof this.options.mutes === 'function' ? this.options.mutes() : this.options.mutes
     const decision = classifyNotificationEvent(event, mutes || { mutedBots: [], mutedRooms: [] })
+
     if (decision === 'notify' && this.hydrated) {
       const input: NotificationDoorInput = {
         id: event.id,
@@ -57,13 +60,15 @@ export class NotificationCoordinator {
         title: event.type,
         onActivate: () => this.options.navigate(event.target.href)
       }
+
       try {
-        if (this.focused()) this.options.toast(input)
-        else this.options.native(input)
+        if (this.focused()) {this.options.toast(input)}
+        else {this.options.native(input)}
       } catch {
         /* delivery failure must not retry or block refresh */
       }
     }
+
     this.options.onRefresh?.()
   }
 

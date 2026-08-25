@@ -1154,6 +1154,20 @@ export const host = {
 
 // -- react bridge -------------------------------------------------------------
 
+/** THE whole Capabilities surface (Skills / Tools / MCP tabs, installed
+ *  lists, full-skill detail pane, embedded hub picker with one-click
+ *  installs). For plugin dialogs pass `embedded` (tab state stays local —
+ *  never touches the page router) and `fixedProfile` to pin every tab to one
+ *  bot's backend; the internal profile selector hides itself. Add
+ *  `fixedConnection` (registry connection id) to pin a bot living on another
+ *  registered gateway — probe `SkillsView.supportsFixedConnection` first;
+ *  builds without it would route the pin to the ACTIVE gateway. Bot Mode's
+ *  Advanced section is the reference consumer. */
+export { type ArtifactRecord } from '@/app/artifacts/artifact-utils'
+
+// -- ui: the design language --------------------------------------------------
+
+export { collectArtifactsForSession } from '@/app/artifacts/artifact-utils'
 // Every contribution surface, plugin-reachable: register keybinds, palette
 // commands, routes, themes, panes, composer extensions, and bar items with
 // the same area ids + payload types core uses.
@@ -1164,13 +1178,12 @@ export {
   type ComposerAttachmentProvider,
   type ComposerMiddleware
 } from '@/app/chat/composer/contrib'
-
-// -- ui: the design language --------------------------------------------------
-
 export { PALETTE_AREA, type PaletteContribution } from '@/app/command-palette/contrib'
+export { openSession } from '@/app/open-session'
 /** Desktop git + project/worktree rails. Plugins consume these instead of `@/` stores. */
 export { createTerminal } from '@/app/right-sidebar/terminal/terminals'
 export { type RouteContribution, ROUTES_AREA, SIDEBAR_NAV_AREA, type SidebarNavContribution } from '@/app/routes'
+
 /** THE full per-toolset config panel core Settings renders — provider picker,
  *  env vars / API keys, model catalog picker, and post-setup runners. Route-
  *  decoupled (the "manage keys" deep link is a no-op outside the router); pass
@@ -1189,25 +1202,14 @@ export {
   type ModelMenuController
 } from '@/app/shell/model-catalog-menu'
 export type { StatusbarItem } from '@/app/shell/statusbar-controls'
-
 export type { TitlebarTool } from '@/app/shell/titlebar-controls'
-/** THE whole Capabilities surface (Skills / Tools / MCP tabs, installed
- *  lists, full-skill detail pane, embedded hub picker with one-click
- *  installs). For plugin dialogs pass `embedded` (tab state stays local —
- *  never touches the page router) and `fixedProfile` to pin every tab to one
- *  bot's backend; the internal profile selector hides itself. Add
- *  `fixedConnection` (registry connection id) to pin a bot living on another
- *  registered gateway — probe `SkillsView.supportsFixedConnection` first;
- *  builds without it would route the pin to the ACTIVE gateway. Bot Mode's
- *  Advanced section is the reference consumer. */
-export { type ArtifactRecord } from '@/app/artifacts/artifact-utils'
-export { StarmapView, type StarmapViewProps } from '@/app/starmap'
 export { SkillsView } from '@/app/skills'
 /** THE full MCP tab core Settings renders — per-server enable + OAuth sign-in
  *  + API-key setup + live probes, not a checkbox list. Route-decoupled so it
  *  renders anywhere (a plugin dialog); pass a live `gateway` (see
  *  `host.getGateway()`) and an optional `profile` to scope it to one bot. */
 export { McpTab } from '@/app/skills/mcp-tab'
+export { StarmapView, type StarmapViewProps } from '@/app/starmap'
 /** Pane placement roles. `'floating'` is the one NON-tiling value: the pane is
  *  excluded from the layout tree and rendered as a fixed, draggable card above
  *  it — it takes no width from any zone, has no tab, and can't be docked.
@@ -1266,6 +1268,9 @@ export { Switch } from '@/components/ui/switch'
 export { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 export { Textarea } from '@/components/ui/textarea'
 export { Tip, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
+
+// -- contracts ----------------------------------------------------------------
+
 export type { GatewayEventListener } from '@/contrib/events'
 export type {
   HermesPlugin,
@@ -1277,9 +1282,6 @@ export type {
   PluginRestOptions,
   PluginStorage
 } from '@/contrib/plugin'
-
-// -- contracts ----------------------------------------------------------------
-
 /** Mount-scoped contribution: while the rendering component is mounted, its
  *  children render in the target area's slot; unmount disposes it. Use for
  *  page-owned chrome (a page's titlebar control leaves with the page) —
@@ -1291,6 +1293,7 @@ export type { DesktopAgentRoster, HermesGitWorktree } from '@/global'
 /** The live gateway instance type — for typing the `gateway` prop `McpTab`
  *  takes; obtain the instance from `host.getGateway()`. */
 export type { HermesGateway } from '@/hermes'
+export { getStarmapGraph, listAllProfileSessions } from '@/hermes'
 /** Grab-to-pan for overflow containers (boards, timelines, wide tables) —
  *  the shared scrub primitive; don't hand-roll drag-to-scroll. */
 export { type GrabScroll, useGrabScroll } from '@/hooks/use-grab-scroll'
@@ -1312,6 +1315,7 @@ export {
  *  Plugins must route animation clocks through this instead of raw rAF loops
  *  so a disabled plugin or an empty roster costs zero frames. */
 export { type BudgetedLoop, type BudgetedLoopOptions, createBudgetedLoop } from '@/lib/budgeted-loop'
+export { createClientSessionState } from '@/lib/chat-runtime'
 export { desktopGit, type DesktopGitTarget } from '@/lib/desktop-git'
 /** THE compact-number formatter — every user-facing count/token figure goes
  *  through here (1230 → "1.2k", 1_500_000 → "1.5M"). Don't hand-roll `/1000`. */
@@ -1352,19 +1356,52 @@ export {
   type TranscriptDirectiveProps
 } from '@/lib/transcript-directives'
 export { cn } from '@/lib/utils'
-export { getStarmapGraph, listAllProfileSessions } from '@/hermes'
-export { desktopBuzzClient } from '@/pantheon/buzz-client'
-export type { StarmapGraph } from '@/types/hermes'
+export {
+  BUZZ_ACP_PIN,
+  type BuzzAttachment,
+  type BuzzBridgeEvent,
+  type BuzzMember,
+  type BuzzMessage,
+  type BuzzMessageWindow,
+  type BuzzReaction,
+  type BuzzRoom,
+  type BuzzRoomPage,
+  type BuzzStatus,
+  desktopBuzzClient,
+  type PantheonBuzzApi,
+  type WorkspaceAgent,
+  type WorkspaceManifest
+} from '@/pantheon/buzz-client'
+export { canDictate } from '@/pantheon/destination'
 export { $artifactRegistry, findArtifact, openArtifact } from '@/store/artifacts'
+export { $cronJobs, setCronFocusJobId, setCronJobs } from '@/store/cron'
+export { $gateway } from '@/store/gateway'
+export { revealFileInTree } from '@/store/layout'
+export { openPreview } from '@/store/preview'
+export { $projects, $projectTree, refreshProjects, refreshProjectTree } from '@/store/projects'
+export {
+  type ApprovalRequest,
+  clearAllPrompts,
+  clearApprovalRequest,
+  sessionApprovalRequest,
+  setApprovalRequest
+} from '@/store/prompts'
 
 export const PANES_AREA = 'panes'
-export { revealFileInTree } from '@/store/layout'
+export { openReview } from '@/store/review'
 export const STATUSBAR_AREAS = { left: 'statusBar.left', right: 'statusBar.right' } as const
 export const TITLEBAR_AREAS = { center: 'titleBar.center', left: 'titleBar.left', right: 'titleBar.right' } as const
 
-export { openPreview } from '@/store/preview'
-export { $projects, $projectTree, refreshProjects, refreshProjectTree } from '@/store/projects'
-export { openReview } from '@/store/review'
+export { $sessions, lineageAliases, setSessions } from '@/store/session'
+export {
+  $attentionSessionIds,
+  $sessionStates,
+  $stalledSessionIds,
+  $workingSessionIds,
+  clearAllSessionStates,
+  publishSessionState,
+  requestForOwnedSession
+} from '@/store/session-states'
 /** Live accent override — set a hex and the ACTIVE theme repaints with its
  *  accent family re-seeded from it (see `retintTheme`); `null` restores the
  *  authored palette. Deliberately not persisted: it is an authoring knob, not
@@ -1396,6 +1433,7 @@ export { requestTheme } from '@/themes/request'
 export { retintTheme, themeHue } from '@/themes/retint'
 export type { DesktopTheme, DesktopThemeColors } from '@/themes/types'
 export { THEMES_AREA } from '@/themes/user-themes'
+export type { SessionInfo, StarmapGraph } from '@/types/hermes'
 export type { RpcEvent, StatusResponse } from '@/types/hermes'
 /** Subscribe a component to a `host.state` atom. */
 export { useStore as useValue } from '@nanostores/react'

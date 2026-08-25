@@ -51,10 +51,13 @@ export function artifactIdentityKey(source: PantheonArtifactSource): string {
   switch (source.kind) {
     case 'session':
       return `session:${source.connectionId}:${source.profile}:${source.storedSessionId}`
+
     case 'room':
       return `room:${source.roomId}:${source.messageId ?? ''}`
+
     case 'project':
       return `project:${source.projectId}:${source.prId ?? ''}:${source.worktree ?? ''}`
+
     case 'file':
       return `file:${source.connectionId}:${source.profile}:${source.path}`
   }
@@ -102,21 +105,25 @@ export function openArtifactSource(source: PantheonArtifactSource, deps: OpenArt
   if (source.kind === 'file') {
     const route = requireOwningRoute(source)
     deps.openRemotePath?.(route, source.path)
+
     return
   }
 
   if (source.kind === 'room') {
     deps.navigate?.(roomMessageHref(source.roomId, source.messageId))
+
     return
   }
 
   if (source.kind === 'session') {
     const route = requireOwningRoute(source)
     deps.openSession?.(source.storedSessionId, route)
+
     return
   }
 
   const params = new URLSearchParams({ project: source.projectId })
-  if (source.prId) params.set('pr', source.prId)
+
+  if (source.prId) {params.set('pr', source.prId)}
   deps.navigate?.(`/projects?${params.toString()}`)
 }

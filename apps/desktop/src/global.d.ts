@@ -3,6 +3,15 @@ import type { TranslucencyState } from '@hermes/shared/translucency'
 
 import type { WakeIndicatorState } from './lib/wake-indicator'
 import type {
+  BuzzAttachment,
+  BuzzBridgeEvent,
+  BuzzMessageWindow,
+  BuzzRoom,
+  BuzzRoomPage,
+  BuzzStatus,
+  WorkspaceManifest
+} from './pantheon/buzz-client'
+import type {
   PetOverlayBounds,
   PetOverlayControl,
   PetOverlayOpenRequest,
@@ -472,20 +481,20 @@ declare global {
       onOpenFindBarRequested: (callback: () => void) => () => void
     }
     pantheonBuzz: {
-      status: () => Promise<import('./pantheon/buzz-client').BuzzStatus>
-      listRooms: (input?: { cursor?: string }) => Promise<import('./pantheon/buzz-client').BuzzRoomPage>
-      getRoom: (input: { roomId: string }) => Promise<import('./pantheon/buzz-client').BuzzRoom>
+      status: () => Promise<BuzzStatus>
+      listRooms: (input?: { cursor?: string }) => Promise<BuzzRoomPage>
+      getRoom: (input: { roomId: string }) => Promise<BuzzRoom>
       getMessages: (input: {
         roomId: string
         before?: string
         limit: number
-      }) => Promise<import('./pantheon/buzz-client').BuzzMessageWindow>
+      }) => Promise<BuzzMessageWindow>
       sendMessage: (input: {
         roomId: string
         content: string
         threadRootId?: string
         mentions?: string[]
-        attachments?: import('./pantheon/buzz-client').BuzzAttachment[]
+        attachments?: BuzzAttachment[]
       }) => Promise<{ eventId: string; createdAt: number }>
       addReaction: (input: { roomId: string; targetEventId: string; emoji: string }) => Promise<{ eventId: string }>
       removeReaction: (input: { roomId: string; reactionEventId: string }) => Promise<{ eventId: string }>
@@ -493,14 +502,14 @@ declare global {
       removeMember: (input: { roomId: string; pubkey: string }) => Promise<{ eventId: string }>
       startSubscription: (input: { roomIds: string[] }) => Promise<{ started: boolean }>
       stopSubscription: () => Promise<{ stopped: boolean }>
-      getWorkspaceManifest: () => Promise<import('./pantheon/buzz-client').WorkspaceManifest>
+      getWorkspaceManifest: () => Promise<WorkspaceManifest>
       updateRoomMembership: (input: {
         roomId: string
         kind?: string
         name?: string
         memberAgentIds?: string[]
-      }) => Promise<import('./pantheon/buzz-client').WorkspaceManifest>
-      subscribe: (callback: (event: import('./pantheon/buzz-client').BuzzBridgeEvent) => void) => () => void
+      }) => Promise<WorkspaceManifest>
+      subscribe: (callback: (event: BuzzBridgeEvent) => void) => () => void
     }
   }
 }

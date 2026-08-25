@@ -11,8 +11,8 @@ import {
   modelVisibilityKey,
   resolveVisibleKeys,
   setProviderVisibility,
-  toggleModelVisibility,
-  showModelPicker
+  showModelPicker,
+  toggleModelVisibility
 } from './model-visibility'
 
 const provider = (slug: string, models: string[]): ModelOptionProvider => ({

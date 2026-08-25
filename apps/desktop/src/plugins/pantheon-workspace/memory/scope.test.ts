@@ -2,9 +2,9 @@ import { expect, test } from 'vitest'
 
 import {
   aggregateMemoryReferences,
+  type MemoryGraphSlice,
   requireExactMemoryRoute,
-  resolveMemoryScope,
-  type MemoryGraphSlice
+  resolveMemoryScope
 } from './scope'
 
 const opsRoute = {

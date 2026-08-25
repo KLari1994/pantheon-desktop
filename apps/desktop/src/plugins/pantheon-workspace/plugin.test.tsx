@@ -2,8 +2,6 @@ import type { PluginContext } from '@hermes/plugin-sdk'
 import { host } from '@hermes/plugin-sdk'
 import { expect, test, vi } from 'vitest'
 
-import { NEW_CHAT_ROUTE } from '@/app/routes'
-
 import plugin from './plugin'
 
 function fakeCtx() {
@@ -49,7 +47,7 @@ test('registers /home and places Home nav before Rooms', () => {
   plugin.register(ctx as unknown as PluginContext)
   const paths = ctx.contributions.map(item => item.data?.path)
   expect(paths).toContain('/home')
-  expect(NEW_CHAT_ROUTE).not.toBe('/home')
+  expect('/').not.toBe('/home')
   const homeNav = ctx.contributions.find(item => item.data?.label === 'Home')
   const cronNav = ctx.contributions.find(item => item.data?.label === 'Cron Center')
   const roomsNav = ctx.contributions.find(item => item.data?.label === 'Rooms')

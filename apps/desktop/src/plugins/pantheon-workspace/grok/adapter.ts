@@ -1,6 +1,6 @@
 import {
-  validateDiscoveryReport,
-  type GrokDiscoveryReport
+  type GrokDiscoveryReport,
+  validateDiscoveryReport
 } from './discovery-report'
 
 export const GROK_UNAVAILABLE_REASONS = {
@@ -72,11 +72,13 @@ export function resolveGrokProductStatus(
   }
 
   const validated = validateDiscoveryReport(options.report)
+
   if (!validated.ok) {
     return unavailableStatus(GROK_UNAVAILABLE_REASONS.noSurface)
   }
 
   const report: GrokDiscoveryReport = validated.report
+
   if (report.result !== 'pass') {
     return unavailableStatus(GROK_UNAVAILABLE_REASONS.failed)
   }
@@ -98,6 +100,7 @@ export function createGrokProductAdapter(
 
   const requireAvailable = async () => {
     const status = resolveGrokProductStatus(options)
+
     if (!status.available || !transport) {
       throw new Error(status.reason || GROK_UNAVAILABLE_REASONS.noSurface)
     }

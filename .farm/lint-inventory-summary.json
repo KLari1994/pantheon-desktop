@@ -1,0 +1,582 @@
+{
+  "total_errors": 278,
+  "files": [
+    {
+      "file": "/opt/data/worktrees/pantheon-desktop/PAN-17/apps/desktop/electron/hardening.test.ts",
+      "n": 1,
+      "rules": [
+        "perfectionist/sort-named-imports"
+      ]
+    },
+    {
+      "file": "/opt/data/worktrees/pantheon-desktop/PAN-17/apps/desktop/electron/hardening.ts",
+      "n": 4,
+      "rules": [
+        "perfectionist/sort-imports",
+        "perfectionist/sort-named-exports"
+      ]
+    },
+    {
+      "file": "/opt/data/worktrees/pantheon-desktop/PAN-17/apps/desktop/electron/main.ts",
+      "n": 2,
+      "rules": [
+        "perfectionist/sort-imports"
+      ]
+    },
+    {
+      "file": "/opt/data/worktrees/pantheon-desktop/PAN-17/apps/desktop/electron/pantheon-buzz-ipc.test.ts",
+      "n": 1,
+      "rules": [
+        "perfectionist/sort-named-imports"
+      ]
+    },
+    {
+      "file": "/opt/data/worktrees/pantheon-desktop/PAN-17/apps/desktop/electron/pantheon-buzz-ipc.ts",
+      "n": 2,
+      "rules": [
+        "curly",
+        "unused-imports/no-unused-imports"
+      ]
+    },
+    {
+      "file": "/opt/data/worktrees/pantheon-desktop/PAN-17/apps/desktop/electron/pantheon-compatibility.test.ts",
+      "n": 1,
+      "rules": [
+        "perfectionist/sort-named-imports"
+      ]
+    },
+    {
+      "file": "/opt/data/worktrees/pantheon-desktop/PAN-17/apps/desktop/electron/pantheon-update-preflight.test.ts",
+      "n": 1,
+      "rules": [
+        "unused-imports/no-unused-imports"
+      ]
+    },
+    {
+      "file": "/opt/data/worktrees/pantheon-desktop/PAN-17/apps/desktop/src/app/artifacts/index.tsx",
+      "n": 3,
+      "rules": [
+        "perfectionist/sort-imports",
+        "perfectionist/sort-jsx-props",
+        "perfectionist/sort-named-imports"
+      ]
+    },
+    {
+      "file": "/opt/data/worktrees/pantheon-desktop/PAN-17/apps/desktop/src/app/chat/composer/hooks/use-auto-speak-replies.ts",
+      "n": 1,
+      "rules": [
+        "perfectionist/sort-imports"
+      ]
+    },
+    {
+      "file": "/opt/data/worktrees/pantheon-desktop/PAN-17/apps/desktop/src/app/chat/composer/model-pill.tsx",
+      "n": 1,
+      "rules": [
+        "perfectionist/sort-imports"
+      ]
+    },
+    {
+      "file": "/opt/data/worktrees/pantheon-desktop/PAN-17/apps/desktop/src/app/chat/sidebar/nav-items.test.tsx",
+      "n": 1,
+      "rules": [
+        "perfectionist/sort-imports"
+      ]
+    },
+    {
+      "file": "/opt/data/worktrees/pantheon-desktop/PAN-17/apps/desktop/src/app/contrib/controller.tsx",
+      "n": 1,
+      "rules": [
+        "perfectionist/sort-imports"
+      ]
+    },
+    {
+      "file": "/opt/data/worktrees/pantheon-desktop/PAN-17/apps/desktop/src/app/contrib/hooks/use-quick-entry-bridge.ts",
+      "n": 3,
+      "rules": [
+        "perfectionist/sort-imports",
+        "perfectionist/sort-named-imports"
+      ]
+    },
+    {
+      "file": "/opt/data/worktrees/pantheon-desktop/PAN-17/apps/desktop/src/app/quick-entry/quick-entry-app.tsx",
+      "n": 1,
+      "rules": [
+        "perfectionist/sort-imports"
+      ]
+    },
+    {
+      "file": "/opt/data/worktrees/pantheon-desktop/PAN-17/apps/desktop/src/app/session/hooks/use-prompt-actions/rewind.test.ts",
+      "n": 1,
+      "rules": [
+        "perfectionist/sort-named-imports"
+      ]
+    },
+    {
+      "file": "/opt/data/worktrees/pantheon-desktop/PAN-17/apps/desktop/src/components/assistant-ui/thread/index.tsx",
+      "n": 2,
+      "rules": [
+        "perfectionist/sort-imports"
+      ]
+    },
+    {
+      "file": "/opt/data/worktrees/pantheon-desktop/PAN-17/apps/desktop/src/components/chat/intro.test.tsx",
+      "n": 1,
+      "rules": [
+        "perfectionist/sort-imports"
+      ]
+    },
+    {
+      "file": "/opt/data/worktrees/pantheon-desktop/PAN-17/apps/desktop/src/components/pane-shell/tree/renderer/edit-bar.tsx",
+      "n": 1,
+      "rules": [
+        "perfectionist/sort-imports"
+      ]
+    },
+    {
+      "file": "/opt/data/worktrees/pantheon-desktop/PAN-17/apps/desktop/src/global.d.ts",
+      "n": 8,
+      "rules": [
+        "@typescript-eslint/consistent-type-imports"
+      ]
+    },
+    {
+      "file": "/opt/data/worktrees/pantheon-desktop/PAN-17/apps/desktop/src/i18n/en.ts",
+      "n": 1,
+      "rules": [
+        "perfectionist/sort-imports"
+      ]
+    },
+    {
+      "file": "/opt/data/worktrees/pantheon-desktop/PAN-17/apps/desktop/src/main.tsx",
+      "n": 1,
+      "rules": [
+        "perfectionist/sort-imports"
+      ]
+    },
+    {
+      "file": "/opt/data/worktrees/pantheon-desktop/PAN-17/apps/desktop/src/pantheon/destination.test.ts",
+      "n": 2,
+      "rules": [
+        "perfectionist/sort-named-imports"
+      ]
+    },
+    {
+      "file": "/opt/data/worktrees/pantheon-desktop/PAN-17/apps/desktop/src/pantheon/layout-presets.test.ts",
+      "n": 2,
+      "rules": [
+        "perfectionist/sort-named-imports"
+      ]
+    },
+    {
+      "file": "/opt/data/worktrees/pantheon-desktop/PAN-17/apps/desktop/src/pantheon/security/redaction.test.ts",
+      "n": 1,
+      "rules": [
+        "perfectionist/sort-imports"
+      ]
+    },
+    {
+      "file": "/opt/data/worktrees/pantheon-desktop/PAN-17/apps/desktop/src/plugins/pantheon-workspace/agents/resolve-agent.ts",
+      "n": 9,
+      "rules": [
+        "curly",
+        "no-restricted-imports"
+      ]
+    },
+    {
+      "file": "/opt/data/worktrees/pantheon-desktop/PAN-17/apps/desktop/src/plugins/pantheon-workspace/agents/room-memberships.test.tsx",
+      "n": 1,
+      "rules": [
+        "perfectionist/sort-jsx-props"
+      ]
+    },
+    {
+      "file": "/opt/data/worktrees/pantheon-desktop/PAN-17/apps/desktop/src/plugins/pantheon-workspace/agents/room-memberships.tsx",
+      "n": 5,
+      "rules": [
+        "curly",
+        "no-restricted-imports",
+        "perfectionist/sort-jsx-props"
+      ]
+    },
+    {
+      "file": "/opt/data/worktrees/pantheon-desktop/PAN-17/apps/desktop/src/plugins/pantheon-workspace/artifacts/provenance.ts",
+      "n": 1,
+      "rules": [
+        "curly"
+      ]
+    },
+    {
+      "file": "/opt/data/worktrees/pantheon-desktop/PAN-17/apps/desktop/src/plugins/pantheon-workspace/artifacts/record-source.test.ts",
+      "n": 2,
+      "rules": [
+        "no-restricted-imports"
+      ]
+    },
+    {
+      "file": "/opt/data/worktrees/pantheon-desktop/PAN-17/apps/desktop/src/plugins/pantheon-workspace/grok/adapter.ts",
+      "n": 1,
+      "rules": [
+        "perfectionist/sort-named-imports"
+      ]
+    },
+    {
+      "file": "/opt/data/worktrees/pantheon-desktop/PAN-17/apps/desktop/src/plugins/pantheon-workspace/grok/room-policy.test.ts",
+      "n": 1,
+      "rules": [
+        "perfectionist/sort-named-imports"
+      ]
+    },
+    {
+      "file": "/opt/data/worktrees/pantheon-desktop/PAN-17/apps/desktop/src/plugins/pantheon-workspace/home/home-page.tsx",
+      "n": 4,
+      "rules": [
+        "no-restricted-imports",
+        "perfectionist/sort-imports"
+      ]
+    },
+    {
+      "file": "/opt/data/worktrees/pantheon-desktop/PAN-17/apps/desktop/src/plugins/pantheon-workspace/home/ingest.test.ts",
+      "n": 2,
+      "rules": [
+        "no-restricted-imports",
+        "perfectionist/sort-imports"
+      ]
+    },
+    {
+      "file": "/opt/data/worktrees/pantheon-desktop/PAN-17/apps/desktop/src/plugins/pantheon-workspace/home/ingest.ts",
+      "n": 5,
+      "rules": [
+        "curly",
+        "no-restricted-imports",
+        "perfectionist/sort-imports"
+      ]
+    },
+    {
+      "file": "/opt/data/worktrees/pantheon-desktop/PAN-17/apps/desktop/src/plugins/pantheon-workspace/home/projections.ts",
+      "n": 4,
+      "rules": [
+        "curly"
+      ]
+    },
+    {
+      "file": "/opt/data/worktrees/pantheon-desktop/PAN-17/apps/desktop/src/plugins/pantheon-workspace/home/sources.test.ts",
+      "n": 9,
+      "rules": [
+        "curly",
+        "no-restricted-imports",
+        "perfectionist/sort-imports",
+        "perfectionist/sort-named-imports"
+      ]
+    },
+    {
+      "file": "/opt/data/worktrees/pantheon-desktop/PAN-17/apps/desktop/src/plugins/pantheon-workspace/home/sources.ts",
+      "n": 50,
+      "rules": [
+        "curly",
+        "no-restricted-imports",
+        "perfectionist/sort-imports",
+        "perfectionist/sort-named-imports"
+      ]
+    },
+    {
+      "file": "/opt/data/worktrees/pantheon-desktop/PAN-17/apps/desktop/src/plugins/pantheon-workspace/home/store.test.ts",
+      "n": 1,
+      "rules": [
+        "perfectionist/sort-named-imports"
+      ]
+    },
+    {
+      "file": "/opt/data/worktrees/pantheon-desktop/PAN-17/apps/desktop/src/plugins/pantheon-workspace/home/store.ts",
+      "n": 4,
+      "rules": [
+        "curly"
+      ]
+    },
+    {
+      "file": "/opt/data/worktrees/pantheon-desktop/PAN-17/apps/desktop/src/plugins/pantheon-workspace/manifest/store.ts",
+      "n": 1,
+      "rules": [
+        "no-restricted-imports"
+      ]
+    },
+    {
+      "file": "/opt/data/worktrees/pantheon-desktop/PAN-17/apps/desktop/src/plugins/pantheon-workspace/memory/graph-refs.test.ts",
+      "n": 1,
+      "rules": [
+        "perfectionist/sort-imports"
+      ]
+    },
+    {
+      "file": "/opt/data/worktrees/pantheon-desktop/PAN-17/apps/desktop/src/plugins/pantheon-workspace/memory/memory-page.tsx",
+      "n": 1,
+      "rules": [
+        "perfectionist/sort-named-imports"
+      ]
+    },
+    {
+      "file": "/opt/data/worktrees/pantheon-desktop/PAN-17/apps/desktop/src/plugins/pantheon-workspace/memory/scope.test.ts",
+      "n": 1,
+      "rules": [
+        "perfectionist/sort-named-imports"
+      ]
+    },
+    {
+      "file": "/opt/data/worktrees/pantheon-desktop/PAN-17/apps/desktop/src/plugins/pantheon-workspace/needs-you/approval-card.test.tsx",
+      "n": 1,
+      "rules": [
+        "perfectionist/sort-jsx-props"
+      ]
+    },
+    {
+      "file": "/opt/data/worktrees/pantheon-desktop/PAN-17/apps/desktop/src/plugins/pantheon-workspace/needs-you/approval-inbox.test.tsx",
+      "n": 4,
+      "rules": [
+        "curly",
+        "perfectionist/sort-imports",
+        "perfectionist/sort-jsx-props",
+        "perfectionist/sort-named-imports"
+      ]
+    },
+    {
+      "file": "/opt/data/worktrees/pantheon-desktop/PAN-17/apps/desktop/src/plugins/pantheon-workspace/needs-you/approval-inbox.ts",
+      "n": 4,
+      "rules": [
+        "curly",
+        "perfectionist/sort-named-imports"
+      ]
+    },
+    {
+      "file": "/opt/data/worktrees/pantheon-desktop/PAN-17/apps/desktop/src/plugins/pantheon-workspace/needs-you/approval-projections.test.ts",
+      "n": 4,
+      "rules": [
+        "curly",
+        "perfectionist/sort-named-imports"
+      ]
+    },
+    {
+      "file": "/opt/data/worktrees/pantheon-desktop/PAN-17/apps/desktop/src/plugins/pantheon-workspace/needs-you/approval-projections.ts",
+      "n": 2,
+      "rules": [
+        "curly"
+      ]
+    },
+    {
+      "file": "/opt/data/worktrees/pantheon-desktop/PAN-17/apps/desktop/src/plugins/pantheon-workspace/needs-you/needs-you-list.test.tsx",
+      "n": 6,
+      "rules": [
+        "perfectionist/sort-imports",
+        "perfectionist/sort-jsx-props"
+      ]
+    },
+    {
+      "file": "/opt/data/worktrees/pantheon-desktop/PAN-17/apps/desktop/src/plugins/pantheon-workspace/needs-you/needs-you-list.tsx",
+      "n": 1,
+      "rules": [
+        "curly"
+      ]
+    },
+    {
+      "file": "/opt/data/worktrees/pantheon-desktop/PAN-17/apps/desktop/src/plugins/pantheon-workspace/notifications/coordinator.ts",
+      "n": 4,
+      "rules": [
+        "curly"
+      ]
+    },
+    {
+      "file": "/opt/data/worktrees/pantheon-desktop/PAN-17/apps/desktop/src/plugins/pantheon-workspace/notifications/mutes.test.ts",
+      "n": 1,
+      "rules": [
+        "perfectionist/sort-named-imports"
+      ]
+    },
+    {
+      "file": "/opt/data/worktrees/pantheon-desktop/PAN-17/apps/desktop/src/plugins/pantheon-workspace/notifications/mutes.ts",
+      "n": 7,
+      "rules": [
+        "curly"
+      ]
+    },
+    {
+      "file": "/opt/data/worktrees/pantheon-desktop/PAN-17/apps/desktop/src/plugins/pantheon-workspace/notifications/policy.ts",
+      "n": 4,
+      "rules": [
+        "curly"
+      ]
+    },
+    {
+      "file": "/opt/data/worktrees/pantheon-desktop/PAN-17/apps/desktop/src/plugins/pantheon-workspace/plugin.test.tsx",
+      "n": 1,
+      "rules": [
+        "no-restricted-imports"
+      ]
+    },
+    {
+      "file": "/opt/data/worktrees/pantheon-desktop/PAN-17/apps/desktop/src/plugins/pantheon-workspace/plugin.tsx",
+      "n": 8,
+      "rules": [
+        "no-restricted-imports",
+        "perfectionist/sort-imports"
+      ]
+    },
+    {
+      "file": "/opt/data/worktrees/pantheon-desktop/PAN-17/apps/desktop/src/plugins/pantheon-workspace/rooms/hidden-session.test.ts",
+      "n": 2,
+      "rules": [
+        "no-restricted-imports",
+        "perfectionist/sort-imports"
+      ]
+    },
+    {
+      "file": "/opt/data/worktrees/pantheon-desktop/PAN-17/apps/desktop/src/plugins/pantheon-workspace/rooms/room-composer.test.tsx",
+      "n": 3,
+      "rules": [
+        "perfectionist/sort-jsx-props"
+      ]
+    },
+    {
+      "file": "/opt/data/worktrees/pantheon-desktop/PAN-17/apps/desktop/src/plugins/pantheon-workspace/rooms/room-composer.tsx",
+      "n": 12,
+      "rules": [
+        "curly",
+        "no-restricted-imports",
+        "perfectionist/sort-imports",
+        "perfectionist/sort-jsx-props"
+      ]
+    },
+    {
+      "file": "/opt/data/worktrees/pantheon-desktop/PAN-17/apps/desktop/src/plugins/pantheon-workspace/rooms/room-diagnostics.tsx",
+      "n": 3,
+      "rules": [
+        "curly",
+        "no-restricted-imports"
+      ]
+    },
+    {
+      "file": "/opt/data/worktrees/pantheon-desktop/PAN-17/apps/desktop/src/plugins/pantheon-workspace/rooms/room-list.test.tsx",
+      "n": 2,
+      "rules": [
+        "perfectionist/sort-jsx-props",
+        "perfectionist/sort-named-imports"
+      ]
+    },
+    {
+      "file": "/opt/data/worktrees/pantheon-desktop/PAN-17/apps/desktop/src/plugins/pantheon-workspace/rooms/room-list.tsx",
+      "n": 10,
+      "rules": [
+        "curly",
+        "perfectionist/sort-jsx-props",
+        "perfectionist/sort-named-imports"
+      ]
+    },
+    {
+      "file": "/opt/data/worktrees/pantheon-desktop/PAN-17/apps/desktop/src/plugins/pantheon-workspace/rooms/room-workspace.test.tsx",
+      "n": 5,
+      "rules": [
+        "perfectionist/sort-jsx-props"
+      ]
+    },
+    {
+      "file": "/opt/data/worktrees/pantheon-desktop/PAN-17/apps/desktop/src/plugins/pantheon-workspace/rooms/room-workspace.tsx",
+      "n": 20,
+      "rules": [
+        "no-restricted-imports",
+        "perfectionist/sort-jsx-props",
+        "perfectionist/sort-named-imports"
+      ]
+    },
+    {
+      "file": "/opt/data/worktrees/pantheon-desktop/PAN-17/apps/desktop/src/plugins/pantheon-workspace/rooms/store.ts",
+      "n": 15,
+      "rules": [
+        "curly",
+        "no-restricted-imports",
+        "perfectionist/sort-named-imports"
+      ]
+    },
+    {
+      "file": "/opt/data/worktrees/pantheon-desktop/PAN-17/apps/desktop/src/plugins/pantheon-workspace/search/federation.ts",
+      "n": 1,
+      "rules": [
+        "no-restricted-imports"
+      ]
+    },
+    {
+      "file": "/opt/data/worktrees/pantheon-desktop/PAN-17/apps/desktop/src/plugins/pantheon-workspace/search/search-page.tsx",
+      "n": 2,
+      "rules": [
+        "no-restricted-imports",
+        "perfectionist/sort-imports"
+      ]
+    },
+    {
+      "file": "/opt/data/worktrees/pantheon-desktop/PAN-17/apps/desktop/src/sdk/index.ts",
+      "n": 4,
+      "rules": [
+        "perfectionist/sort-exports"
+      ]
+    },
+    {
+      "file": "/opt/data/worktrees/pantheon-desktop/PAN-17/apps/desktop/src/store/hud.ts",
+      "n": 1,
+      "rules": [
+        "perfectionist/sort-imports"
+      ]
+    },
+    {
+      "file": "/opt/data/worktrees/pantheon-desktop/PAN-17/apps/desktop/src/store/model-visibility.test.ts",
+      "n": 1,
+      "rules": [
+        "perfectionist/sort-named-imports"
+      ]
+    },
+    {
+      "file": "/opt/data/worktrees/pantheon-desktop/PAN-17/apps/desktop/src/store/quick-entry.ts",
+      "n": 2,
+      "rules": [
+        "@typescript-eslint/consistent-type-imports",
+        "perfectionist/sort-named-imports"
+      ]
+    },
+    {
+      "file": "/opt/data/worktrees/pantheon-desktop/PAN-17/apps/desktop/src/store/updates.ts",
+      "n": 2,
+      "rules": [
+        "perfectionist/sort-imports"
+      ]
+    }
+  ],
+  "protected": [
+    [
+      "/opt/data/worktrees/pantheon-desktop/PAN-17/apps/desktop/electron/hardening.test.ts",
+      1,
+      [
+        "perfectionist/sort-named-imports"
+      ]
+    ],
+    [
+      "/opt/data/worktrees/pantheon-desktop/PAN-17/apps/desktop/electron/hardening.ts",
+      4,
+      [
+        "perfectionist/sort-imports",
+        "perfectionist/sort-named-exports",
+        "perfectionist/sort-named-exports",
+        "perfectionist/sort-named-exports"
+      ]
+    ],
+    [
+      "/opt/data/worktrees/pantheon-desktop/PAN-17/apps/desktop/electron/pantheon-update-preflight.test.ts",
+      1,
+      [
+        "unused-imports/no-unused-imports"
+      ]
+    ],
+    [
+      "/opt/data/worktrees/pantheon-desktop/PAN-17/apps/desktop/src/store/updates.ts",
+      2,
+      [
+        "perfectionist/sort-imports",
+        "perfectionist/sort-imports"
+      ]
+    ]
+  ]
+}

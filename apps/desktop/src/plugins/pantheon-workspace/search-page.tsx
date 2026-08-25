@@ -1,9 +1,9 @@
 import { desktopBuzzClient, host, listAllProfileSessions } from '@hermes/plugin-sdk'
 import { useEffect, useMemo, useState } from 'react'
 
-import { openArtifactSource } from '../artifacts/provenance'
-import { federateSearch } from './federation'
-import { collectSearchHits } from './sources'
+import { openArtifactSource } from './artifacts/provenance'
+import { federateSearch } from './search/federation'
+import { collectSearchHits } from './search/sources'
 
 export function SearchPage() {
   const [query, setQuery] = useState('')
@@ -17,6 +17,7 @@ export function SearchPage() {
     const run = async () => {
       try {
         const client = desktopBuzzClient()
+
         const [sessionsPage, roomsPage, manifest] = await Promise.all([
           listAllProfileSessions(40, 1),
           client.listRooms(),
@@ -120,6 +121,7 @@ export function SearchPage() {
                         }
                       }
                     )
+
                     return
                   }
 
@@ -128,6 +130,7 @@ export function SearchPage() {
                       { kind: 'room', roomId: result.destinationId, machine: result.machine },
                       { navigate: href => host.navigate(href) }
                     )
+
                     return
                   }
 

@@ -1,11 +1,11 @@
 import {
-  respondToApproval,
-  sharedApprovalInFlight,
   type ApprovalChoice,
   type ApprovalProjection,
   type ApprovalRespondDeps,
   type ApprovalRespondResult,
-  type ApprovalSource
+  type ApprovalSource,
+  respondToApproval,
+  sharedApprovalInFlight
 } from './approval-projections'
 
 export interface ApprovalInboxRow {
@@ -26,6 +26,7 @@ export class ApprovalInbox {
 
   listen(listener: () => void): () => void {
     this.listeners.add(listener)
+
     return () => this.listeners.delete(listener)
   }
 
@@ -43,18 +44,22 @@ export class ApprovalInbox {
 
   replace(rows: ApprovalInboxRow[]): void {
     const unique = new Map<string, ApprovalInboxRow>()
+
     for (const row of rows) {
-      if (!unique.has(row.card.id)) unique.set(row.card.id, row)
+      if (!unique.has(row.card.id)) {unique.set(row.card.id, row)}
     }
+
     this.rows = [...unique.values()]
     this.emit()
   }
 
   async respond(card: ApprovalProjection, choice: ApprovalChoice): Promise<ApprovalRespondResult> {
     const row = this.rows.find(item => item.card.id === card.id)
-    if (!row) return { ok: false, reason: 'failed', error: 'missing approval' }
+
+    if (!row) {return { ok: false, reason: 'failed', error: 'missing approval' }}
     this.currentBusyId = card.id
     this.emit()
+
     const result = await respondToApproval(
       {
         request: row.request,
@@ -65,7 +70,9 @@ export class ApprovalInbox {
       },
       this.deps
     )
+
     this.currentBusyId = null
+
     if (result.ok) {
       this.rows = this.rows.filter(item => item.card.id !== card.id)
       const next = { ...this.currentErrors }
@@ -74,11 +81,13 @@ export class ApprovalInbox {
     } else if (result.reason === 'failed' && result.error) {
       this.currentErrors = { ...this.currentErrors, [card.id]: result.error }
     }
+
     this.emit()
+
     return result
   }
 
   private emit(): void {
-    for (const listener of this.listeners) listener()
+    for (const listener of this.listeners) {listener()}
   }
 }

@@ -1,6 +1,7 @@
 import { FIELD_DESCRIPTIONS, FIELD_LABELS } from '@/app/settings/constants'
 
 import { PANTHEON_BRAND } from '../pantheon/brand'
+
 import type { Translations } from './types'
 
 export const en: Translations = {

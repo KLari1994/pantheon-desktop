@@ -1,9 +1,5 @@
-import { Button, Textarea } from '@hermes/plugin-sdk'
+import { Button, type BuzzAttachment, type BuzzMember, canDictate, Textarea } from '@hermes/plugin-sdk'
 import { useMemo, useState } from 'react'
-
-import type { BuzzAttachment, BuzzMember } from '@/pantheon/buzz-client'
-
-import { canDictate } from '@/pantheon/destination'
 
 import type { RoomMessage } from './types'
 
@@ -35,15 +31,19 @@ export function RoomComposer({
   const [attachmentUrl, setAttachmentUrl] = useState('')
   const [attachmentMime, setAttachmentMime] = useState('application/octet-stream')
   const [attachmentName, setAttachmentName] = useState('')
+
   const mention = useMemo(() => {
     const match = draft.match(/@(\w*)$/)
-    if (!match) return []
+
+    if (!match) {return []}
     const prefix = match[1].toLowerCase()
+
     return members.filter(member => (member.name || member.pubkey).toLowerCase().includes(prefix))
   }, [draft, members])
 
   const attachments = (): BuzzAttachment[] | undefined => {
-    if (!attachmentUrl.trim()) return undefined
+    if (!attachmentUrl.trim()) {return undefined}
+
     return [
       {
         url: attachmentUrl.trim(),
@@ -58,8 +58,8 @@ export function RoomComposer({
       {failed ? (
         <div className="mb-2 flex items-center gap-2 text-xs text-red-600">
           Send failed
-          <Button type="button" onClick={onRetry}>Retry</Button>
-          <Button type="button" onClick={onRemove}>Remove</Button>
+          <Button onClick={onRetry} type="button">Retry</Button>
+          <Button onClick={onRemove} type="button">Remove</Button>
         </div>
       ) : null}
       {threadRootId ? <div className="mb-2 text-xs text-(--ui-text-tertiary)">Replying in thread</div> : null}
@@ -74,33 +74,33 @@ export function RoomComposer({
         <input
           aria-label="Attachment URL"
           className="rounded-md border border-(--ui-stroke-tertiary) bg-transparent px-2 py-1 text-xs"
+          onChange={event => setAttachmentUrl(event.target.value)}
           placeholder="https://…"
           value={attachmentUrl}
-          onChange={event => setAttachmentUrl(event.target.value)}
         />
         <input
           aria-label="Attachment MIME type"
           className="rounded-md border border-(--ui-stroke-tertiary) bg-transparent px-2 py-1 text-xs"
+          onChange={event => setAttachmentMime(event.target.value)}
           placeholder="image/png"
           value={attachmentMime}
-          onChange={event => setAttachmentMime(event.target.value)}
         />
         <input
           aria-label="Attachment name"
           className="rounded-md border border-(--ui-stroke-tertiary) bg-transparent px-2 py-1 text-xs"
+          onChange={event => setAttachmentName(event.target.value)}
           placeholder="name"
           value={attachmentName}
-          onChange={event => setAttachmentName(event.target.value)}
         />
       </div>
       <Textarea
         aria-label="Room message"
         disabled={disabled}
-        value={draft}
         onChange={event => setDraft(event.target.value)}
         onKeyDown={event => {
           if (event.key === 'Enter' && !event.shiftKey) {
             event.preventDefault()
+
             if (!disabled && draft.trim()) {
               const mentions = [...draft.matchAll(/@(\w+)/g)].map(match => match[1])
               onSend(draft, mentions, {
@@ -113,9 +113,10 @@ export function RoomComposer({
             }
           }
         }}
+        value={draft}
       />
       {canDictate('room-composer') ? (
-        <Button type="button" aria-label="Dictate" disabled={disabled} onClick={onDictate}>
+        <Button aria-label="Dictate" disabled={disabled} onClick={onDictate} type="button">
           Dictate
         </Button>
       ) : null}
