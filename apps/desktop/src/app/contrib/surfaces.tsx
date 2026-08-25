@@ -106,6 +106,14 @@ export const StatusbarSurface = memo(function StatusbarSurface({
   return <StatusbarControls items={statusbarItems} leftItems={leftStatusbarItems} />
 })
 
+function page(view: ReactNode) {
+  return (
+    <div className="contents">
+      <Suspense fallback={null}>{view}</Suspense>
+    </div>
+  )
+}
+
 /** The workspace pane: the real route table (chat + full-page views + plugin
  *  routes). Subscribes to the gateway instance/state and ROUTES_AREA itself;
  *  the voice cap arrives as a prop. ChatView subscribes to its own session
@@ -120,8 +128,7 @@ export const ChatRoutesSurface = memo(function ChatRoutesSurface({
   const activeGatewayProfile = useStore($activeGatewayProfile)
   const gateway = useStore($gateway)
   const gatewayState = useStore($gatewayState)
-  useContributions(ROUTES_AREA)
-  const routeContributions = contributedRoutes()
+  const routeSnapshot = useContributions(ROUTES_AREA)
 
   const modelMenuContent = useMemo(
     () =>
@@ -152,10 +159,21 @@ export const ChatRoutesSurface = memo(function ChatRoutesSurface({
   // on the contribution, not a DOM marker — the `data-zone-no-header` attribute
   // that used to ride this wrapper gated a body double-click toggle that no
   // longer exists, and nothing has read it since.
-  const page = (view: ReactNode) => (
-    <div className="contents">
-      <Suspense fallback={null}>{view}</Suspense>
-    </div>
+  const contributedRouteElements = useMemo(
+    () =>
+      contributedRoutes().map(route => (
+        <Route
+          element={page(
+            <ContribBoundary id={route.key}>
+              <ContribRender render={route.render} />
+            </ContribBoundary>
+          )}
+          key={route.key}
+          path={route.path.slice(1)}
+        />
+      )),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- snapshot identity IS the registry version
+    [routeSnapshot]
   )
 
   return (
@@ -175,17 +193,7 @@ export const ChatRoutesSurface = memo(function ChatRoutesSurface({
       {/* Registry-contributed pages (core features + plugins) render in the
           workspace pane like any built-in view — behind the same blast wall
           as every other contribution mount. */}
-      {routeContributions.map(route => (
-        <Route
-          element={page(
-            <ContribBoundary id={route.key}>
-              <ContribRender render={route.render} />
-            </ContribBoundary>
-          )}
-          key={route.key}
-          path={route.path.slice(1)}
-        />
-      ))}
+      {contributedRouteElements}
       <Route element={<Navigate replace to={NEW_CHAT_ROUTE} />} path="new" />
       <Route element={<LegacySessionRedirect />} path="sessions/:sessionId" />
       <Route element={<Navigate replace to={NEW_CHAT_ROUTE} />} path="*" />
