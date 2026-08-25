@@ -255,6 +255,7 @@ test('pantheon pre-apply fails closed when backup throws or compatibility is inc
       }
     }
   })
+  assert.equal(backupFail?.kind, 'preflight')
   assert.equal(backupFail?.pid, -1)
   assert.match(String(backupFail?.message), /backup or compatibility/)
 
@@ -280,6 +281,16 @@ test('pantheon pre-apply fails closed when backup throws or compatibility is inc
       writeMarker: () => {}
     }
   })
+  assert.equal(incompat?.kind, 'preflight')
   assert.equal(incompat?.pid, -1)
   assert.match(String(incompat?.message), /compatibility check failed/)
+})
+
+test('live updater conflicts are distinguishable from preflight refusals', () => {
+  const home = tmpHome('conflict-kind')
+  const now = 1_000_000_000_000
+  writeMarker(home, 1010, Math.floor(now / 1000) - 6)
+  const live = updateHandoffConflict(home, { kill: ALIVE, now: () => now, pantheon: false })
+  assert.equal(live?.kind, 'live-owner')
+  assert.equal(live?.pid, 1010)
 })

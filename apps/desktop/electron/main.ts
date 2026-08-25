@@ -309,8 +309,11 @@ import {
   shouldCountCommits
 } from './update-count'
 import { waitForUpdateClearance } from './update-gate'
-import { readLiveUpdateMarker, updateHandoffConflict, writeUpdateMarker } from './update-marker'
+import { readLiveUpdateMarker, isLiveUpdaterConflict, updateHandoffConflict, writeUpdateMarker } from './update-marker'
 import {
+  clearRollbackMarker,
+  markRollbackPending,
+  readBackupReceipt,
   readLatestBackupReceipt,
   readRollbackMarker,
   restorePantheonBackup,
@@ -319,6 +322,7 @@ import {
 import { isOfficialSshRemote, OFFICIAL_REPO_HTTPS_URL } from './update-remote'
 import {
   collectRelaunchArgs,
+  buildRollbackSpawnInvocation,
   observeUpdaterHandoff,
   resolvePosixScriptHandoff,
   resolveRollbackHandoff,
@@ -3599,14 +3603,14 @@ async function applyUpdates(opts: { stopSafeBlockers?: boolean } = {}) {
     const handoffConflict = updateHandoffConflict(HERMES_HOME)
 
     if (handoffConflict) {
-      // A different updater already owns the marker — most often a previous
-      // "Update" click whose updater is still alive and parked mid-run.
-      // Spawning another here would overwrite its claim and let two updaters
-      // mutate the checkout at once (#75778); refuse instead.
       rememberLog(`[updates] refusing hand-off: ${handoffConflict.message}`)
       emitUpdateProgress({ stage: 'error', message: handoffConflict.message, percent: null })
 
-      return { ok: false, error: 'update-already-running', message: handoffConflict.message }
+      return {
+        ok: false,
+        error: isLiveUpdaterConflict(handoffConflict) ? 'update-already-running' : 'pantheon-preflight-blocked',
+        message: handoffConflict.message
+      }
     }
 
     emitUpdateProgress({
@@ -3854,13 +3858,18 @@ async function handOffWindowsBootstrapRecovery(reason) {
   const handoffConflict = updateHandoffConflict(HERMES_HOME)
 
   if (handoffConflict) {
+    rememberLog(`[bootstrap] refusing recovery hand-off: ${handoffConflict.message}`)
+
+    if (!isLiveUpdaterConflict(handoffConflict)) {
+      return false
+    }
+
     // Same hazard as applyUpdates (#75778): a live foreign updater already
     // owns the marker. Spawning another here would overwrite its claim and
     // race a second updater over the same install tree. The live updater
     // is already working on this exact install and will restart us when
     // it finishes, so treat this the same as a successful hand-off instead
     // of clobbering it with our own.
-    rememberLog(`[bootstrap] refusing recovery hand-off: ${handoffConflict.message}`)
     isQuittingForHandoff = true
     setTimeout(() => {
       app.quit()
@@ -4071,12 +4080,14 @@ async function applyUpdatesPosixHandoff(opts: any) {
   const handoffConflict = updateHandoffConflict(HERMES_HOME)
 
   if (handoffConflict) {
-    // Same hazard as the Windows path (#75778): a live foreign updater
-    // already owns the marker — refuse rather than double-mutate the tree.
     rememberLog(`[updates] refusing posix hand-off: ${handoffConflict.message}`)
     emitUpdateProgress({ stage: 'error', message: handoffConflict.message, percent: null })
 
-    return { ok: false, error: 'update-already-running', message: handoffConflict.message }
+    return {
+      ok: false,
+      error: isLiveUpdaterConflict(handoffConflict) ? 'update-already-running' : 'pantheon-preflight-blocked',
+      message: handoffConflict.message
+    }
   }
 
   // ── Pre-flight state.db integrity guard (#68474) ──
@@ -14888,40 +14899,113 @@ ipcMain.handle('hermes:updates:rollback', async () => {
   rollbackInFlight = true
 
   try {
-    const marker = readRollbackMarker(HERMES_HOME)
+    const marker = markRollbackPending(HERMES_HOME) ?? readRollbackMarker(HERMES_HOME)
 
     if (!marker) {
+      rollbackInFlight = false
+
       return { ok: false, error: 'no-rollback', message: 'No previous working build is available to restore.' }
     }
 
-    const receipt = readLatestBackupReceipt(HERMES_HOME)
+    const receipt = readBackupReceipt(marker.backupDir) ?? readLatestBackupReceipt(HERMES_HOME)
 
     if (!receipt) {
+      rollbackInFlight = false
+
       return { ok: false, error: 'no-backup', message: 'No key-safe backup receipt is available to restore.' }
     }
 
     const restored = restorePantheonBackup(HERMES_HOME, receipt)
-    const handoff = resolveRollbackHandoff(resolveUpdateRoot(), marker)
-
     rememberLog(`[updates] rollback restored=${restored.restored.length} failed=${restored.failed.length}`)
 
+    if (restored.failed.length > 0) {
+      rollbackInFlight = false
+
+      return {
+        ok: false,
+        error: 'rollback-partial',
+        message: `Rollback restored ${restored.restored.length} files; failed ${restored.failed.join(', ')}.`
+      }
+    }
+
+    const updateRoot = resolveUpdateRoot()
+    const handoff = resolveRollbackHandoff(updateRoot, marker)
+
+    if (!handoff) {
+      clearRollbackMarker(HERMES_HOME)
+      rollbackInFlight = false
+
+      return {
+        ok: true,
+        handedOff: false,
+        message: 'Previous working config restored. Build hand-off is unavailable in this install.'
+      }
+    }
+
+    const spawned = buildRollbackSpawnInvocation(handoff, {
+      updateRoot,
+      desktopPid: process.pid,
+      relaunchExe: process.execPath
+    })
+    const venvBin = path.join(updateRoot, 'venv', IS_WINDOWS ? 'Scripts' : 'bin')
+    const updateStartedAt = Math.floor(Date.now() / 1000)
+    const child = spawnUpdaterProcess(spawned.command, spawned.args, {
+      cwd: HERMES_HOME,
+      env: {
+        ...process.env,
+        HERMES_HOME,
+        HERMES_UPDATE_STARTED_AT: String(updateStartedAt),
+        PATH: pathWithHermesManagedNode(venvBin)
+      },
+      detached: true,
+      stdio: 'ignore'
+    })
+
+    if (Number.isInteger(child.pid)) {
+      writeUpdateMarker(HERMES_HOME, child.pid, { startedAt: updateStartedAt })
+    }
+
+    emitUpdateProgress({
+      stage: 'restart',
+      message: 'Restoring the previous working build — this window will close and reopen.',
+      percent: 100
+    })
+
+    const dwellStartedAt = Date.now()
+    const handoffOutcome = await observeUpdaterHandoff(child, UPDATE_HANDOFF_DWELL_MS)
+
+    if (!handoffOutcome.ok) {
+      const message = `Rollback failed to start: ${handoffOutcome.message}. Hermes will keep running — try again.`
+      rememberLog(`[updates] rollback hand-off not viable, aborting quit: ${handoffOutcome.message}`)
+      emitUpdateProgress({ stage: 'error', message, percent: null })
+      rollbackInFlight = false
+
+      return { ok: false, error: 'updater-spawn-failed', message }
+    }
+
+    clearRollbackMarker(HERMES_HOME)
+    isQuittingForHandoff = true
+    setTimeout(
+      () => {
+        app.quit()
+      },
+      Math.max(0, UPDATE_HANDOFF_DWELL_MS - (Date.now() - dwellStartedAt))
+    )
+
     return {
-      ok: restored.failed.length === 0,
-      error: restored.failed.length === 0 ? undefined : 'rollback-partial',
-      message:
-        restored.failed.length === 0
-          ? 'Previous working config restored.'
-          : `Rollback restored ${restored.restored.length} files; failed ${restored.failed.join(', ')}.`,
-      handoff: handoff ? { command: handoff.command, scriptPath: handoff.scriptPath } : null
+      ok: true,
+      handedOff: true,
+      updater: handoff.scriptPath,
+      message: 'Previous working build restore started.'
     }
   } catch (error) {
+    rollbackInFlight = false
+
     return {
       ok: false,
       error: 'rollback-failed',
       message: error instanceof Error ? error.message : String(error)
     }
-  } finally {
-    rollbackInFlight = false
   }
 })
 

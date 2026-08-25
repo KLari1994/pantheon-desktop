@@ -199,6 +199,12 @@ export interface PantheonPreApplyDeps {
   userDataDir?: string
 }
 
+export function isLiveUpdaterConflict(
+  conflict: { kind?: string; pid?: number } | null | undefined
+): conflict is { kind: 'live-owner'; pid: number; ageMs: number; message: string } {
+  return Boolean(conflict && conflict.kind === 'live-owner' && typeof conflict.pid === 'number' && conflict.pid > 0)
+}
+
 export function updateHandoffConflict(
   hermesHome,
   opts: {
@@ -216,6 +222,7 @@ export function updateHandoffConflict(
     const elapsed = mins > 0 ? `${mins}m ${secs}s` : `${secs}s`
 
     return {
+      kind: 'live-owner',
       pid: owner.pid,
       ageMs: owner.ageMs,
       message: `An update is already running (PID ${owner.pid}, started ${elapsed} ago). Wait for it to finish, then try again.`
@@ -247,11 +254,13 @@ function runPantheonPreApply(hermesHome: string, deps: PantheonPreApplyDeps) {
       createdAt: backup.createdAt,
       previousCommit: backup.appCommit,
       backupDir: backup.backupDir,
-      binderSchemaVersion: backup.binderSchemaVersion
+      binderSchemaVersion: backup.binderSchemaVersion,
+      pendingRestore: false
     })
 
     if (!verdict.ok) {
       return {
+        kind: 'preflight',
         pid: -1,
         ageMs: 0,
         message: `Update refused: compatibility check failed (${verdict.reasons.join(', ') || 'incompatible'}).`
@@ -263,6 +272,7 @@ function runPantheonPreApply(hermesHome: string, deps: PantheonPreApplyDeps) {
     const detail = error instanceof Error ? error.message : String(error)
 
     return {
+      kind: 'preflight',
       pid: -1,
       ageMs: 0,
       message: `Update refused: backup or compatibility receipt failed (${detail}).`

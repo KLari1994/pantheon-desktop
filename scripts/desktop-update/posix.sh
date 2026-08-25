@@ -507,15 +507,36 @@ sleep 1
 start_ui
 
 HERMES_BIN="$INSTALL_ROOT/venv/bin/hermes"
-[ -x "$HERMES_BIN" ] || { FINAL_CODE=3 FINAL_MSG="Update aborted: $HERMES_BIN is missing. The install needs repair (run the Hermes installer or hermes doctor)."; log "$FINAL_MSG"; exit 3; }
+if [ "$ROLLBACK" -ne 1 ]; then
+  [ -x "$HERMES_BIN" ] || { FINAL_CODE=3 FINAL_MSG="Update aborted: $HERMES_BIN is missing. The install needs repair (run the Hermes installer or hermes doctor)."; log "$FINAL_MSG"; exit 3; }
+fi
 
 if [ "$ROLLBACK" -eq 1 ]; then
-  log "rollback requested; skipping hermes update (backup-dir=${BACKUP_DIR:-none})"
+  log "rollback requested; restoring previous working build (backup-dir=${BACKUP_DIR:-none})"
   if [ -n "$PREVIOUS_COMMIT" ]; then
     git -C "$INSTALL_ROOT" checkout --force "$PREVIOUS_COMMIT" || {
       FINAL_CODE=3 FINAL_MSG="Rollback aborted: cannot restore previous commit $PREVIOUS_COMMIT."
       log "$FINAL_MSG"; exit 3
     }
+  fi
+  ROLLBACK_PY="$INSTALL_ROOT/venv/bin/python"
+  [ -x "$ROLLBACK_PY" ] || ROLLBACK_PY="$(command -v python3 || true)"
+  if [ -n "$ROLLBACK_PY" ]; then
+    publish_stage "Rebuilding previous Desktop"
+    "$ROLLBACK_PY" -m hermes_cli.main desktop --force-build --build-only >> "$LOG" 2>&1 || {
+      if [ -x "$HERMES_BIN" ]; then
+        "$HERMES_BIN" desktop --force-build --build-only >> "$LOG" 2>&1 || {
+          FINAL_CODE=6 FINAL_MSG="Rollback restored the previous source, but the Desktop app rebuild failed. Run hermes desktop --force-build from a terminal to retry."
+          log "$FINAL_MSG"; exit 6
+        }
+      else
+        FINAL_CODE=6 FINAL_MSG="Rollback restored the previous source, but no Python runtime was available to rebuild Desktop."
+        log "$FINAL_MSG"; exit 6
+      fi
+    }
+  else
+    FINAL_CODE=6 FINAL_MSG="Rollback restored the previous source, but no Python runtime was available to rebuild Desktop."
+    log "$FINAL_MSG"; exit 6
   fi
   CODE=0
   OUT="rollback"

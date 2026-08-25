@@ -9,6 +9,7 @@ import {
   desktopPluginFolderName,
   detectPluginComponents,
   findDesktopEntry,
+  installDesktopPluginFromGit,
   probePluginRepo,
   repoNameFromUrl,
   resolvePluginGitUrl,
@@ -134,5 +135,27 @@ describe('probePluginRepo packaged adapters', () => {
       ok: false,
       error: expect.stringMatching(/packaged local resources/)
     })
+  })
+})
+
+describe('installDesktopPluginFromGit packaged adapters', () => {
+  it('rejects remote adapter identifiers before cloning', async () => {
+    await expect(
+      installDesktopPluginFromGit('git', 'https://github.com/acme/buzz-bridge', os.tmpdir())
+    ).resolves.toMatchObject({
+      ok: false,
+      error: expect.stringMatching(/packaged local resources/)
+    })
+  })
+
+  it('rejects cloned metadata that claims a packaged adapter name', async () => {
+    const root = mkdtemp('aliased-adapter-')
+    fs.writeFileSync(path.join(root, 'plugin.json'), JSON.stringify({ name: 'buzz-bridge' }))
+    fs.mkdirSync(path.join(root, 'desktop'), { recursive: true })
+    fs.writeFileSync(path.join(root, 'desktop', 'plugin.js'), 'export default { id: "buzz-bridge" }')
+    const detected = await detectPluginComponents(root)
+    expect(detected.agentName).toBe('buzz-bridge')
+    const { pantheonAdapterContentsBlockReason } = await import('./hardening')
+    expect(pantheonAdapterContentsBlockReason(detected.agentName || '')).toMatch(/rejected|packaged/)
   })
 })

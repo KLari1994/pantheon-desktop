@@ -128,6 +128,52 @@ export function resolveRollbackHandoff(
   }
 }
 
+export function extraRollbackLaunchArgs(opts: {
+  updateRoot: string
+  desktopPid: number
+  relaunchExe?: string
+  isWindows?: boolean
+}): string[] {
+  const isWindows = opts.isWindows ?? process.platform === 'win32'
+
+  if (isWindows) {
+    return [
+      '-InstallRoot',
+      opts.updateRoot,
+      '-DesktopPid',
+      String(opts.desktopPid),
+      ...(opts.relaunchExe ? ['-RelaunchExe', opts.relaunchExe] : [])
+    ]
+  }
+
+  return [
+    '--install-root',
+    opts.updateRoot,
+    '--desktop-pid',
+    String(opts.desktopPid),
+    ...(opts.relaunchExe ? ['--relaunch-target', opts.relaunchExe] : [])
+  ]
+}
+
+export function buildRollbackSpawnInvocation(
+  handoff: UpdateScriptHandoff,
+  extras: {
+    updateRoot: string
+    desktopPid: number
+    relaunchExe?: string
+    isWindows?: boolean
+  }
+): { command: string; args: string[] } {
+  const isWindows = extras.isWindows ?? process.platform === 'win32'
+  const launchArgs = extraRollbackLaunchArgs({ ...extras, isWindows })
+
+  if (isWindows) {
+    return wrapHandoffForDetachedConsole(handoff, launchArgs)
+  }
+
+  return { command: handoff.command, args: [...handoff.args, ...launchArgs] }
+}
+
 /**
  * Wrap a PowerShell hand-off invocation so it survives a detached, hidden
  * spawn from Electron.

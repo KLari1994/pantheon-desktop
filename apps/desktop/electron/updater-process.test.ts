@@ -9,6 +9,8 @@ import {
   MARKER_SELF_ADOPT_EPOCH_MS,
   observeUpdaterHandoff,
   resolvePosixScriptHandoff,
+  buildRollbackSpawnInvocation,
+  extraRollbackLaunchArgs,
   resolveRollbackHandoff,
   resolveStagedUpdaterBinary,
   resolveUpdateScriptHandoff,
@@ -494,4 +496,50 @@ test('resolveRollbackHandoff appends explicit rollback args for the host script'
   assert.ok(windows)
   assert.ok(windows.args.includes('-Rollback'))
   assert.ok(windows.args.includes('-BackupDir'))
+})
+
+test('buildRollbackSpawnInvocation adds install-root and desktop-pid for the host script', () => {
+  const posix = resolveRollbackHandoff(
+    '/opt/hermes',
+    { backupDir: '/opt/hermes/pantheon/backups/1', previousCommit: 'abc123' },
+    {
+      isWindows: false,
+      fileExists: candidate => candidate.endsWith(`${path.sep}posix.sh`)
+    }
+  )
+  assert.ok(posix)
+  const spawned = buildRollbackSpawnInvocation(posix, {
+    updateRoot: '/opt/hermes',
+    desktopPid: 4242,
+    relaunchExe: '/opt/hermes/Hermes',
+    isWindows: false
+  })
+  assert.equal(spawned.command, '/bin/bash')
+  assert.ok(spawned.args.includes('--rollback'))
+  assert.deepEqual(extraRollbackLaunchArgs({ updateRoot: '/opt/hermes', desktopPid: 4242, isWindows: false }).slice(0, 2), [
+    '--install-root',
+    '/opt/hermes'
+  ])
+  assert.ok(spawned.args.includes('--install-root'))
+  assert.ok(spawned.args.includes('4242'))
+
+  const windows = resolveRollbackHandoff(
+    'C:\\\\Hermes',
+    { backupDir: 'C:\\\\Hermes\\\\pantheon\\\\backups\\\\1' },
+    {
+      isWindows: true,
+      fileExists: candidate => candidate.endsWith('windows.ps1')
+    }
+  )
+  assert.ok(windows)
+  const wrapped = buildRollbackSpawnInvocation(windows, {
+    updateRoot: 'C:\\\\Hermes',
+    desktopPid: 99,
+    relaunchExe: 'C:\\\\Hermes\\\\Hermes.exe',
+    isWindows: true
+  })
+  assert.equal(wrapped.command, 'cmd.exe')
+  assert.ok(wrapped.args.includes('-Rollback'))
+  assert.ok(wrapped.args.includes('-InstallRoot'))
+  assert.ok(wrapped.args.includes('-DesktopPid'))
 })

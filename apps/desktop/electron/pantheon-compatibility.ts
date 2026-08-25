@@ -13,15 +13,16 @@ export interface PantheonCompatibilityReceipt {
   schemaVersion: 1
   createdAt: string
   pantheon: { version: string | null; commit: string | null }
-  hermes: { sourceCommit: string | null }
+  hermes: { version: string | null; sourceCommit: string | null }
   buzzBridge: {
     present: boolean
+    version: string | null
     pinnedVersion: string | null
     sha256: string | null
     integrity: 'verified' | 'mismatch' | 'missing' | 'unpinned'
   }
   relay: { url: string | null; protocolVersion: string | null }
-  acpBinder: { schemaVersion: number | null }
+  acpBinder: { version: string | null; schemaVersion: number | null }
   windows: { platform: string; release: string }
   result: 'compatible' | 'incompatible'
   reasons: string[]
@@ -55,6 +56,50 @@ function readJson(fsImpl: typeof fs, filePath: string): Record<string, unknown> 
     return JSON.parse(text) as Record<string, unknown>
   } catch {
     return null
+  }
+}
+
+function readVersionAssignment(text: string | null): string | null {
+  const match = text?.match(/(?:^|\n)\s*(?:__version__|version)\s*=\s*["']([^"']+)["']/)
+  return match?.[1] || null
+}
+
+function readTomlPackageVersion(text: string | null): string | null {
+  const match = text?.match(/\[package\][\s\S]*?^version\s*=\s*["']([^"']+)["']/m)
+  return match?.[1] || null
+}
+
+function readFirstVersion(
+  fsImpl: typeof fs,
+  candidates: string[],
+  extract: (text: string | null) => string | null
+): string | null {
+  for (const candidate of candidates) {
+    const version = extract(readText(fsImpl, candidate))
+
+    if (version) {
+      return version
+    }
+  }
+
+  return null
+}
+
+function sanitizeRelayUrl(url: string | null): string | null {
+  if (!url) {
+    return null
+  }
+
+  try {
+    const parsed = new URL(url)
+    parsed.username = ''
+    parsed.password = ''
+    parsed.search = ''
+    parsed.hash = ''
+    return `${parsed.origin}${parsed.pathname === '/' ? '' : parsed.pathname}`
+  } catch {
+    const withoutUserinfo = url.replace(/^([a-z]+:\/\/)[^@/]+@/i, '$1')
+    return withoutUserinfo.split(/[?#]/)[0] || null
   }
 }
 
@@ -130,7 +175,7 @@ function readRelayUrl(hermesHome: string, fsImpl: typeof fs): string | null {
     const url = parseBuzzRelayUrlFromWorkspaceConfig(text)
 
     if (url) {
-      return url
+      return sanitizeRelayUrl(url)
     }
   }
 
@@ -160,6 +205,7 @@ function readAdapterManifest(resourcesPath: string | undefined, fsImpl: typeof f
 
 function inspectBuzzBridge(
   resourcesPath: string | undefined,
+  updateRoot: string,
   fsImpl: typeof fs
 ): PantheonCompatibilityReceipt['buzzBridge'] {
   const root = resourcesPath || process.cwd()
@@ -171,9 +217,18 @@ function inspectBuzzBridge(
       return false
     }
   })())
+  const version = readFirstVersion(
+    fsImpl,
+    [
+      path.join(updateRoot, 'pantheon', 'buzz-bridge', 'Cargo.toml'),
+      path.join(root, 'buzz-bridge', 'Cargo.toml'),
+      path.join(root, 'buzz-bridge', 'VERSION')
+    ],
+    text => readTomlPackageVersion(text) || readVersionAssignment(text) || (text?.trim() && !text.includes('\n') ? text.trim() : null)
+  )
 
   if (!present) {
-    return { present: false, pinnedVersion: null, sha256: null, integrity: 'missing' }
+    return { present: false, version, pinnedVersion: version, sha256: null, integrity: 'missing' }
   }
 
   let digest: string | null = null
@@ -185,25 +240,38 @@ function inspectBuzzBridge(
   }
 
   const manifest = readAdapterManifest(resourcesPath, fsImpl)
+  const sidecarPath = path.join(path.dirname(binaryPath), 'buzz-bridge.sha256')
+  const sidecarHash = readText(fsImpl, sidecarPath)?.trim() || null
 
-  if (!manifest) {
-    return { present: true, pinnedVersion: null, sha256: digest, integrity: 'unpinned' }
+  if (manifest) {
+    const relative = path.relative(root, binaryPath).replace(/\\/g, '/')
+    const pin = manifest.find(item => item.relPath === relative || item.relPath.endsWith(path.basename(binaryPath)))
+    const verification = verifyPinnedArtifacts(root, pin ? [pin] : manifest, fsImpl)
+
+    if (!pin) {
+      return { present: true, version, pinnedVersion: version, sha256: digest, integrity: 'unpinned' }
+    }
+
+    return {
+      present: true,
+      version,
+      pinnedVersion: version,
+      sha256: digest,
+      integrity: verification.ok ? 'verified' : 'mismatch'
+    }
   }
 
-  const relative = path.relative(root, binaryPath).replace(/\\/g, '/')
-  const pin = manifest.find(item => item.relPath === relative || item.relPath.endsWith(path.basename(binaryPath)))
-  const verification = verifyPinnedArtifacts(root, pin ? [pin] : manifest, fsImpl)
-
-  if (!pin) {
-    return { present: true, pinnedVersion: null, sha256: digest, integrity: 'unpinned' }
+  if (sidecarHash && digest) {
+    return {
+      present: true,
+      version,
+      pinnedVersion: version,
+      sha256: digest,
+      integrity: sidecarHash === digest ? 'verified' : 'mismatch'
+    }
   }
 
-  return {
-    present: true,
-    pinnedVersion: pin.sha256,
-    sha256: digest,
-    integrity: verification.ok ? 'verified' : 'mismatch'
-  }
+  return { present: true, version, pinnedVersion: version, sha256: digest, integrity: 'unpinned' }
 }
 
 export function evaluateCompatibility(receipt: PantheonCompatibilityReceipt): { ok: boolean; reasons: string[] } {
@@ -227,7 +295,30 @@ export function buildCompatibilityReceipt(deps: CompatibilityDeps): PantheonComp
   const createdAt = new Date((deps.now ?? Date.now)()).toISOString()
   const pantheon = readPantheonIdentity(deps.updateRoot, deps.resourcesPath, fsImpl)
   const hermesCommit = readHermesSourceCommit(deps.updateRoot, fsImpl)
-  const buzzBridge = inspectBuzzBridge(deps.resourcesPath, fsImpl)
+  const hermesVersion = readFirstVersion(
+    fsImpl,
+    [
+      path.join(deps.updateRoot, 'hermes_cli', '__init__.py'),
+      path.join(deps.updateRoot, 'pyproject.toml')
+    ],
+    text => readVersionAssignment(text) || readTomlPackageVersion(text)
+  )
+  const acpVersion = readFirstVersion(
+    fsImpl,
+    [
+      path.join(deps.updateRoot, 'pantheon', 'acp-binder', 'package.json'),
+      path.join(deps.updateRoot, 'apps', 'desktop', 'pantheon', 'acp-binder', 'package.json')
+    ],
+    text => {
+      try {
+        const parsed = text ? (JSON.parse(text) as { version?: unknown }) : null
+        return typeof parsed?.version === 'string' ? parsed.version : null
+      } catch {
+        return null
+      }
+    }
+  )
+  const buzzBridge = inspectBuzzBridge(deps.resourcesPath, deps.updateRoot, fsImpl)
   const reasons: string[] = []
 
   if (!buzzBridge.present) {
@@ -243,10 +334,10 @@ export function buildCompatibilityReceipt(deps: CompatibilityDeps): PantheonComp
     schemaVersion: 1,
     createdAt,
     pantheon,
-    hermes: { sourceCommit: hermesCommit },
+    hermes: { version: hermesVersion, sourceCommit: hermesCommit },
     buzzBridge,
     relay: { url: readRelayUrl(deps.hermesHome, fsImpl), protocolVersion: null },
-    acpBinder: { schemaVersion: PANTHEON_BINDER_SCHEMA_VERSION },
+    acpBinder: { version: acpVersion, schemaVersion: PANTHEON_BINDER_SCHEMA_VERSION },
     windows: host,
     result: 'compatible',
     reasons

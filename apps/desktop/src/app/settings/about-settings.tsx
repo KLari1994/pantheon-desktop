@@ -15,6 +15,7 @@ import {
   checkUpdates,
   openUpdatesWindow,
   refreshDesktopVersion,
+  rollbackUpdate,
   startActiveUpdate
 } from '@/store/updates'
 
@@ -180,6 +181,12 @@ export function AboutSettings() {
                   {a.seeWhatsNew}
                 </Button>
               </>
+            )}
+
+            {typeof window.hermesDesktop?.updates?.rollback === 'function' && (
+              <Button disabled={checking || applying} onClick={() => void rollbackUpdate()} size="sm" variant="textStrong">
+                {t.updates.rollbackAction}
+              </Button>
             )}
 
             <Button asChild className="ml-auto" size="sm" variant="text">
