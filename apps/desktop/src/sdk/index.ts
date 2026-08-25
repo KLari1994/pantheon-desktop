@@ -1182,7 +1182,13 @@ export { PALETTE_AREA, type PaletteContribution } from '@/app/command-palette/co
 export { openSession } from '@/app/open-session'
 /** Desktop git + project/worktree rails. Plugins consume these instead of `@/` stores. */
 export { createTerminal } from '@/app/right-sidebar/terminal/terminals'
-export { type RouteContribution, ROUTES_AREA, SIDEBAR_NAV_AREA, type SidebarNavContribution } from '@/app/routes'
+export {
+  NEW_CHAT_ROUTE,
+  type RouteContribution,
+  ROUTES_AREA,
+  SIDEBAR_NAV_AREA,
+  type SidebarNavContribution
+} from '@/app/routes'
 
 /** THE full per-toolset config panel core Settings renders — provider picker,
  *  env vars / API keys, model catalog picker, and post-setup runners. Route-
@@ -1315,7 +1321,6 @@ export {
  *  Plugins must route animation clocks through this instead of raw rAF loops
  *  so a disabled plugin or an empty roster costs zero frames. */
 export { type BudgetedLoop, type BudgetedLoopOptions, createBudgetedLoop } from '@/lib/budgeted-loop'
-export { createClientSessionState } from '@/lib/chat-runtime'
 export { desktopGit, type DesktopGitTarget } from '@/lib/desktop-git'
 /** THE compact-number formatter — every user-facing count/token figure goes
  *  through here (1230 → "1.2k", 1_500_000 → "1.5M"). Don't hand-roll `/1000`. */
@@ -1374,17 +1379,15 @@ export {
 } from '@/pantheon/buzz-client'
 export { canDictate } from '@/pantheon/destination'
 export { $artifactRegistry, findArtifact, openArtifact } from '@/store/artifacts'
-export { $cronJobs, setCronFocusJobId, setCronJobs } from '@/store/cron'
+export { $cronJobs, setCronFocusJobId } from '@/store/cron'
 export { $gateway } from '@/store/gateway'
 export { revealFileInTree } from '@/store/layout'
 export { openPreview } from '@/store/preview'
 export { $projects, $projectTree, refreshProjects, refreshProjectTree } from '@/store/projects'
 export {
   type ApprovalRequest,
-  clearAllPrompts,
   clearApprovalRequest,
-  sessionApprovalRequest,
-  setApprovalRequest
+  sessionApprovalRequest
 } from '@/store/prompts'
 
 export const PANES_AREA = 'panes'
@@ -1392,14 +1395,12 @@ export { openReview } from '@/store/review'
 export const STATUSBAR_AREAS = { left: 'statusBar.left', right: 'statusBar.right' } as const
 export const TITLEBAR_AREAS = { center: 'titleBar.center', left: 'titleBar.left', right: 'titleBar.right' } as const
 
-export { $sessions, lineageAliases, setSessions } from '@/store/session'
+export { $sessions, lineageAliases } from '@/store/session'
 export {
   $attentionSessionIds,
   $sessionStates,
   $stalledSessionIds,
   $workingSessionIds,
-  clearAllSessionStates,
-  publishSessionState,
   requestForOwnedSession
 } from '@/store/session-states'
 /** Live accent override — set a hex and the ACTIVE theme repaints with its

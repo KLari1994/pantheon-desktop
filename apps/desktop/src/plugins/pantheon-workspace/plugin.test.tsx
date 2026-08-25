@@ -1,5 +1,5 @@
 import type { PluginContext } from '@hermes/plugin-sdk'
-import { host } from '@hermes/plugin-sdk'
+import { host, NEW_CHAT_ROUTE } from '@hermes/plugin-sdk'
 import { expect, test, vi } from 'vitest'
 
 import plugin from './plugin'
@@ -47,7 +47,7 @@ test('registers /home and places Home nav before Rooms', () => {
   plugin.register(ctx as unknown as PluginContext)
   const paths = ctx.contributions.map(item => item.data?.path)
   expect(paths).toContain('/home')
-  expect('/').not.toBe('/home')
+  expect(NEW_CHAT_ROUTE).not.toBe('/home')
   const homeNav = ctx.contributions.find(item => item.data?.label === 'Home')
   const cronNav = ctx.contributions.find(item => item.data?.label === 'Cron Center')
   const roomsNav = ctx.contributions.find(item => item.data?.label === 'Rooms')

@@ -1,14 +1,11 @@
-import {
-  clearAllPrompts,
-  clearAllSessionStates,
-  createClientSessionState,
-  publishSessionState,
-  type SessionInfo,
-  setApprovalRequest,
-  setCronJobs,
-  setSessions
-} from '@hermes/plugin-sdk'
 import { afterEach, expect, test, vi } from 'vitest'
+
+import { createClientSessionState } from '@/lib/chat-runtime'
+import { setCronJobs } from '@/store/cron'
+import { clearAllPrompts, setApprovalRequest } from '@/store/prompts'
+import { setSessions } from '@/store/session'
+import { clearAllSessionStates, publishSessionState } from '@/store/session-states'
+import { makeSessionInfo } from '@/test/session-info'
 
 import {
   applyHomeSourceSnapshot,
@@ -19,28 +16,7 @@ import {
   resetHomeSourceState,
   subscribeAuthoritativeHomeSources,
   toNotificationEvent
-} from './home-sources'
-
-function makeSessionInfo(overrides: Partial<SessionInfo> = {}): SessionInfo {
-  return {
-    archived: false,
-    cwd: null,
-    ended_at: null,
-    id: 'session',
-    input_tokens: 0,
-    is_active: false,
-    last_active: 0,
-    message_count: 0,
-    model: null,
-    output_tokens: 0,
-    preview: null,
-    source: null,
-    started_at: 0,
-    title: null,
-    tool_call_count: 0,
-    ...overrides
-  }
-}
+} from '../plugins/pantheon-workspace/home-sources'
 
 afterEach(() => {
   resetHomeSourceState()
