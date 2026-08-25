@@ -155,6 +155,7 @@ import { ChatRoutesSurface, SidebarSurface, StatusbarSurface, TerminalSurface } 
 import type { WiringActions, WiringApi } from './types'
 import { retryableLazy } from './lazy-page'
 import { viewLoaders } from './view-loaders'
+import { viewPrefetch } from './view-prefetch'
 import { findStoredIdForRuntimeId, resolveRoutingSessionId } from './wiring-routing'
 
 // Overlay views the controller mounts over the shell — lazy, load on demand.
@@ -192,6 +193,7 @@ export function ContribWiring({ children }: { children: ReactNode }) {
 
   const busyRef = useRef(false)
   const creatingSessionRef = useRef(false)
+  const didPrefetchViewsOnOpenRef = useRef(false)
   // Billing recovery routes to Settings → Billing from surfaces without router
   // context (the sticky toast). The shell owns `navigate`, so it consumes the
   // intent counter here; the ref skips the initial mount value.
@@ -884,6 +886,15 @@ export function ContribWiring({ children }: { children: ReactNode }) {
       void armWakeWord(requestGateway)
     }
   }, [gatewayState, requestGateway])
+
+  useEffect(() => {
+    if (gatewayState !== 'open' || didPrefetchViewsOnOpenRef.current) {
+      return
+    }
+
+    didPrefetchViewsOnOpenRef.current = true
+    return viewPrefetch.prefetchAllOnIdle()
+  }, [gatewayState])
 
   const activeIsMessaging =
     !!selectedStoredSessionId &&
