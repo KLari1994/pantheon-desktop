@@ -9,7 +9,8 @@ import {
   ROUTES_AREA,
   routeSessionId,
   sessionRoute,
-  SETTINGS_ROUTE
+  SETTINGS_ROUTE,
+  sidebarNavActiveKey
 } from './routes'
 
 const SESS_A = 'sess-a'
@@ -87,5 +88,31 @@ describe('routeSessionId reserved paths', () => {
   it('parses a single-segment session id', () => {
     expect(routeSessionId('/abc')).toBe('abc')
     expect(routeSessionId(sessionRoute(SESS_A))).toBe(SESS_A)
+  })
+})
+
+describe('sidebarNavActiveKey', () => {
+  it('maps built-in workspace pages, including query strings', () => {
+    expect(sidebarNavActiveKey('/skills?tab=mcp')).toBe('skills')
+    expect(sidebarNavActiveKey('/messaging')).toBe('messaging')
+    expect(sidebarNavActiveKey('/artifacts')).toBe('artifacts')
+  })
+
+  it('returns a contributed path, and null for overlays/chat/sessions', () => {
+    const dispose = registry.register({
+      area: ROUTES_AREA,
+      data: { path: '/home' },
+      id: 'pan-17-home',
+      render: () => null
+    })
+
+    try {
+      expect(sidebarNavActiveKey('/home')).toBe('/home')
+      expect(sidebarNavActiveKey('/settings')).toBeNull()
+      expect(sidebarNavActiveKey('/')).toBeNull()
+      expect(sidebarNavActiveKey(sessionRoute(SESS_A))).toBeNull()
+    } finally {
+      dispose()
+    }
   })
 })

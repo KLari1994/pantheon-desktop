@@ -1090,8 +1090,8 @@ export function ContribWiring({ children }: { children: ReactNode }) {
   // node's keys leaves its element reference intact, so `WiredPane` (memoized)
   // bails on that pane subtree — panes render independently of one another.
   const sidebarNode = useMemo(
-    () => <SidebarSurface actions={actions} currentView={currentView} />,
-    [actions, currentView]
+    () => <SidebarSurface actions={actions} />,
+    [actions]
   )
 
   const terminalNode = useMemo(() => <TerminalSurface />, [])

@@ -228,6 +228,17 @@ function isWorkspacePageRoute(to: string): boolean {
  *  it as `headerVeto` so the zone tab bar stands down on pages. Overlays
  *  (settings/…) don't count — the chat stays beneath them. */
 export const $workspaceIsPage = atom(false)
+export const $routePathname = atom(NEW_CHAT_ROUTE)
+
+export function sidebarNavActiveKey(pathname: string): null | string {
+  const view = appViewForPath(pathname)
+
+  if (view === 'skills' || view === 'messaging' || view === 'artifacts') {
+    return view
+  }
+
+  return isContributedPath(routePathname(pathname)) ? routePathname(pathname) : null
+}
 
 function revealWorkspacePane(): void {
   noteActiveTreeGroup(null)
@@ -248,6 +259,7 @@ function revealWorkspacePane(): void {
  * statusbar/titlebar `to` targets, back/forward, and cold-start restore.
  */
 export function syncWorkspaceRoute(pathname: string): void {
+  $routePathname.set(pathname)
   const isPage = isWorkspacePageRoute(pathname)
 
   if (isPage !== $workspaceIsPage.get()) {

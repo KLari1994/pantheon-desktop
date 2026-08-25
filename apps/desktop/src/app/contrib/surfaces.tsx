@@ -8,7 +8,7 @@
  */
 
 import { useStore } from '@nanostores/react'
-import { type ComponentProps, lazy, memo, type ReactNode, Suspense, useMemo } from 'react'
+import { lazy, memo, type ReactNode, Suspense, useMemo } from 'react'
 import { Navigate, Route, Routes, useParams } from 'react-router'
 
 import { ContribBoundary, ContribRender } from '@/contrib/react/boundary'
@@ -45,15 +45,13 @@ export function LegacySessionRedirect() {
 }
 
 export const SidebarSurface = memo(function SidebarSurface({
-  actions,
-  currentView
+  actions
 }: {
   actions: SidebarActions
-  currentView: ComponentProps<typeof ChatSidebar>['currentView']
 }) {
   const latestActions = useMemo(() => latestSidebarActions(actions), [actions])
 
-  return <ChatSidebar currentView={currentView} {...latestActions} />
+  return <ChatSidebar {...latestActions} />
 })
 
 export const TerminalSurface = memo(function TerminalSurface() {

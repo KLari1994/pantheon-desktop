@@ -3,7 +3,6 @@ import { sortableKeyboardCoordinates } from '@dnd-kit/sortable'
 import { useStore } from '@nanostores/react'
 import type * as React from 'react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { useLocation } from 'react-router'
 
 import { PlatformAvatar } from '@/app/messaging/platform-icon'
 import { Button } from '@/components/ui/button'
@@ -29,6 +28,7 @@ import { comboTokens } from '@/lib/keybinds/combo'
 import { resolveProfileColor } from '@/lib/profile-color'
 import { sessionMatchesSearch } from '@/lib/session-search'
 import { normalizeSessionSource, sessionSourceLabel } from '@/lib/session-source'
+import { useStoreSelector } from '@/lib/use-session-slice'
 import { cn } from '@/lib/utils'
 import { $activeConnectionId } from '@/store/connections'
 import { $cronJobs } from '@/store/cron'
@@ -133,7 +133,7 @@ import { markSessionUnread } from '@/store/session-unread-remote'
 import { $archivedSessions, loadArchivedSessions } from '@/store/sidebar-archive'
 import { $sidebarSessionRankIds } from '@/store/sidebar-sort'
 
-import { type AppView, SIDEBAR_NAV_AREA } from '../../routes'
+import { $routePathname, appViewForPath, SIDEBAR_NAV_AREA, sidebarNavActiveKey } from '../../routes'
 import type { SidebarNavItem } from '../../types'
 
 import { SidebarCronJobsSection } from './cron-jobs-section'
@@ -247,7 +247,6 @@ function searchResultToSession(result: SessionSearchResult): SessionInfo {
 }
 
 interface ChatSidebarProps extends React.ComponentProps<typeof Sidebar> {
-  currentView: AppView
   onNavigate: (item: SidebarNavItem) => void
   onLoadMoreSessions: () => Promise<void> | void
   onLoadMoreMessaging?: (platform: string) => Promise<void> | void
@@ -263,7 +262,6 @@ interface ChatSidebarProps extends React.ComponentProps<typeof Sidebar> {
 }
 
 export function ChatSidebar({
-  currentView,
   onNavigate,
   onLoadMoreSessions,
   onLoadMoreMessaging,
@@ -278,7 +276,6 @@ export function ChatSidebar({
 }: ChatSidebarProps) {
   const { t } = useI18n()
   const s = t.sidebar
-  const { pathname } = useLocation()
   // Contributed nav rows (plugins pairing a page with a sidebar entry) render
   // below the built-ins with the same chrome; active = at their route.
   const navContributions = useContributions(SIDEBAR_NAV_AREA)
@@ -404,7 +401,9 @@ export function ChatSidebar({
     }
   }, [])
 
-  const activeSidebarSessionId = currentView === 'chat' ? selectedSessionId : null
+  const chatViewActive = useStoreSelector($routePathname, p => appViewForPath(p) === 'chat')
+  const activeSidebarSessionId = chatViewActive ? selectedSessionId : null
+  const activeNavKey = useStoreSelector($routePathname, sidebarNavActiveKey)
 
   const dndSensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
@@ -1407,12 +1406,7 @@ export function ChatSidebar({
               {[...SIDEBAR_NAV, ...contributedNav].map(item => {
                 const isInteractive = Boolean(item.action) || Boolean(item.route)
 
-                const active =
-                  (item.id === 'skills' && currentView === 'skills') ||
-                  (item.id === 'messaging' && currentView === 'messaging') ||
-                  (item.id === 'artifacts' && currentView === 'artifacts') ||
-                  // Contributed rows light up at their own route.
-                  (Boolean(item.route) && pathname === item.route)
+                const active = activeNavKey === item.id || (Boolean(item.route) && activeNavKey === item.route)
 
                 const isNewSession = item.id === 'new-session'
 
