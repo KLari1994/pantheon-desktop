@@ -10,7 +10,7 @@
 
 import { useStore } from '@nanostores/react'
 import { useQueryClient } from '@tanstack/react-query'
-import { type CSSProperties, lazy, type ReactNode, Suspense, useCallback, useEffect, useMemo, useRef } from 'react'
+import { type CSSProperties, type ReactNode, useCallback, useEffect, useMemo, useRef } from 'react'
 import { useLocation, useNavigate } from 'react-router'
 
 import { graftRefreshedTailOntoBackfill } from '@/app/chat/transcript-backfill'
@@ -149,22 +149,37 @@ import { useDesktopIntegrations } from './hooks/use-desktop-integrations'
 import { usePetBridge } from './hooks/use-pet-bridge'
 import { useQuickEntryBridge } from './hooks/use-quick-entry-bridge'
 import { useSessionTileDelegate } from './hooks/use-session-tile-delegate'
+import { retryableLazy } from './lazy-page'
 import { McpInstallDeepLinkDialog } from './mcp-install-deeplink-dialog'
 import { $restartPreviewServer, useTitlebarToolContributions } from './panes'
 import { ChatRoutesSurface, SidebarSurface, StatusbarSurface, TerminalSurface } from './surfaces'
 import type { WiringActions, WiringApi } from './types'
+import { viewLoaders } from './view-loaders'
+import { viewPrefetch } from './view-prefetch'
 import { findStoredIdForRuntimeId, resolveRoutingSessionId } from './wiring-routing'
 
 // Overlay views the controller mounts over the shell — lazy, load on demand.
 // The workspace-route full-page views (skills/messaging/artifacts) are the
 // ChatRoutesSurface's and live in ./surfaces.
-const AgentsView = lazy(async () => ({ default: (await import('../agents')).AgentsView }))
-const CommandCenterView = lazy(async () => ({ default: (await import('../command-center')).CommandCenterView }))
-const CronView = lazy(async () => ({ default: (await import('../cron')).CronView }))
-const WebhooksView = lazy(async () => ({ default: (await import('../webhooks')).WebhooksView }))
-const ProfilesView = lazy(async () => ({ default: (await import('../profiles')).ProfilesView }))
-const SettingsView = lazy(async () => ({ default: (await import('../settings')).SettingsView }))
-const StarmapView = lazy(async () => ({ default: (await import('../starmap')).StarmapView }))
+const AgentsView = retryableLazy(async () => ({ default: (await viewLoaders['/agents']()).AgentsView }), 'Agents')
+const CommandCenterView = retryableLazy(
+  async () => ({ default: (await viewLoaders['/command-center']()).CommandCenterView }),
+  'Command Center'
+)
+const CronView = retryableLazy(async () => ({ default: (await viewLoaders['/cron']()).CronView }), 'Cron Center')
+const WebhooksView = retryableLazy(
+  async () => ({ default: (await viewLoaders['/webhooks']()).WebhooksView }),
+  'Webhooks'
+)
+const ProfilesView = retryableLazy(
+  async () => ({ default: (await viewLoaders['/profiles']()).ProfilesView }),
+  'Profiles'
+)
+const SettingsView = retryableLazy(
+  async () => ({ default: (await viewLoaders['/settings']()).SettingsView }),
+  'Settings'
+)
+const StarmapView = retryableLazy(async () => ({ default: (await viewLoaders['/starmap']()).StarmapView }), 'Starmap')
 
 // Surfaces (the four wired panes), the render context + WiredPane, and the
 // WiringActions/WiringApi contracts all live in sibling modules — this file is
@@ -871,6 +886,14 @@ export function ContribWiring({ children }: { children: ReactNode }) {
     }
   }, [gatewayState, requestGateway])
 
+  useEffect(() => {
+    if ($gatewayState.get() !== 'open') {
+      return
+    }
+
+    return viewPrefetch.prefetchAllOnIdle()
+  }, [gatewayState])
+
   const activeIsMessaging =
     !!selectedStoredSessionId &&
     isMessagingSource(messagingSessions.find(s => sessionMatchesStoredId(s, selectedStoredSessionId))?.source)
@@ -1090,8 +1113,8 @@ export function ContribWiring({ children }: { children: ReactNode }) {
   // node's keys leaves its element reference intact, so `WiredPane` (memoized)
   // bails on that pane subtree — panes render independently of one another.
   const sidebarNode = useMemo(
-    () => <SidebarSurface actions={actions} currentView={currentView} />,
-    [actions, currentView]
+    () => <SidebarSurface actions={actions} />,
+    [actions]
   )
 
   const terminalNode = useMemo(() => <TerminalSurface />, [])
@@ -1223,68 +1246,46 @@ export function ContribWiring({ children }: { children: ReactNode }) {
       <FindBar />
 
       {settingsOpen && (
-        <Suspense fallback={null}>
-          <SettingsView
-            gateway={gateway}
-            onClose={closeOverlayToPreviousRoute}
-            onConfigSaved={() => {
-              void refreshHermesConfig()
-              void refreshCurrentModel()
-              void queryClient.invalidateQueries({ queryKey: ['model-options'] })
-            }}
-            onMainModelChanged={(provider, model) => {
-              applySavedMainModel(provider, model)
-              void refreshCurrentModel()
-              void queryClient.invalidateQueries({ queryKey: ['model-options'] })
-            }}
-          />
-        </Suspense>
+        <SettingsView
+          gateway={gateway}
+          onClose={closeOverlayToPreviousRoute}
+          onConfigSaved={() => {
+            void refreshHermesConfig()
+            void refreshCurrentModel()
+            void queryClient.invalidateQueries({ queryKey: ['model-options'] })
+          }}
+          onMainModelChanged={(provider, model) => {
+            applySavedMainModel(provider, model)
+            void refreshCurrentModel()
+            void queryClient.invalidateQueries({ queryKey: ['model-options'] })
+          }}
+        />
       )}
 
       {commandCenterOpen && (
-        <Suspense fallback={null}>
-          <CommandCenterView
-            initialSection={commandCenterInitialSection}
-            onClose={closeOverlayToPreviousRoute}
-            onDeleteSession={removeSession}
-            onNavigateRoute={path => navigateToWorkspacePage(navigate, path)}
-            onOpenSession={sessionId => openSession(sessionId, navigate)}
-          />
-        </Suspense>
+        <CommandCenterView
+          initialSection={commandCenterInitialSection}
+          onClose={closeOverlayToPreviousRoute}
+          onDeleteSession={removeSession}
+          onNavigateRoute={path => navigateToWorkspacePage(navigate, path)}
+          onOpenSession={sessionId => openSession(sessionId, navigate)}
+        />
       )}
 
-      {agentsOpen && (
-        <Suspense fallback={null}>
-          <AgentsView onClose={closeOverlayToPreviousRoute} />
-        </Suspense>
-      )}
+      {agentsOpen && <AgentsView onClose={closeOverlayToPreviousRoute} />}
 
       {cronOpen && (
-        <Suspense fallback={null}>
-          <CronView
-            onClose={closeOverlayToPreviousRoute}
-            onOpenSession={sessionId => openSession(sessionId, navigate)}
-          />
-        </Suspense>
+        <CronView
+          onClose={closeOverlayToPreviousRoute}
+          onOpenSession={sessionId => openSession(sessionId, navigate)}
+        />
       )}
 
-      {webhooksOpen && (
-        <Suspense fallback={null}>
-          <WebhooksView onClose={closeOverlayToPreviousRoute} />
-        </Suspense>
-      )}
+      {webhooksOpen && <WebhooksView onClose={closeOverlayToPreviousRoute} />}
 
-      {profilesOpen && (
-        <Suspense fallback={null}>
-          <ProfilesView onClose={closeOverlayToPreviousRoute} />
-        </Suspense>
-      )}
+      {profilesOpen && <ProfilesView onClose={closeOverlayToPreviousRoute} />}
 
-      {starmapOpen && (
-        <Suspense fallback={null}>
-          <StarmapView onClose={closeOverlayToPreviousRoute} />
-        </Suspense>
-      )}
+      {starmapOpen && <StarmapView onClose={closeOverlayToPreviousRoute} />}
 
       {/* Toasts above everything. */}
       <NotificationStack />

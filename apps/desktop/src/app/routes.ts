@@ -2,7 +2,7 @@ import { atom } from 'nanostores'
 import type { ReactNode } from 'react'
 
 import { noteActiveTreeGroup, revealTreePane } from '@/components/pane-shell/tree/store'
-import { registry } from '@/contrib/registry'
+import { $registryVersion, registry } from '@/contrib/registry'
 
 type NavigateLike = (to: string, options?: { replace?: boolean }) => void
 
@@ -87,8 +87,18 @@ export interface RouteContribution {
   path: string
 }
 
-export function contributedRoutes(): Array<{ key: string; path: string; title?: string; render: () => ReactNode }> {
-  return registry
+type ContributedRoute = { key: string; path: string; title?: string; render: () => ReactNode }
+
+let contributedRoutesCache: { routes: ContributedRoute[]; version: number } | null = null
+
+export function contributedRoutes(): Array<ContributedRoute> {
+  const version = $registryVersion.get()
+
+  if (contributedRoutesCache?.version === version) {
+    return contributedRoutesCache.routes
+  }
+
+  const routes = registry
     .getArea(ROUTES_AREA)
     .map(c => ({
       key: `${c.source ?? 'core'}:${c.id}`,
@@ -97,6 +107,10 @@ export function contributedRoutes(): Array<{ key: string; path: string; title?: 
       render: c.render!
     }))
     .filter(route => Boolean(route.path.startsWith('/') && route.render) && !RESERVED_PATHS.has(route.path))
+
+  contributedRoutesCache = { routes, version }
+
+  return routes
 }
 
 function isContributedPath(pathname: string): boolean {
@@ -214,6 +228,17 @@ function isWorkspacePageRoute(to: string): boolean {
  *  it as `headerVeto` so the zone tab bar stands down on pages. Overlays
  *  (settings/…) don't count — the chat stays beneath them. */
 export const $workspaceIsPage = atom(false)
+export const $routePathname = atom(NEW_CHAT_ROUTE)
+
+export function sidebarNavActiveKey(pathname: string): null | string {
+  const view = appViewForPath(pathname)
+
+  if (view === 'skills' || view === 'messaging' || view === 'artifacts') {
+    return view
+  }
+
+  return isContributedPath(routePathname(pathname)) ? routePathname(pathname) : null
+}
 
 function revealWorkspacePane(): void {
   noteActiveTreeGroup(null)
@@ -234,6 +259,7 @@ function revealWorkspacePane(): void {
  * statusbar/titlebar `to` targets, back/forward, and cold-start restore.
  */
 export function syncWorkspaceRoute(pathname: string): void {
+  $routePathname.set(pathname)
   const isPage = isWorkspacePageRoute(pathname)
 
   if (isPage !== $workspaceIsPage.get()) {

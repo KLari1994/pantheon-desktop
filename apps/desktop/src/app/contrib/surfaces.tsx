@@ -8,9 +8,10 @@
  */
 
 import { useStore } from '@nanostores/react'
-import { type ComponentProps, lazy, memo, type ReactNode, Suspense, useMemo } from 'react'
+import { memo, type ReactNode, Suspense, useMemo } from 'react'
 import { Navigate, Route, Routes, useParams } from 'react-router'
 
+import { CenteredThreadSpinner } from '@/components/assistant-ui/thread/status'
 import { ContribBoundary, ContribRender } from '@/contrib/react/boundary'
 import { useContributions } from '@/contrib/react/use-contributions'
 import { $activeConnectionId } from '@/store/connections'
@@ -28,15 +29,23 @@ import { ModelMenuPanel } from '../shell/model-menu-panel'
 import { StatusbarControls } from '../shell/statusbar-controls'
 
 import { latestChatActions, latestSidebarActions } from './latest-actions'
+import { retryableLazy } from './lazy-page'
 import { setStatusbarItemGroup, useStatusbarContributions } from './panes'
 import type { SidebarActions, WiringActions } from './types'
+import { viewLoaders } from './view-loaders'
 
-// Same lazy-view split as DesktopController — pages load on demand. The
-// full-page views the workspace route table mounts live here; overlay views
-// (agents/settings/…) are the controller's and stay in wiring.tsx.
-const ArtifactsView = lazy(async () => ({ default: (await import('../artifacts')).ArtifactsView }))
-const MessagingView = lazy(async () => ({ default: (await import('../messaging')).MessagingView }))
-const SkillsView = lazy(async () => ({ default: (await import('../skills')).SkillsView }))
+const ArtifactsView = retryableLazy(
+  async () => ({ default: (await viewLoaders['/artifacts']()).ArtifactsView }),
+  'Artifacts'
+)
+const MessagingView = retryableLazy(
+  async () => ({ default: (await viewLoaders['/messaging']()).MessagingView }),
+  'Messaging'
+)
+const SkillsView = retryableLazy(
+  async () => ({ default: (await viewLoaders['/skills']()).SkillsView }),
+  'Capabilities'
+)
 
 export function LegacySessionRedirect() {
   const { sessionId } = useParams()
@@ -45,15 +54,13 @@ export function LegacySessionRedirect() {
 }
 
 export const SidebarSurface = memo(function SidebarSurface({
-  actions,
-  currentView
+  actions
 }: {
   actions: SidebarActions
-  currentView: ComponentProps<typeof ChatSidebar>['currentView']
 }) {
   const latestActions = useMemo(() => latestSidebarActions(actions), [actions])
 
-  return <ChatSidebar currentView={currentView} {...latestActions} />
+  return <ChatSidebar {...latestActions} />
 })
 
 export const TerminalSurface = memo(function TerminalSurface() {
@@ -106,6 +113,14 @@ export const StatusbarSurface = memo(function StatusbarSurface({
   return <StatusbarControls items={statusbarItems} leftItems={leftStatusbarItems} />
 })
 
+function page(view: ReactNode) {
+  return (
+    <div className="contents">
+      <Suspense fallback={<CenteredThreadSpinner />}>{view}</Suspense>
+    </div>
+  )
+}
+
 /** The workspace pane: the real route table (chat + full-page views + plugin
  *  routes). Subscribes to the gateway instance/state and ROUTES_AREA itself;
  *  the voice cap arrives as a prop. ChatView subscribes to its own session
@@ -120,8 +135,7 @@ export const ChatRoutesSurface = memo(function ChatRoutesSurface({
   const activeGatewayProfile = useStore($activeGatewayProfile)
   const gateway = useStore($gateway)
   const gatewayState = useStore($gatewayState)
-  useContributions(ROUTES_AREA)
-  const routeContributions = contributedRoutes()
+  const routeSnapshot = useContributions(ROUTES_AREA)
 
   const modelMenuContent = useMemo(
     () =>
@@ -152,10 +166,21 @@ export const ChatRoutesSurface = memo(function ChatRoutesSurface({
   // on the contribution, not a DOM marker — the `data-zone-no-header` attribute
   // that used to ride this wrapper gated a body double-click toggle that no
   // longer exists, and nothing has read it since.
-  const page = (view: ReactNode) => (
-    <div className="contents">
-      <Suspense fallback={null}>{view}</Suspense>
-    </div>
+  const contributedRouteElements = useMemo(
+    () =>
+      contributedRoutes().map(route => (
+        <Route
+          element={page(
+            <ContribBoundary id={route.key}>
+              <ContribRender render={route.render} />
+            </ContribBoundary>
+          )}
+          key={route.key}
+          path={route.path.slice(1)}
+        />
+      )),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- snapshot identity IS the registry version
+    [routeSnapshot]
   )
 
   return (
@@ -175,17 +200,7 @@ export const ChatRoutesSurface = memo(function ChatRoutesSurface({
       {/* Registry-contributed pages (core features + plugins) render in the
           workspace pane like any built-in view — behind the same blast wall
           as every other contribution mount. */}
-      {routeContributions.map(route => (
-        <Route
-          element={page(
-            <ContribBoundary id={route.key}>
-              <ContribRender render={route.render} />
-            </ContribBoundary>
-          )}
-          key={route.key}
-          path={route.path.slice(1)}
-        />
-      ))}
+      {contributedRouteElements}
       <Route element={<Navigate replace to={NEW_CHAT_ROUTE} />} path="new" />
       <Route element={<LegacySessionRedirect />} path="sessions/:sessionId" />
       <Route element={<Navigate replace to={NEW_CHAT_ROUTE} />} path="*" />

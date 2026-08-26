@@ -30,6 +30,7 @@ import './render-counter'
 // window.__PERF_LIVE__.on() in the console, then just use the app.
 import './perf-live'
 import './right-pane-probe'
+import './route-latency'
 
 import { watchSessionAtoms } from './watched-atoms'
 
