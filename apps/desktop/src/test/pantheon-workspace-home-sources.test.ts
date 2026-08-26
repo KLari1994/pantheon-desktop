@@ -1,10 +1,10 @@
 import { afterEach, expect, test, vi } from 'vitest'
 
 import { createClientSessionState } from '@/lib/chat-runtime'
-import { setApprovalRequest, clearAllPrompts } from '@/store/prompts'
+import { setCronJobs } from '@/store/cron'
+import { clearAllPrompts, setApprovalRequest } from '@/store/prompts'
 import { setSessions } from '@/store/session'
 import { clearAllSessionStates, publishSessionState } from '@/store/session-states'
-import { setCronJobs } from '@/store/cron'
 import { makeSessionInfo } from '@/test/session-info'
 
 import {
@@ -16,7 +16,7 @@ import {
   resetHomeSourceState,
   subscribeAuthoritativeHomeSources,
   toNotificationEvent
-} from './sources'
+} from '../plugins/pantheon-workspace/home-sources'
 
 afterEach(() => {
   resetHomeSourceState()
@@ -27,12 +27,13 @@ afterEach(() => {
 })
 
 async function flushHomeSources(): Promise<void> {
-  for (let i = 0; i < 20; i += 1) await Promise.resolve()
+  for (let i = 0; i < 20; i += 1) {await Promise.resolve()}
 }
 
 test('startSubscription is called with listed room ids', async () => {
   const startSubscription = vi.fn(async () => ({ started: true }))
   const subscribe = vi.fn(() => () => undefined)
+
   const unsub = subscribeAuthoritativeHomeSources(
     () => undefined,
     {
@@ -44,6 +45,7 @@ test('startSubscription is called with listed room ids', async () => {
       }
     }
   )
+
   await Promise.resolve()
   await Promise.resolve()
   expect(startSubscription).toHaveBeenCalledWith({ roomIds: ['room-ops'] })
@@ -231,6 +233,7 @@ test('hydrates unique room membership from getRoom when listRooms members are em
     name: 'Ops',
     members: [{ pubkey: 'pk-d', name: 'daedalus' }]
   }))
+
   const unsub = subscribeAuthoritativeHomeSources(() => undefined, {
     buzz: {
       subscribe: () => () => undefined,
@@ -241,6 +244,7 @@ test('hydrates unique room membership from getRoom when listRooms members are em
       status: async () => ({ state: 'open', pubkey: 'pk-me' })
     }
   })
+
   await flushHomeSources()
   setSessions([
     makeSessionInfo({
@@ -279,6 +283,7 @@ test('hydrates member ids from workspace manifest when getRoom members stay empt
       status: async () => ({ state: 'open', pubkey: 'pk-me' })
     }
   })
+
   await flushHomeSources()
   setSessions([
     makeSessionInfo({
@@ -313,6 +318,7 @@ test('room mute stays disabled when membership remains unknown', async () => {
       status: async () => ({ state: 'open', pubkey: 'pk-me' })
     }
   })
+
   await flushHomeSources()
   setSessions([
     makeSessionInfo({
@@ -347,6 +353,7 @@ test('viewer handle comes from Buzz pubkey plus room display name, not Hermes pr
       status: async () => ({ state: 'open', pubkey: 'pk-me' })
     }
   })
+
   await flushHomeSources()
   expect(
     classifyRoomLiveEvent(

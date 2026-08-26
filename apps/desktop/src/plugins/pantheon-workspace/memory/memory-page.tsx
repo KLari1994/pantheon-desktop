@@ -4,9 +4,9 @@ import { useEffect, useMemo, useState } from 'react'
 import { memorySliceFromGraph } from './graph-refs'
 import {
   aggregateMemoryReferences,
-  resolveMemoryScope,
   type MemoryOwnerRoute,
-  type MemoryReference
+  type MemoryReference,
+  resolveMemoryScope
 } from './scope'
 
 function activeBotRoute(): MemoryOwnerRoute | null {
@@ -58,6 +58,7 @@ export function MemoryPage() {
             profile: agent.profile,
             targetProfile: agent.profile
           }
+
           const graph = await getStarmapGraph({ connectionId: route.connectionId, profile: route.targetProfile })
           slices.push(memorySliceFromGraph(route, graph))
         }

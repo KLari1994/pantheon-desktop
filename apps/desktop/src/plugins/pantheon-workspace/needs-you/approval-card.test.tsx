@@ -31,7 +31,7 @@ test('renders agent, context, action, machine, and accessible actions', () => {
 })
 
 test('busy state disables actions and exposes a textual status', () => {
-  render(<ApprovalCard card={card} busy="once" onRespond={() => undefined} />)
+  render(<ApprovalCard busy="once" card={card} onRespond={() => undefined} />)
   expect(screen.getByRole('button', { name: 'Allow once' })).toHaveProperty('disabled', true)
   expect(screen.getByText('Submitting')).toBeTruthy()
 })

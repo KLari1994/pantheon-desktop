@@ -17,9 +17,11 @@ export function NeedsYouList({
   onMute: (scope: { kind: 'bot' | 'room'; id: string }) => void
 }) {
   const unique = [...new Map(cards.map(card => [card.id, card])).values()]
+
   if (unique.length === 0) {
     return <p className="p-4 text-sm text-(--ui-text-secondary)">Nothing needs you</p>
   }
+
   return (
     <div className="flex flex-col gap-3 p-3">
       {unique.map(card => (
@@ -44,7 +46,7 @@ export function NeedsYouList({
             <button
               disabled={!card.roomId}
               onClick={() => {
-                if (card.roomId) onMute({ kind: 'room', id: card.roomId })
+                if (card.roomId) {onMute({ kind: 'room', id: card.roomId })}
               }}
               type="button"
             >

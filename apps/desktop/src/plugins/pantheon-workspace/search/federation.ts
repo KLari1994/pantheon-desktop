@@ -1,5 +1,3 @@
-import { artifactIdentityKey, sessionArtifactSource } from '../artifacts/provenance'
-
 export type SearchSourceType = 'bot' | 'room' | 'session'
 
 export interface SearchOwnerRoute {
@@ -51,14 +49,7 @@ export function federateSearch(
   for (const hit of matched) {
     const id =
       hit.sourceType === 'session'
-        ? artifactIdentityKey(
-            sessionArtifactSource({
-              connectionId: hit.ownerRoute.connectionId,
-              profile: hit.ownerRoute.profile,
-              storedSessionId: hit.destinationId,
-              machine: hit.machine
-            })
-          )
+        ? `session:${hit.ownerRoute.connectionId.trim()}:${hit.ownerRoute.profile.trim()}:${hit.destinationId.trim()}`
         : `${hit.sourceType}:${hit.ownerRoute.connectionId}:${hit.ownerRoute.profile}:${hit.destinationId}`
 
     if (seen.has(id)) {
@@ -71,6 +62,7 @@ export function federateSearch(
 
   return results.sort((left, right) => {
     const rank: Record<SearchSourceType, number> = { session: 0, bot: 1, room: 2 }
+
     return rank[left.sourceType] - rank[right.sourceType] || left.title.localeCompare(right.title)
   })
 }

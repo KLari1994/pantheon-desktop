@@ -1,9 +1,10 @@
 import { expect, test } from 'vitest'
 
-import { isMuted, loadMutes, muteScope, mutesForCurrentScope, unmuteScope, type MuteStorage } from './mutes'
+import { isMuted, loadMutes, muteScope, mutesForCurrentScope, type MuteStorage, unmuteScope } from './mutes'
 
 function memory(): MuteStorage & { writes: number; workExecuted: boolean } {
   const bag = new Map<string, unknown>()
+
   return {
     writes: 0,
     workExecuted: true,
@@ -39,6 +40,7 @@ test('corrupt storage falls back to empty mutes', () => {
     set: () => undefined,
     remove: () => undefined
   }
+
   const loaded = loadMutes(storage, { workspace: 'ws', connectionId: 'c' })
   expect(loaded.mutedBots).toEqual([])
   expect(loaded.mutedRooms).toEqual([])

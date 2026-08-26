@@ -2,9 +2,9 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, expect, test, vi } from 'vitest'
 
 import { HomePage } from './home-page'
-import { projectHomeItems } from './projections'
-import { HomeStore } from './store'
-import type { HomeSourceEvent } from './types'
+import { projectHomeItems } from './home/projections'
+import { HomeStore } from './home/store'
+import type { HomeSourceEvent } from './home/types'
 
 afterEach(() => cleanup())
 

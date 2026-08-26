@@ -1,10 +1,8 @@
-import { Button, ScrollArea } from '@hermes/plugin-sdk'
+import { Button, type BuzzReaction, type BuzzRoom, ScrollArea } from '@hermes/plugin-sdk'
 import { useMemo, useState } from 'react'
 
-import type { BuzzReaction, BuzzRoom } from '@/pantheon/buzz-client'
-
 import { type ComposerExtras, RoomComposer } from './room-composer'
-import { RoomDiagnostics, type RoomDiagnosticRow } from './room-diagnostics'
+import { type RoomDiagnosticRow, RoomDiagnostics } from './room-diagnostics'
 import type { RoomMessage } from './types'
 
 export function RoomWorkspace({
@@ -47,6 +45,7 @@ export function RoomWorkspace({
   const [tab, setTab] = useState<'chat' | 'canvas'>('chat')
   const [invitee, setInvitee] = useState('')
   const canModerate = room.selfRole === 'owner' || room.selfRole === 'admin'
+
   const visible = useMemo(
     () => (threadRoot ? messages.filter(message => message.threadRootId === threadRoot || message.id === threadRoot) : messages),
     [messages, threadRoot]
@@ -63,9 +62,9 @@ export function RoomWorkspace({
           </p>
         </div>
         <div className="flex gap-2">
-          <Button type="button" onClick={() => setTab('chat')}>Chat</Button>
-          <Button type="button" onClick={() => setTab('canvas')}>Canvas</Button>
-          <Button type="button" onClick={() => setShowDiagnostics(value => !value)}>Diagnostics</Button>
+          <Button onClick={() => setTab('chat')} type="button">Chat</Button>
+          <Button onClick={() => setTab('canvas')} type="button">Canvas</Button>
+          <Button onClick={() => setShowDiagnostics(value => !value)} type="button">Diagnostics</Button>
         </div>
       </header>
       {tab === 'canvas' ? (
@@ -74,30 +73,30 @@ export function RoomWorkspace({
         <>
           <div className="flex min-h-0 flex-1">
             <ScrollArea className="min-h-0 flex-1 p-3">
-              <Button type="button" onClick={onShowEarlier}>Show earlier</Button>
+              <Button onClick={onShowEarlier} type="button">Show earlier</Button>
               <ol className="mt-3 space-y-2">
                 {visible.map(message => (
-                  <li key={message.id} className="rounded-md bg-(--ui-surface) px-3 py-2 text-sm">
+                  <li className="rounded-md bg-(--ui-surface) px-3 py-2 text-sm" key={message.id}>
                     <div className="text-xs text-(--ui-text-tertiary)">{message.author}</div>
                     <div>{message.content}</div>
                     {message.attachments?.map(attachment => (
-                      <a key={attachment.url} href={attachment.url} className="block text-xs underline">
+                      <a className="block text-xs underline" href={attachment.url} key={attachment.url}>
                         {attachment.name || attachment.url}
                       </a>
                     ))}
                     <div className="mt-1 flex flex-wrap gap-1">
                       {reactions.filter(reaction => reaction.targetEventId === message.id).map(reaction => (
                         <Button
-                          key={reaction.id}
-                          type="button"
                           aria-label={`Remove ${reaction.emoji}`}
+                          key={reaction.id}
                           onClick={() => onRemoveReaction?.(reaction.id)}
+                          type="button"
                         >
                           {reaction.emoji}
                         </Button>
                       ))}
-                      <Button type="button" onClick={() => onReact?.(message.id, '👍')}>React</Button>
-                      <Button type="button" onClick={() => setThreadRoot(message.threadRootId || message.id)}>Thread</Button>
+                      <Button onClick={() => onReact?.(message.id, '👍')} type="button">React</Button>
+                      <Button onClick={() => setThreadRoot(message.threadRootId || message.id)} type="button">Thread</Button>
                     </div>
                   </li>
                 ))}
@@ -107,40 +106,40 @@ export function RoomWorkspace({
               <h2 className="mb-2 text-xs uppercase text-(--ui-text-tertiary)">Members</h2>
               <ul>
                 {room.members.map(member => (
-                  <li key={member.pubkey} className="mb-1 flex items-center justify-between gap-1">
+                  <li className="mb-1 flex items-center justify-between gap-1" key={member.pubkey}>
                     <span>{member.name || member.pubkey}</span>
                     <span className="text-[0.65rem] text-(--ui-text-tertiary)">{member.role}</span>
-                    <Button type="button" disabled={!canModerate} onClick={() => onKick?.(member.pubkey)}>Remove</Button>
+                    <Button disabled={!canModerate} onClick={() => onKick?.(member.pubkey)} type="button">Remove</Button>
                   </li>
                 ))}
               </ul>
               <Button
-                type="button"
                 disabled={!canModerate || !invitee.trim()}
                 onClick={() => {
                   onInvite?.(invitee.trim())
                   setInvitee('')
                 }}
+                type="button"
               >
                 Invite
               </Button>
               <input
                 aria-label="Invite pubkey"
                 className="mt-2 w-full rounded-md border border-(--ui-stroke-tertiary) bg-transparent px-2 py-1 text-xs"
-                value={invitee}
                 onChange={event => setInvitee(event.target.value)}
+                value={invitee}
               />
             </aside>
           </div>
           {showDiagnostics && diagnostics ? <RoomDiagnostics rows={diagnostics} /> : null}
           <RoomComposer
-            members={room.members}
             disabled={!relayOpen || !hasCredential}
             failed={failed}
-            threadRootId={threadRoot}
-            onSend={onSend}
-            onRetry={onRetry}
+            members={room.members}
             onRemove={onRemove}
+            onRetry={onRetry}
+            onSend={onSend}
+            threadRootId={threadRoot}
           />
         </>
       )}

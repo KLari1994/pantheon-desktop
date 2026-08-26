@@ -2,9 +2,9 @@ import { expect, test } from 'vitest'
 
 import {
   approvalLogicalId,
+  type ApprovalOwnerRoute,
   projectApproval,
-  respondToApproval,
-  type ApprovalOwnerRoute
+  respondToApproval
 } from './approval-projections'
 
 const owner: ApprovalOwnerRoute = { connectionId: 'conn-a', profile: 'daedalus', machine: 'win' }
@@ -32,6 +32,7 @@ test('projected approval names agent, room/session, action, and machine', () => 
     },
     { agent: 'Daedalus', context: 'room/ops', machine: 'windows-workstation', owner }
   )
+
   expect(card).toMatchObject({
     id: 'approval:req-2',
     agent: 'Daedalus',
@@ -47,6 +48,7 @@ test('choices stay within once, session, and deny even if backend also offers al
     { requestId: 'req-3', sessionId: 's', command: 'x', description: 'y', choices: ['once', 'session', 'always', 'deny'] },
     { agent: 'A', context: 'c', machine: 'm', owner }
   )
+
   expect(card.choices).toEqual(['once', 'session', 'deny'])
 })
 
@@ -54,22 +56,28 @@ test('in-flight guard prevents double submission', async () => {
   const calls: unknown[] = []
   const inFlight = new Set<string>()
   const request = { requestId: 'req-4', sessionId: 'sess-4', command: 'x', description: 'y' }
+
   const first = respondToApproval({ request, choice: 'once', owner, inFlight }, {
     requestOwned: async (...args) => {
       calls.push(args)
+
       return { resolved: true }
     },
     clear: () => undefined
   })
+
   const second = await respondToApproval({ request, choice: 'deny', owner, inFlight }, {
     requestOwned: async (...args) => {
       calls.push(args)
+
       return { resolved: true }
     },
     clear: () => undefined
   })
+
   expect(second.ok).toBe(false)
-  if (second.ok === false) expect(second.reason).toBe('in-flight')
+
+  if (second.ok === false) {expect(second.reason).toBe('in-flight')}
   await first
   expect(calls).toHaveLength(1)
 })
@@ -77,16 +85,19 @@ test('in-flight guard prevents double submission', async () => {
 test('respond routes approval.respond through the session owner with request_id and session_id', async () => {
   const calls: unknown[] = []
   const request = { requestId: 'req-5', sessionId: 'sess-5', command: 'x', description: 'y' }
+
   const result = await respondToApproval(
     { request, choice: 'session', owner, inFlight: new Set() },
     {
       requestOwned: async (sessionId, method, params) => {
         calls.push({ sessionId, method, params })
+
         return { resolved: true }
       },
       clear: () => undefined
     }
   )
+
   expect(result.ok).toBe(true)
   expect(calls).toEqual([
     {
@@ -100,6 +111,7 @@ test('respond routes approval.respond through the session owner with request_id 
 test('successful resolution clears the shared prompt and every Home projection of that id', async () => {
   const cleared: unknown[] = []
   const request = { requestId: 'req-6', sessionId: 'sess-6', command: 'x', description: 'y' }
+
   const result = await respondToApproval(
     { request, choice: 'deny', owner, inFlight: new Set() },
     {
@@ -107,6 +119,7 @@ test('successful resolution clears the shared prompt and every Home projection o
       clear: (sessionId, requestId) => cleared.push({ sessionId, requestId })
     }
   )
+
   expect(result.ok).toBe(true)
   expect(result.settledId).toBe('approval:req-6')
   expect(cleared).toEqual([{ sessionId: 'sess-6', requestId: 'req-6' }])
@@ -117,6 +130,7 @@ test('stale success from an older request never clears a newer request', async (
   const older = { requestId: 'req-old', sessionId: 'sess-7', command: 'old', description: 'old' }
   const newer = { requestId: 'req-new', sessionId: 'sess-7', command: 'new', description: 'new' }
   let current = newer
+
   const result = await respondToApproval(
     { request: older, choice: 'once', owner, inFlight: new Set(), currentRequest: () => current },
     {
@@ -124,14 +138,17 @@ test('stale success from an older request never clears a newer request', async (
       clear: (sessionId, requestId) => cleared.push({ sessionId, requestId })
     }
   )
+
   expect(result.ok).toBe(false)
-  if (result.ok === false) expect(result.reason).toBe('stale')
+
+  if (result.ok === false) {expect(result.reason).toBe('stale')}
   expect(cleared).toEqual([])
 })
 
 test('failed responses retain the card with a recoverable error', async () => {
   const cleared: unknown[] = []
   const request = { requestId: 'req-8', sessionId: 'sess-8', command: 'x', description: 'y' }
+
   const result = await respondToApproval(
     { request, choice: 'once', owner, inFlight: new Set() },
     {
@@ -141,8 +158,10 @@ test('failed responses retain the card with a recoverable error', async () => {
       clear: (sessionId, requestId) => cleared.push({ sessionId, requestId })
     }
   )
+
   expect(result.ok).toBe(false)
-  if (result.ok === false) expect(result.error).toBe('gateway down')
+
+  if (result.ok === false) {expect(result.error).toBe('gateway down')}
   expect(result.settledId).toBeUndefined()
   expect(cleared).toEqual([])
 })

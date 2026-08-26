@@ -1,25 +1,22 @@
 import {
-  type HermesPlugin,
-  host,
-  type PluginContext,
-  type RouteContribution,
-  ROUTES_AREA,
-  SIDEBAR_NAV_AREA,
-  type SidebarNavContribution
-} from '@hermes/plugin-sdk'
-import { useEffect, useMemo, useState, useSyncExternalStore } from 'react'
-import { useSearchParams } from 'react-router'
-
-import { openSession } from '@/app/open-session'
-import {
   type BuzzRoom,
   type BuzzStatus,
   desktopBuzzClient,
+  type HermesPlugin,
+  host,
+  openArtifact,
+  openSession,
+  type PluginContext,
+  type RouteContribution,
+  ROUTES_AREA,
+  setCronFocusJobId,
+  SIDEBAR_NAV_AREA,
+  type SidebarNavContribution,
   type WorkspaceAgent,
   type WorkspaceManifest
-} from '@/pantheon/buzz-client'
-import { openArtifact } from '@/store/artifacts'
-import { setCronFocusJobId } from '@/store/cron'
+} from '@hermes/plugin-sdk'
+import { useEffect, useMemo, useState, useSyncExternalStore } from 'react'
+import { useSearchParams } from 'react-router'
 
 import { resolveAgentPubkey, resolveMemberAgent, selectMembershipAgent } from './agents/resolve-agent'
 import { RoomMemberships } from './agents/room-memberships'
@@ -27,13 +24,9 @@ import { CronCenterApi } from './cron-center/api'
 import { CronCenterPage } from './cron-center/cron-center-page'
 import { CRON_CENTER_LOCALES, useCronCenterText } from './cron-center/i18n'
 import { CronCenterStore } from './cron-center/store'
-import { PROJECT_LOCALES } from './projects/i18n'
-import { ProjectPage } from './projects/project-page'
-import { HomePage } from './home/home-page'
-import { startHomeIngestion } from './home/ingest'
-import { botIdFromMembershipSearch, cronCenterJobKeyFromSearch, openHomeTarget, pickRoomId, registeredHref } from './home/navigation'
-import { MemoryPage } from './memory/memory-page'
-import { AgentEditorCapabilities } from './memory/capability-embed'
+import { GrokStatusPage } from './grok/grok-status'
+import { startHomeIngestion } from './home-ingest'
+import { HomePage } from './home-page'
 import {
   applyHomeSourceSnapshot,
   collectApprovalInboxRows,
@@ -41,12 +34,17 @@ import {
   createPluginApprovalInbox,
   subscribeAuthoritativeHomeSources,
   toNotificationEvent
-} from './home/sources'
+} from './home-sources'
+import { botIdFromMembershipSearch, cronCenterJobKeyFromSearch, openHomeTarget, pickRoomId, registeredHref } from './home/navigation'
 import { HomeStore } from './home/store'
 import { applyRoomMembership } from './manifest/store'
+import { AgentEditorCapabilities } from './memory/capability-embed'
+import { MemoryPage } from './memory/memory-page'
 import type { ApprovalProjection } from './needs-you/approval-projections'
 import { NotificationCoordinator } from './notifications/coordinator'
 import { loadMutes, muteScope, mutesForCurrentScope, type MuteState } from './notifications/mutes'
+import { PROJECT_LOCALES } from './projects/i18n'
+import { ProjectPage } from './projects/project-page'
 import {
   deriveBindingHealth,
   diagnosticRuntimeForAgent,
@@ -57,8 +55,7 @@ import {
 import { RoomList } from './rooms/room-list'
 import { RoomWorkspace } from './rooms/room-workspace'
 import { type RoomLiveEvent, RoomsStore } from './rooms/store'
-import { GrokStatusPage } from './grok/grok-status'
-import { SearchPage } from './search/search-page'
+import { SearchPage } from './search-page'
 
 function useStoreValue<T>(store: { get: () => T; listen: (listener: (next: T) => void) => () => void }): T {
   return useSyncExternalStore(store.listen, store.get, store.get)
@@ -115,6 +112,7 @@ function RoomsPage({ embedded, roomId }: { embedded?: boolean; roomId?: string }
 
           if (event.type === 'room.event' && roomId && event.event && typeof event.event === 'object') {
             const result = store.ingestEvent(roomId, event.event as RoomLiveEvent)
+
             if (result === 'refresh-room') {
               void refreshSelectedRoom(store, roomId, setSelected)
             }
@@ -148,6 +146,7 @@ function RoomsPage({ embedded, roomId }: { embedded?: boolean; roomId?: string }
     let cancelled = false
     const agents = (manifest.agents || []) as Array<WorkspaceAgent & { pubkey?: string }>
     const owner = host.state.focusedSessionOwner.get()
+
     const live = liveDiagnosticRoute(
       owner,
       {
@@ -156,6 +155,7 @@ function RoomsPage({ embedded, roomId }: { embedded?: boolean; roomId?: string }
       },
       host.state.focusedSessionId.get()
     )
+
     const lastEventAt = windows[selected.id]?.messages.at(-1)?.createdAt
     void Promise.all(
       selected.members.map(async member => {
@@ -257,6 +257,7 @@ function RoomsPage({ embedded, roomId }: { embedded?: boolean; roomId?: string }
             threadRootId: extras?.threadRootId,
             attachments: extras?.attachments
           })
+
           try {
             const result = await client.sendMessage({
               roomId: selected.id,

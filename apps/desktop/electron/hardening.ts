@@ -4,8 +4,6 @@ import os from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-import { isPrivateKeyShaped } from './pantheon-buzz-process'
-
 // Relative, not `@hermes/shared`: the electron bundle is built by esbuild with
 // no tsconfig path resolution (see scripts/bundle-electron-main.mjs), so a bare
 // specifier would typecheck and then fail to bundle.
@@ -15,6 +13,8 @@ import {
   DATA_URL_READ_MAX_MAX_MB,
   DATA_URL_READ_MIN_MAX_MB
 } from '../../shared/src/data-url-read-max'
+
+import { isPrivateKeyShaped } from './pantheon-buzz-process'
 
 const DEFAULT_FETCH_TIMEOUT_MS = 30_000
 // Remote file.attach sends one base64 JSON-RPC frame. Cap the dedicated attach
@@ -625,6 +625,7 @@ export {
   DEFAULT_FETCH_TIMEOUT_MS,
   enableBasicPasswordStoreEncryption,
   encryptDesktopSecret,
+  pantheonAdapterInstallBlockReason,
   readFileDataUrlForIpc,
   rejectUnsafePathSyntax,
   resolveDirectoryForIpc,
@@ -634,12 +635,11 @@ export {
   resolveTimeoutMs,
   SAFE_STORAGE_ENCODING,
   SECRET_FILE_MODE,
-  pantheonAdapterInstallBlockReason,
   secretShapedValue,
-  sha256File,
   sensitiveFileBlockReason,
+  sha256File,
   TEXT_PREVIEW_SOURCE_MAX_BYTES,
-  verifyPinnedArtifacts,
   tightenSecretFileMode,
+  verifyPinnedArtifacts,
   writeSecretFileAtomic
 }

@@ -11,12 +11,12 @@ import {
   planEdit,
   planReload,
   planRestore,
+  previewRollback,
   rebindSurvivorRowIds,
   resolveDurableRowId,
   runRewindSubmit,
   survivorRowIdsFrom,
-  truncateSubmitParams,
-  previewRollback
+  truncateSubmitParams
 } from './rewind'
 
 const row = (id: string, role: ChatMessage['role'], text: string, extra: Partial<ChatMessage> = {}): ChatMessage => ({
@@ -618,6 +618,7 @@ describe('rollback preview', () => {
 
   it('blocks the live rewind submit until the named rollback preview is approved', async () => {
     const calls: { method: string }[] = []
+
     const gateway = (async (method: string) => {
       calls.push({ method })
 

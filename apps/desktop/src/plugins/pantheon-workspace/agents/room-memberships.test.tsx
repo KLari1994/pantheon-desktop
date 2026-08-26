@@ -10,8 +10,8 @@ test('lists manifest and live rooms and toggles with exact connection/profile/pu
   render(
     <RoomMemberships
       agent={{ id: 'agent-1', connectionId: 'conn-9', profile: 'ops', pubkey: 'pk-1' }}
-      manifest={{ version: 1, rooms: [{ id: 'room-a', name: 'General', memberAgentIds: ['pk-1'] }] }}
       liveRooms={[{ id: 'room-b', name: 'Ops', members: [] }]}
+      manifest={{ version: 1, rooms: [{ id: 'room-a', name: 'General', memberAgentIds: ['pk-1'] }] }}
       onToggle={onToggle}
     />
   )

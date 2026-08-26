@@ -1,7 +1,5 @@
+import { collectArtifactsForSession, type SessionInfo } from '@hermes/plugin-sdk'
 import { expect, test } from 'vitest'
-
-import { collectArtifactsForSession } from '@/app/artifacts/artifact-utils'
-import type { SessionInfo } from '@/types/hermes'
 
 import { artifactIdentityKey, sessionArtifactSource } from './provenance'
 
@@ -44,6 +42,7 @@ test('the same stored session id on two connections stays distinct after collect
   const local = collectArtifactsForSession(session({ connection_id: 'local' }), [
     { content: 'Created /tmp/report.pdf', role: 'assistant', timestamp: 2000 }
   ])[0]
+
   const remote = collectArtifactsForSession(session({ connection_id: 'homelab' }), [
     { content: 'Created /tmp/report.pdf', role: 'assistant', timestamp: 2000 }
   ])[0]

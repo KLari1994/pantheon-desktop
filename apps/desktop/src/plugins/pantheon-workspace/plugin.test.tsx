@@ -1,8 +1,6 @@
 import type { PluginContext } from '@hermes/plugin-sdk'
-import { host } from '@hermes/plugin-sdk'
+import { host, NEW_CHAT_ROUTE } from '@hermes/plugin-sdk'
 import { expect, test, vi } from 'vitest'
-
-import { NEW_CHAT_ROUTE } from '@/app/routes'
 
 import plugin from './plugin'
 

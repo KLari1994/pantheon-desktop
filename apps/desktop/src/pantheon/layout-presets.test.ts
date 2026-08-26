@@ -3,11 +3,11 @@ import { afterEach, describe, expect, it } from 'vitest'
 import { registry } from '@/contrib/registry'
 
 import {
-  PANTHEON_LAYOUT_PRESET_IDS,
   applyPantheonLayoutReset,
+  PANTHEON_LAYOUT_PRESET_IDS,
+  type PantheonLayoutPresetId,
   registerPantheonLayoutPresets,
-  resetToPantheonDefaults,
-  type PantheonLayoutPresetId
+  resetToPantheonDefaults
 } from './layout-presets'
 
 const registeredIds = (): string[] => registry.getArea('layouts').map(entry => entry.id)
@@ -52,6 +52,7 @@ describe('Pantheon layout presets', () => {
   it('product reset applies presets/navigation and does not delete sessions or rooms', () => {
     const sessions = [{ id: 'sess-keep' }, { id: 'sess-keep-2' }]
     const rooms = [{ id: 'room-keep' }]
+
     const applied = applyPantheonLayoutReset({
       sessions,
       rooms,

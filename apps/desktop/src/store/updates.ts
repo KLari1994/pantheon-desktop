@@ -5,6 +5,7 @@
 
 import { atom } from 'nanostores'
 
+import { $terminals } from '@/app/right-sidebar/terminal/terminals'
 import type {
   DesktopUpdateApplyOptions,
   DesktopUpdateApplyResult,
@@ -14,12 +15,11 @@ import type {
   DesktopUpdateStatus,
   DesktopVersionInfo
 } from '@/global'
-import { $terminals } from '@/app/right-sidebar/terminal/terminals'
 import { checkHermesUpdate, getActionStatus, updateHermes } from '@/hermes'
 import { translateNow } from '@/i18n'
 import { persistString, storedString } from '@/lib/storage'
-import { $connectionsRegistry, refreshConnectionsRegistry } from '@/store/connections'
 import { $composerDraft, $draftTitles } from '@/store/composer'
+import { $connectionsRegistry, refreshConnectionsRegistry } from '@/store/connections'
 import { dismissNotification, notify } from '@/store/notifications'
 import { $awaitingResponse, $busy, $connection } from '@/store/session'
 import { $workingSessionIds } from '@/store/session-states'
@@ -112,6 +112,7 @@ async function readBridgeHealthy(): Promise<PantheonActivitySnapshot['bridgeHeal
         globalThis.setTimeout(() => reject(new Error('timeout')), 1500)
       })
     ])
+
     const state = status && typeof status === 'object' ? (status as { state?: string }).state : undefined
 
     if (state === 'open' || state === 'unconfigured') {
@@ -186,6 +187,7 @@ async function refuseIfPantheonBusy(target: 'client' | 'backend'): Promise<Deskt
   }
 
   const message = pantheonPreflightMessage(decision.blockers)
+
   const next = {
     ...IDLE,
     applying: false,
@@ -202,6 +204,7 @@ async function refuseIfPantheonBusy(target: 'client' | 'backend'): Promise<Deskt
 
   return { ok: false, error: 'pantheon-preflight-blocked', message }
 }
+
 // Time-based snooze instead of per-sha dismissal: this repo lands ~100 commits
 // a day, so a "don't show this exact sha again" guard re-popped the toast on
 // every new commit. We instead suppress the toast for a cooldown window that

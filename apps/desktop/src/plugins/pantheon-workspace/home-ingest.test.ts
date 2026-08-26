@@ -1,9 +1,9 @@
 import { expect, test, vi } from 'vitest'
 
-import { startHomeIngestion } from './ingest'
-import { HomeStore } from './store'
-import type { HomeSourceEvent } from './types'
-import type { NotificationEvent } from '../notifications/policy'
+import { startHomeIngestion } from './home-ingest'
+import { HomeStore } from './home/store'
+import type { HomeSourceEvent } from './home/types'
+import type { NotificationEvent } from './notifications/policy'
 
 function event(partial: Partial<HomeSourceEvent> & Pick<HomeSourceEvent, 'type' | 'sourceKind' | 'sourceId'>): HomeSourceEvent {
   return {
@@ -27,6 +27,7 @@ test('asynchronous hydration projects subscribed sources into the home store', a
     listEvents: () => live,
     subscribe: onChange => {
       listeners.push(onChange)
+
       return () => undefined
     }
   })
@@ -41,22 +42,27 @@ test('asynchronous hydration projects subscribed sources into the home store', a
 test('ingestion subscribe is wired into the coordinator so start is not a no-op', () => {
   const ingest = vi.fn()
   const unsubscribe = vi.fn()
+
   const incoming: NotificationEvent = {
     id: 'from-source',
     type: 'approval',
     target: { kind: 'session', href: '/sess-1' },
     botId: 'bot-daedalus'
   }
+
   const subscribe = vi.fn((handler: (event: NotificationEvent) => void) => {
     handler(incoming)
+
     return unsubscribe
   })
+
   const runtime = startHomeIngestion({
     store: new HomeStore(),
     listEvents: () => [],
     subscribe: () => () => undefined,
     notifications: { subscribe, ingest }
   })
+
   runtime.startNotifications()
   expect(subscribe).toHaveBeenCalledTimes(1)
   expect(ingest).toHaveBeenCalledWith(incoming)

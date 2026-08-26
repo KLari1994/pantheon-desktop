@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import { CRON_ROUTE } from '../../routes'
+
 import { contributedNavItems, SIDEBAR_NAV } from './nav-items'
 
 describe('sidebar nav contract', () => {
@@ -17,6 +18,7 @@ describe('sidebar nav contract', () => {
     const items = contributedNavItems([
       { id: 'pantheon.cron-center', data: { path: '/cron-center', label: 'Cron Center', codicon: 'watch' } }
     ])
+
     expect(items).toHaveLength(1)
     expect(items[0]).toMatchObject({ id: 'pantheon.cron-center', label: 'Cron Center', route: '/cron-center' })
   })

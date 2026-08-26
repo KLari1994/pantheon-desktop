@@ -3,14 +3,17 @@ import type { HomeItem } from './types'
 function atom<T>(initial: T) {
   let value = initial
   const listeners = new Set<(next: T) => void>()
+
   return {
     get: () => value,
     set: (next: T) => {
       value = next
-      for (const listener of listeners) listener(next)
+
+      for (const listener of listeners) {listener(next)}
     },
     listen: (listener: (next: T) => void) => {
       listeners.add(listener)
+
       return () => listeners.delete(listener)
     }
   }
@@ -19,9 +22,11 @@ function atom<T>(initial: T) {
 export type HomeStoreStatus = 'degraded' | 'idle' | 'loading' | 'ready'
 
 function sameItems(left: HomeItem[], right: HomeItem[]): boolean {
-  if (left.length !== right.length) return false
+  if (left.length !== right.length) {return false}
+
   return left.every((item, index) => {
     const other = right[index]
+
     return (
       other !== undefined &&
       item.id === other.id &&
@@ -52,23 +57,28 @@ export class HomeStore {
   beginHydration(): number {
     this.$status.set('loading')
     this.generation += 1
+
     return this.generation
   }
 
   applyRefresh(items: HomeItem[], generation: number): HomeItem[] {
-    if (generation !== this.generation) return this.$items.get()
+    if (generation !== this.generation) {return this.$items.get()}
     const previous = this.$items.get()
+
     if (sameItems(previous, items)) {
       this.$status.set('ready')
+
       return previous
     }
+
     this.$items.set(items)
     this.$status.set('ready')
+
     return items
   }
 
   markDegraded(generation: number): void {
-    if (generation !== this.generation) return
+    if (generation !== this.generation) {return}
     this.$status.set('degraded')
   }
 }

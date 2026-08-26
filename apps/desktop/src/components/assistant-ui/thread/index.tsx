@@ -1,5 +1,6 @@
 import { createContext, memo, useCallback, useContext, useMemo, useRef, useState } from 'react'
 
+import { rollbackMachineName } from '@/app/session/hooks/use-prompt-actions/rewind'
 import { AssistantMessage } from '@/components/assistant-ui/thread/assistant-message'
 import { ThreadMessageList } from '@/components/assistant-ui/thread/list'
 import { BackgroundResumeNotice, CenteredThreadSpinner } from '@/components/assistant-ui/thread/status'
@@ -12,9 +13,8 @@ import { Intro, type IntroProps } from '@/components/chat/intro'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import type { HermesGateway } from '@/hermes'
 import { useI18n } from '@/i18n'
-import { notifyError } from '@/store/notifications'
 import { describeRollbackPreview } from '@/pantheon/destination'
-import { rollbackMachineName } from '@/app/session/hooks/use-prompt-actions/rewind'
+import { notifyError } from '@/store/notifications'
 
 type ThreadLoadingState = 'response' | 'session'
 

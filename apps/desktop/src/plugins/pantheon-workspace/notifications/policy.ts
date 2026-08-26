@@ -48,9 +48,13 @@ export function classifyNotificationEvent(
   event: NotificationEvent,
   mutes: NotificationMutes
 ): 'notify' | 'silence' {
-  if (!ACTION_WORTHY.has(event.type)) return 'silence'
-  if (!event.target?.href) return 'silence'
-  if (event.botId && mutes.mutedBots.includes(event.botId)) return 'silence'
-  if (event.roomId && mutes.mutedRooms.includes(event.roomId)) return 'silence'
+  if (!ACTION_WORTHY.has(event.type)) {return 'silence'}
+
+  if (!event.target?.href) {return 'silence'}
+
+  if (event.botId && mutes.mutedBots.includes(event.botId)) {return 'silence'}
+
+  if (event.roomId && mutes.mutedRooms.includes(event.roomId)) {return 'silence'}
+
   return 'notify'
 }

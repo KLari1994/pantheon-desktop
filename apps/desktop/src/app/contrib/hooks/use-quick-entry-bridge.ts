@@ -1,16 +1,16 @@
 import { useEffect, useRef } from 'react'
 
+import { desktopBuzzClient } from '@/pantheon/buzz-client'
+import { decideDestinationSend } from '@/pantheon/destination'
 import {
+  getQuickEntryDestinationMemory,
   initQuickEntryBridge,
   QUICK_TARGET_CURRENT,
   QUICK_TARGET_NEW,
-  type QuickEntrySessionOption,
   type QuickEntryRoomOption,
-  getQuickEntryDestinationMemory,
+  type QuickEntrySessionOption,
   setQuickEntrySubmitHandler
 } from '@/store/quick-entry'
-import { desktopBuzzClient } from '@/pantheon/buzz-client'
-import { decideDestinationSend } from '@/pantheon/destination'
 import { $gatewayState, $sessions } from '@/store/session'
 import { sessionTileDelegate } from '@/store/session-states'
 import { isAuxiliaryWindow } from '@/store/windows'

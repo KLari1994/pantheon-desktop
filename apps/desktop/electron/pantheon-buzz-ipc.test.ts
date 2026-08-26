@@ -8,6 +8,7 @@ import { PassThrough } from 'node:stream'
 import { afterEach, test } from 'vitest'
 
 import {
+  broadcastPantheonBuzzEvent,
   isPrivateKeyShaped,
   PANTHEON_BUZZ_IPC,
   parseBuzzRelayUrlFromWorkspaceConfig,
@@ -15,8 +16,7 @@ import {
   resolveBuzzRelayUrl,
   RESTART_BACKOFF_MS,
   sanitizeBridgeEnv,
-  validateMessageLimit,
-  broadcastPantheonBuzzEvent
+  validateMessageLimit
 } from './pantheon-buzz-ipc'
 import { createPantheonBuzzProcess } from './pantheon-buzz-process'
 
@@ -29,6 +29,7 @@ class FakeChild extends EventEmitter {
   kill = () => {
     this.killed = true
     this.emit('exit', 0, null)
+
     return true
   }
 }
@@ -53,12 +54,14 @@ test('spawn uses shell false, hides the Windows console, and strips key-shaped e
   const hexCanary = 'ab'.repeat(32)
   let captured: { args: string[]; command: string; options: Record<string, unknown> } | undefined
   const child = new FakeChild()
+
   const processHandle = createPantheonBuzzProcess({
     binaryPath: '/opt/pantheon/buzz-bridge',
     relayUrl: 'https://relay.example.test',
     env: { PATH: '/usr/bin', LEAK: canary, HEX: hexCanary, PANTHEON_BUZZ_RELAY_URL: 'https://relay.example.test' },
     spawnImpl: (command, args, options) => {
       captured = { args, command, options: options as Record<string, unknown> }
+
       return child as never
     }
   })
@@ -87,6 +90,7 @@ test('message limit is 1 through 200', () => {
 test('ipc rejects out-of-range limits and unknown rooms stay typed', async () => {
   const child = new FakeChild()
   child.stdout.on('pipe', () => undefined)
+
   const api = registerPantheonBuzzIpc({
     ipcMain: ipcMain as never,
     createProcess: () =>
@@ -113,6 +117,7 @@ test('crash restarts with 250ms then 1s then 4s and then stops', async () => {
   const delays: number[] = []
   const children = [new FakeChild(), new FakeChild(), new FakeChild(), new FakeChild()]
   let index = 0
+
   const handle = createPantheonBuzzProcess({
     binaryPath: '/opt/pantheon/buzz-bridge',
     now: () => 0,
@@ -121,6 +126,7 @@ test('crash restarts with 250ms then 1s then 4s and then stops', async () => {
     },
     spawnImpl: () => children[index++] as never
   })
+
   children[0].emit('exit', 1, null)
   await Promise.resolve()
   children[1].emit('exit', 1, null)
@@ -136,12 +142,14 @@ test('crash restarts with 250ms then 1s then 4s and then stops', async () => {
 test('timeout fails the in-flight request without leaking canaries', async () => {
   const canary = `nsec1${'qpzry9x8gf2tvdw0s3jn54khce6mua7l'}`
   const child = new FakeChild()
+
   const handle = createPantheonBuzzProcess({
     binaryPath: '/opt/pantheon/buzz-bridge',
     requestTimeoutMs: 5,
     env: { SECRET: canary },
     spawnImpl: () => child as never
   })
+
   await assert.rejects(() => handle.request('status', {}))
   assert.equal(isPrivateKeyShaped(canary), true)
   assert.equal(isPrivateKeyShaped('room-a'), false)
@@ -150,6 +158,7 @@ test('timeout fails the in-flight request without leaking canaries', async () =>
 
 test('sanitizeBridgeEnv allowlists PATH and drops secret-bearing keys', () => {
   const canary = 'cd'.repeat(32)
+
   const env = sanitizeBridgeEnv({
     PATH: '/bin',
     KEY: canary,
@@ -157,6 +166,7 @@ test('sanitizeBridgeEnv allowlists PATH and drops secret-bearing keys', () => {
     BUZZ_PRIVATE_KEY: 'not-hex-but-secret',
     PANTHEON_BUZZ_RELAY_URL: 'https://relay.example.test'
   })
+
   assert.equal(env.KEY, undefined)
   assert.equal(env.OK, undefined)
   assert.equal(env.BUZZ_PRIVATE_KEY, undefined)
@@ -166,6 +176,7 @@ test('sanitizeBridgeEnv allowlists PATH and drops secret-bearing keys', () => {
 
 test('workspace config supplies relay URL and ignores env escape hatches', () => {
   const homeDir = fs.mkdtempSync(path.join(os.tmpdir(), 'pantheon-buzz-home-'))
+
   try {
     const workspacePath = path.join(homeDir, 'pantheon', 'workspace.json')
     fs.mkdirSync(path.dirname(workspacePath), { recursive: true })
@@ -188,13 +199,16 @@ test('workspace config supplies relay URL and ignores env escape hatches', () =>
 
 test('spawn error is swallowed so the desktop shell stays up', () => {
   const child = new FakeChild()
+
   const handle = createPantheonBuzzProcess({
     binaryPath: '/missing/buzz-bridge',
     spawnImpl: () => {
       queueMicrotask(() => child.emit('error', new Error('ENOENT')))
+
       return child as never
     }
   })
+
   child.emit('error', new Error('ENOENT'))
   handle.dispose()
 })
@@ -215,6 +229,7 @@ test('write IPC channels are allowlisted and validators reject oversized payload
     'pantheon-buzz:workspace.manifest',
     'pantheon-buzz:workspace.updateRoomMembership'
   ].sort())
+
   const api = registerPantheonBuzzIpc({
     ipcMain: ipcMain as never,
     createProcess: () => ({
@@ -223,6 +238,7 @@ test('write IPC channels are allowlisted and validators reject oversized payload
       dispose: () => undefined
     })
   })
+
   await assert.rejects(async () => {
     await handlers.get(PANTHEON_BUZZ_IPC.sendMessage)!({}, { roomId: 'room-a', content: 'x'.repeat(64 * 1024 + 1) })
   })
@@ -235,6 +251,7 @@ test('write IPC channels are allowlisted and validators reject oversized payload
 test('sidecar events fan out and skip key-shaped frames', () => {
   const forwarded: unknown[] = []
   let emit: ((frame: unknown) => void) | undefined
+
   const api = registerPantheonBuzzIpc({
     ipcMain: ipcMain as never,
     broadcast: (_channel, payload) => forwarded.push(payload),
@@ -242,11 +259,13 @@ test('sidecar events fan out and skip key-shaped frames', () => {
       request: async () => ({}),
       onEvent: callback => {
         emit = callback
+
         return () => undefined
       },
       dispose: () => undefined
     })
   })
+
   emit?.({ type: 'room.event', room_id: 'room-a', event: { id: 'evt-2' } })
   emit?.({ type: 'room.event', event: { secret: 'ab'.repeat(32) } })
   assert.equal(forwarded.length, 1)
@@ -256,6 +275,7 @@ test('sidecar events fan out and skip key-shaped frames', () => {
 
 test('production default broadcasts sidecar events when no broadcaster is injected', () => {
   const sent: unknown[] = []
+
   const windows = [
     {
       isDestroyed: () => false,
@@ -265,18 +285,22 @@ test('production default broadcasts sidecar events when no broadcaster is inject
       }
     }
   ]
+
   let emit: ((frame: unknown) => void) | undefined
+
   const api = registerPantheonBuzzIpc({
     ipcMain: ipcMain as never,
     createProcess: () => ({
       request: async () => ({}),
       onEvent: callback => {
         emit = callback
+
         return () => undefined
       },
       dispose: () => undefined
     })
   })
+
   emit?.({ type: 'room.event', room_id: 'room-b', event: { id: 'evt-9' } })
   broadcastPantheonBuzzEvent('pantheon-buzz:event', { type: 'room.event', room_id: 'room-b' }, windows)
   assert.equal(sent.length, 1)
@@ -286,10 +310,12 @@ test('production default broadcasts sidecar events when no broadcaster is inject
 
 test('workspace manifest read and membership update round-trip', async () => {
   const homeDir = fs.mkdtempSync(path.join(os.tmpdir(), 'pantheon-buzz-manifest-'))
+
   try {
     const filePath = path.join(homeDir, 'pantheon', 'workspace.json')
     fs.mkdirSync(path.dirname(filePath), { recursive: true })
     fs.writeFileSync(filePath, JSON.stringify({ version: 1, buzz: { relayUrl: 'https://relay.example.test' } }))
+
     const api = registerPantheonBuzzIpc({
       ipcMain: ipcMain as never,
       homeDir,
@@ -299,13 +325,16 @@ test('workspace manifest read and membership update round-trip', async () => {
         dispose: () => undefined
       })
     })
+
     const read = await handlers.get(PANTHEON_BUZZ_IPC.workspaceManifest)!({}) as Record<string, unknown>
     assert.equal((read.buzz as { relayUrl: string }).relayUrl, 'https://relay.example.test')
+
     const updated = await handlers.get(PANTHEON_BUZZ_IPC.updateRoomMembership)!({}, {
       roomId: 'room-a',
       kind: 'office',
       memberAgentIds: ['agent-1']
     }) as { rooms: Array<{ id: string; memberAgentIds: string[] }> }
+
     assert.deepEqual(updated.rooms[0], { id: 'room-a', kind: 'office', name: 'room-a', memberAgentIds: ['agent-1'] })
     const persisted = JSON.parse(fs.readFileSync(filePath, 'utf8')) as typeof updated
     assert.deepEqual(persisted.rooms[0].memberAgentIds, ['agent-1'])

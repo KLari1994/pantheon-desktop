@@ -1,10 +1,10 @@
 import { useSyncExternalStore } from 'react'
 
-import { NeedsYouList } from '../needs-you/needs-you-list'
-import type { ApprovalChoice, ApprovalProjection } from '../needs-you/approval-projections'
-import { HOME_SECTIONS } from './projections'
-import type { HomeStore } from './store'
-import type { HomeItem } from './types'
+import { HOME_SECTIONS } from './home/projections'
+import type { HomeStore } from './home/store'
+import type { HomeItem } from './home/types'
+import type { ApprovalChoice, ApprovalProjection } from './needs-you/approval-projections'
+import { NeedsYouList } from './needs-you/needs-you-list'
 
 function useStoreValue<T>(store: { get: () => T; listen: (listener: (next: T) => void) => () => void }): T {
   return useSyncExternalStore(store.listen, store.get, store.get)
@@ -34,9 +34,11 @@ export function HomePage({
   if (status === 'loading' && items.length === 0 && !approvals?.cards.length) {
     return <p className="p-4 text-sm text-(--ui-text-secondary)">Loading inbox</p>
   }
+
   if (status === 'degraded' && items.length === 0 && !approvals?.cards.length) {
     return <p className="p-4 text-sm text-(--ui-text-secondary)">Inbox degraded</p>
   }
+
   if (items.length === 0 && !approvals?.cards.length) {
     return <p className="p-4 text-sm text-(--ui-text-secondary)">Nothing needs attention</p>
   }

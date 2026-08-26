@@ -1,5 +1,6 @@
 import { useEffect, useReducer, useRef } from 'react'
 
+import { encodeRoomQuickTarget } from '@/pantheon/destination'
 import {
   initialQuickComposerState,
   QUICK_TARGET_CURRENT,
@@ -8,7 +9,6 @@ import {
   quickComposerReducer,
   type QuickComposerState
 } from '@/store/quick-entry'
-import { encodeRoomQuickTarget } from '@/pantheon/destination'
 
 /**
  * The Quick Entry composer — the whole renderer surface of the global-hotkey

@@ -12,10 +12,10 @@ import { Button } from '@/components/ui/button'
 import { useI18n } from '@/i18n'
 import { formatCombo } from '@/lib/keybinds/combo'
 import { startPointerDrag } from '@/lib/pointer-drag'
+import { applyPantheonLayoutReset } from '@/pantheon/layout-presets'
 import { $bindings, bindingsFor } from '@/store/keybinds'
 
 import { $layoutEditMode } from '../../edit-mode'
-import { applyPantheonLayoutReset } from '@/pantheon/layout-presets'
 
 import { LayoutPicker } from './layout-picker'
 
