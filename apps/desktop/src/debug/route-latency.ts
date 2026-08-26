@@ -90,6 +90,8 @@ function onPointerDown(event: PointerEvent) {
     return
   }
 
+  // Arm only. Measurement starts on route commit so click-to-paint spans
+  // pointerdown → navigate → paint, not the pre-click rAF window (Fable F1).
   clearPending()
   const token = (nextToken += 1)
   pending = {
@@ -97,15 +99,12 @@ function onPointerDown(event: PointerEvent) {
     t: performance.now(),
     timer: window.setTimeout(() => {
       if (pending?.token === token) {
+        // TTL without a commit: drop silently — never record a route=null sample.
         clearPending()
       }
     }, PENDING_TTL_MS),
     token
   }
-
-  requestAnimationFrame(() => {
-    beginMeasure(sawRouteCommit ? currentRoute() : null)
-  })
 }
 
 function onRouteCommit() {
