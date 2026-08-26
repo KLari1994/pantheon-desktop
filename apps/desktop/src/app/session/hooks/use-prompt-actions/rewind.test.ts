@@ -611,9 +611,9 @@ describe('rollback preview', () => {
     expect(preview.summary).toContain('lab-1')
     expect(preview.requiresApproval).toBe(true)
     expect(preview.allowed).toBe(false)
-    expect(previewRollback({ sessionId: 'sess-1', worktree: '/tmp/wt', machine: 'lab-1', approved: true }).allowed).toBe(
-      true
-    )
+    expect(
+      previewRollback({ sessionId: 'sess-1', worktree: '/tmp/wt', machine: 'lab-1', approved: true }).allowed
+    ).toBe(true)
   })
 
   it('blocks the live rewind submit until the named rollback preview is approved', async () => {

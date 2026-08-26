@@ -147,7 +147,9 @@ describe('desktop git facade', () => {
   it('routes an explicit remote target even while ambient state is local', async () => {
     $connection.set({ mode: 'local' } as never)
 
-    await expect(desktopGit({ connectionId: 'homelab', profile: 'daedalus' })?.repoStatus('/srv/work')).resolves.toEqual({
+    await expect(
+      desktopGit({ connectionId: 'homelab', profile: 'daedalus' })?.repoStatus('/srv/work')
+    ).resolves.toEqual({
       branch: 'remote-main'
     })
     expect(repoStatus).not.toHaveBeenCalled()
@@ -168,9 +170,9 @@ describe('desktop git facade', () => {
     $connection.set({ mode: 'local' } as never)
     api.mockRejectedValueOnce(new Error('homelab unreachable'))
 
-    await expect(desktopGit({ connectionId: 'homelab', profile: 'daedalus' })?.worktreeList('/srv/work')).rejects.toThrow(
-      'homelab unreachable'
-    )
+    await expect(
+      desktopGit({ connectionId: 'homelab', profile: 'daedalus' })?.worktreeList('/srv/work')
+    ).rejects.toThrow('homelab unreachable')
     expect(worktreeList).not.toHaveBeenCalled()
     expect(api).toHaveBeenCalledTimes(1)
   })

@@ -13,6 +13,7 @@ test('duplicate stored session ids on different routes never share an identity k
     profile: 'ops',
     storedSessionId: 'sess-1'
   })
+
   const remote = sessionArtifactSource({
     connectionId: 'homelab',
     profile: 'ops',
@@ -26,6 +27,7 @@ test('duplicate stored session ids on different routes never share an identity k
 
 test('remote file open uses the owning route, not the ambient profile', () => {
   const opened: Array<{ connectionId: string; profile: string; path: string }> = []
+
   const source: PantheonArtifactSource = {
     kind: 'file',
     connectionId: 'homelab',
@@ -48,6 +50,7 @@ test('remote file open uses the owning route, not the ambient profile', () => {
 
 test('room artifact source opens the exact room and message ids', () => {
   const hrefs: string[] = []
+
   const source: PantheonArtifactSource = {
     kind: 'room',
     roomId: 'room-a',
@@ -65,10 +68,7 @@ test('room artifact source opens the exact room and message ids', () => {
 test('room navigation without a concrete message id does not invent message=latest', () => {
   const hrefs: string[] = []
 
-  openArtifactSource(
-    { kind: 'room', roomId: 'room-a', machine: 'relay' },
-    { navigate: href => hrefs.push(href) }
-  )
+  openArtifactSource({ kind: 'room', roomId: 'room-a', machine: 'relay' }, { navigate: href => hrefs.push(href) })
   openArtifactSource(
     { kind: 'room', roomId: 'room-a', messageId: 'latest', machine: 'relay' },
     { navigate: href => hrefs.push(href) }

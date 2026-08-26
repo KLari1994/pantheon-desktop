@@ -218,6 +218,7 @@ test('sandbox marker round-trips through the userData file', () => {
 test('sandbox marker persistence is best-effort when Windows mkdir returns ENOENT', () => {
   let writeAttempted = false
   const error = Object.assign(new Error('no such file or directory'), { code: 'ENOENT' })
+
   const result = tryWriteSandboxMarker(
     'C:\\Users\\kelce\\AppData\\Roaming\\Pantheon',
     { state: 'booting' },

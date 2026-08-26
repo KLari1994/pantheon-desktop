@@ -1,12 +1,6 @@
 import { expect, test } from 'vitest'
 
-import {
-  jobKey,
-  projectCronHistory,
-  projectCronRow,
-  projectCurrentExecution,
-  projectJobHealth
-} from './projections'
+import { jobKey, projectCronHistory, projectCronRow, projectCurrentExecution, projectJobHealth } from './projections'
 import type { CronCenterOwner, CronCenterPersistedJob } from './types'
 
 const ownerA: CronCenterOwner = {
@@ -133,11 +127,13 @@ test('an in-progress ledger attempt does not replace the persisted last result',
     last_run_at: '2026-08-24T03:00:00Z',
     latest_execution: { status: 'running', claimed_at: '2026-08-24T04:00:00Z' }
   })
+
   const claimedFailed = job({
     id: 'claim',
     last_status: 'error',
     latest_execution: { status: 'claimed' }
   })
+
   const neverStarted = job({ id: 'fresh', latest_execution: { status: 'running' } })
 
   expect(projectJobHealth(runningHealthy)).toBe('healthy')

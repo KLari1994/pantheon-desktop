@@ -55,8 +55,7 @@ export interface ProjectProjection {
 }
 
 export type ProjectRoomRecord =
-  | { status: 'valid'; binding: ProjectRoomBinding }
-  | { status: 'invalid'; reason: string; record: unknown }
+  { status: 'valid'; binding: ProjectRoomBinding } | { status: 'invalid'; reason: string; record: unknown }
 
 export type MergeAuthority =
   | { granted: false; reason: string }

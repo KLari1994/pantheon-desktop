@@ -282,7 +282,18 @@ function bind<T extends object>(t: PluginTranslate, template: T, prefix = ''): B
 
 export type CronCenterText = Bound<CronCenterMessages>
 
-export function cronCenterLabels(text: Pick<CronCenterText, 'defaultAgent' | 'noAgent' | 'resultFailed' | 'resultHealthy' | 'resultNeedsAttention' | 'resultNotRun' | 'resultSilent'>): {
+export function cronCenterLabels(
+  text: Pick<
+    CronCenterText,
+    | 'defaultAgent'
+    | 'noAgent'
+    | 'resultFailed'
+    | 'resultHealthy'
+    | 'resultNeedsAttention'
+    | 'resultNotRun'
+    | 'resultSilent'
+  >
+): {
   defaultAgent: string
   noAgent: string
   results: {

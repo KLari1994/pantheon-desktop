@@ -29,9 +29,9 @@ test('bot and room mutes are isolated under a versioned scoped key', () => {
   expect(isMuted(loaded, { kind: 'bot', id: 'Daedalus' })).toBe(true)
   expect(isMuted(loaded, { kind: 'room', id: 'room-1' })).toBe(true)
   expect(isMuted(loaded, { kind: 'bot', id: 'Themis' })).toBe(false)
-  expect(isMuted(loadMutes(storage, { workspace: 'pantheon', connectionId: 'conn-b' }), { kind: 'bot', id: 'Daedalus' })).toBe(
-    false
-  )
+  expect(
+    isMuted(loadMutes(storage, { workspace: 'pantheon', connectionId: 'conn-b' }), { kind: 'bot', id: 'Daedalus' })
+  ).toBe(false)
 })
 
 test('corrupt storage falls back to empty mutes', () => {

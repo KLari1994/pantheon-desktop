@@ -22,6 +22,7 @@ const binding: ProjectRoomBinding = {
 
 test('activating PAN-7 Review never opens the mutating review pane', async () => {
   const openReview = vi.fn()
+
   const git = {
     review: {
       list: vi.fn(async () => ({

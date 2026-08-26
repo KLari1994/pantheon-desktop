@@ -100,7 +100,10 @@ test('successful writes reconcile from the backend job rather than the optimisti
 
   const api = fakeApi({
     listJobs: async () => [
-      job('job-1', paused ? { enabled: false, state: 'paused', name: 'server-name' } : { enabled: true, name: 'before' })
+      job(
+        'job-1',
+        paused ? { enabled: false, state: 'paused', name: 'server-name' } : { enabled: true, name: 'before' }
+      )
     ],
     pause: async () => {
       paused = true
@@ -122,7 +125,9 @@ test('removed routes are dropped and transient failures keep the last good slice
   const api = fakeApi({
     listOwners: async () => owners,
     listJobs: async owner => {
-      if (failA && owner.connectionId === 'conn-a') {throw new Error('timeout')}
+      if (failA && owner.connectionId === 'conn-a') {
+        throw new Error('timeout')
+      }
 
       return [job(`${owner.connectionId}-job`)]
     }
@@ -149,12 +154,7 @@ test('run now records pending without inventing a success result', async () => {
 
   const api = fakeApi({
     listJobs: async () => [
-      job(
-        'job-1',
-        triggered
-          ? { last_status: 'ok', latest_execution: { status: 'running' } }
-          : { last_status: 'ok' }
-      )
+      job('job-1', triggered ? { last_status: 'ok', latest_execution: { status: 'running' } } : { last_status: 'ok' })
     ],
     trigger: () => {
       triggered = true
@@ -178,9 +178,11 @@ test('run now records pending without inventing a success result', async () => {
 
 test('a refresh in flight cannot publish over a newer mutation', async () => {
   let releaseRefresh: () => void = () => undefined
+
   const refreshGate = new Promise<void>(resolve => {
     releaseRefresh = resolve
   })
+
   let listCalls = 0
 
   const api = fakeApi({
@@ -218,6 +220,7 @@ test('all-owner read failures are an error, not a truthful empty inventory', asy
       throw new Error('down')
     }
   })
+
   const store = new CronCenterStore(api)
   await store.refreshAll()
   expect(store.$status.get()).toBe('error')
@@ -336,10 +339,20 @@ test('a stale refreshAll inventory cannot drop owners discovered by a newer refr
   const stale = store.refreshAll()
   const fresh = store.refreshAll()
   await fresh
-  expect(store.owners().map(owner => owner.connectionId).sort()).toEqual(['conn-a', 'conn-b'])
+  expect(
+    store
+      .owners()
+      .map(owner => owner.connectionId)
+      .sort()
+  ).toEqual(['conn-a', 'conn-b'])
   releaseFirst()
   await stale
-  expect(store.owners().map(owner => owner.connectionId).sort()).toEqual(['conn-a', 'conn-b'])
+  expect(
+    store
+      .owners()
+      .map(owner => owner.connectionId)
+      .sort()
+  ).toEqual(['conn-a', 'conn-b'])
   expect(store.slice(ownerB)?.jobs[0]?.id).toBe('conn-b-job')
 })
 

@@ -51,7 +51,9 @@ const ALLOWED: ApprovalChoice[] = ['once', 'session', 'deny']
 export const sharedApprovalInFlight = new Set<string>()
 
 export function approvalLogicalId(request: ApprovalSource, owner?: ApprovalOwnerRoute): string {
-  if (request.requestId) {return `approval:${request.requestId}`}
+  if (request.requestId) {
+    return `approval:${request.requestId}`
+  }
   const connectionId = owner?.connectionId || 'unknown'
   const profile = owner?.profile || 'unknown'
 
@@ -93,7 +95,9 @@ export async function respondToApproval(
 ): Promise<ApprovalRespondResult> {
   const id = approvalLogicalId(input.request, input.owner)
 
-  if (input.inFlight.has(id)) {return { ok: false, reason: 'in-flight' }}
+  if (input.inFlight.has(id)) {
+    return { ok: false, reason: 'in-flight' }
+  }
   input.inFlight.add(id)
 
   try {

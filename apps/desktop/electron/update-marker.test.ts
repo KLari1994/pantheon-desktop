@@ -205,6 +205,7 @@ test('minutes-scale elapsed time is formatted as "Nm Ss"', () => {
 test('pantheon pre-apply writes receipts and proceeds when compatible', () => {
   const home = tmpHome('pantheon-ok')
   const written: string[] = []
+
   const conflict = updateHandoffConflict(home, {
     kill: ALIVE,
     pantheon: {
@@ -241,12 +242,14 @@ test('pantheon pre-apply writes receipts and proceeds when compatible', () => {
       }
     }
   })
+
   assert.equal(conflict, null)
   assert.deepEqual(written, ['receipt', 'marker'])
 })
 
 test('pantheon pre-apply fails closed when backup throws or compatibility is incompatible', () => {
   const home = tmpHome('pantheon-fail')
+
   const backupFail = updateHandoffConflict(home, {
     kill: ALIVE,
     pantheon: {
@@ -255,6 +258,7 @@ test('pantheon pre-apply fails closed when backup throws or compatibility is inc
       }
     }
   })
+
   assert.equal(backupFail?.pid, -1)
   assert.match(String(backupFail?.message), /backup or compatibility/)
 
@@ -280,6 +284,7 @@ test('pantheon pre-apply fails closed when backup throws or compatibility is inc
       writeMarker: () => {}
     }
   })
+
   assert.equal(incompat?.pid, -1)
   assert.match(String(incompat?.message), /compatibility check failed/)
 })

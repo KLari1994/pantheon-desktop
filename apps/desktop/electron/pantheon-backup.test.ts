@@ -60,6 +60,7 @@ describe('createPantheonUpdateBackup', () => {
     const copied = readdirRecursive(receipt.backupDir)
       .filter(file => path.basename(file) !== 'receipt.json')
       .map(file => fs.readFileSync(file, 'utf8'))
+
     expect(copied.some(text => textContainsSecret(text))).toBe(false)
     expect(receipt.entries.some(entry => entry.relPath === 'pantheon/workspace.json')).toBe(true)
   })

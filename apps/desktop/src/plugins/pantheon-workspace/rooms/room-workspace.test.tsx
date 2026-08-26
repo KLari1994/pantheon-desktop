@@ -17,7 +17,9 @@ test('role-gates invite and remove, shows TTL-less chat, and hides credential UI
   render(
     <RoomWorkspace
       hasCredential
-      messages={[{ id: 'evt-1', roomId: 'room-a', content: 'hello', createdAt: 1, author: 'Alice', threadRootId: 'evt-1' }]}
+      messages={[
+        { id: 'evt-1', roomId: 'room-a', content: 'hello', createdAt: 1, author: 'Alice', threadRootId: 'evt-1' }
+      ]}
       onSend={() => undefined}
       reactions={[{ id: 'r1', targetEventId: 'evt-1', emoji: '👍', author: 'bob' }]}
       relayOpen
@@ -38,7 +40,9 @@ test('reactions can be removed and thread reply stays selected', () => {
   render(
     <RoomWorkspace
       hasCredential
-      messages={[{ id: 'evt-1', roomId: 'room-a', content: 'hello', createdAt: 1, author: 'Alice', threadRootId: 'evt-1' }]}
+      messages={[
+        { id: 'evt-1', roomId: 'room-a', content: 'hello', createdAt: 1, author: 'Alice', threadRootId: 'evt-1' }
+      ]}
       onRemoveReaction={onRemoveReaction}
       onSend={onSend}
       reactions={[{ id: 'r1', targetEventId: 'evt-1', emoji: '👍', author: 'bob' }]}

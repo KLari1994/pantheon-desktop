@@ -26,7 +26,10 @@ test('one shared index filters agent, office, project, PR, room, session, machin
   expect(filterArtifactIndex(items, { agent: 'ops' }).map(row => row.id)).toEqual(['a'])
   expect(filterArtifactIndex(items, { fileType: 'png' }).map(row => row.id)).toEqual(['b'])
   expect(filterArtifactIndex(items, { project: 'pantheon-desktop', pr: '14' }).map(row => row.id)).toEqual(['a'])
-  expect(filterArtifactIndex(items, { office: 'machine-room', machine: 'lab-1' }).map(row => row.id)).toEqual(['a', 'b'])
+  expect(filterArtifactIndex(items, { office: 'machine-room', machine: 'lab-1' }).map(row => row.id)).toEqual([
+    'a',
+    'b'
+  ])
   expect(filterArtifactIndex(items, { room: 'room-b', session: 'sess-2' }).map(row => row.id)).toEqual(['b'])
 })
 

@@ -137,10 +137,7 @@ export interface SandboxMarkerFs {
 export function writeSandboxMarker(
   userDataDir: string,
   marker: SandboxMarker,
-  {
-    mkdirSync = fs.mkdirSync,
-    writeFileSync = fs.writeFileSync
-  }: SandboxMarkerFs = {}
+  { mkdirSync = fs.mkdirSync, writeFileSync = fs.writeFileSync }: SandboxMarkerFs = {}
 ): void {
   const dir = String(userDataDir || '')
 

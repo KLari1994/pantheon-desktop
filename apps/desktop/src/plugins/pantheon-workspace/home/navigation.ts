@@ -16,7 +16,9 @@ export function sourceIdFromRoomsSearch(search: string): string | null {
 export function pickRoomId(roomIds: readonly string[], search: string): string | null {
   const requested = sourceIdFromRoomsSearch(search)
 
-  if (requested) {return requested}
+  if (requested) {
+    return requested
+  }
 
   return roomIds[0] ?? null
 }
@@ -52,9 +54,13 @@ export function registeredHref(
     case 'cron': {
       const params = new URLSearchParams({ job: sourceId })
 
-      if (owner?.connectionId) {params.set('connection', owner.connectionId)}
+      if (owner?.connectionId) {
+        params.set('connection', owner.connectionId)
+      }
 
-      if (owner?.profile) {params.set('profile', owner.profile)}
+      if (owner?.profile) {
+        params.set('profile', owner.profile)
+      }
 
       return `/cron-center?${params.toString()}`
     }
@@ -71,7 +77,9 @@ export function cronCenterJobKeyFromSearch(search: string): null | string {
   const connection = params.get('connection')
   const profile = params.get('profile')
 
-  if (!job || !connection || !profile) {return null}
+  if (!job || !connection || !profile) {
+    return null
+  }
 
   return `${connection}::${profile}::${job}`
 }
@@ -106,7 +114,9 @@ export function openHomeTarget(href: string, deps: HomeNavigationDeps): void {
   if (path === '/artifacts') {
     const id = url.searchParams.get('id')
 
-    if (id) {deps.openArtifact(id)}
+    if (id) {
+      deps.openArtifact(id)
+    }
     deps.navigate('/artifacts')
 
     return

@@ -37,7 +37,11 @@ export function isPantheonDestination(value: unknown): value is PantheonDestinat
   const record = value as Record<string, unknown>
 
   if (record.kind === 'session' || record.kind === 'bot') {
-    return typeof record.storedSessionId === 'string' && record.storedSessionId.length > 0 && typeof record.agentId === 'string'
+    return (
+      typeof record.storedSessionId === 'string' &&
+      record.storedSessionId.length > 0 &&
+      typeof record.agentId === 'string'
+    )
   }
 
   if (record.kind === 'room') {
@@ -164,6 +168,7 @@ export function restoreQuickTarget(
 
     return bot && offered.sessions.some(session => session.id === bot.storedSessionId) ? bot.storedSessionId : null
   })()
+
   const roomTarget = (() => {
     const room = restoreLastRoom(memory)
 
@@ -183,7 +188,9 @@ export function restoreQuickTarget(
 
 export function hudHandoffForDestination(
   destination: PantheonDestination
-): { surface: 'hud'; storedSessionId: string } | { surface: 'main-window'; destination: Extract<PantheonDestination, { kind: 'room' }> } {
+):
+  | { surface: 'hud'; storedSessionId: string }
+  | { surface: 'main-window'; destination: Extract<PantheonDestination, { kind: 'room' }> } {
   if (destination.kind === 'room') {
     return { surface: 'main-window', destination }
   }
@@ -195,10 +202,7 @@ export function canDictate(surface: VoiceSurface): boolean {
   return surface === 'direct-chat' || surface === 'bot-chat' || surface === 'room-composer'
 }
 
-export function canAutoSpeakReplies(
-  surface: VoiceSurface,
-  opts: { enabled: boolean; perAgent: boolean }
-): boolean {
+export function canAutoSpeakReplies(surface: VoiceSurface, opts: { enabled: boolean; perAgent: boolean }): boolean {
   if (!opts.enabled || !opts.perAgent) {
     return false
   }

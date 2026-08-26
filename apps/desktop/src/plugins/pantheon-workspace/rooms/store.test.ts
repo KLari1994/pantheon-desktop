@@ -53,10 +53,12 @@ test('optimistic rows keep mentions, thread root, and attachments through ack an
 
 test('watermark unread and needsYou derivation', () => {
   const storage = new Map<string, unknown>([[ROOMS_READ_WATERMARKS_KEY, { 'room-a': 1 }]])
+
   const store = new RoomsStore(
     { get: key => storage.get(key), set: (key, value) => storage.set(key, value) },
     { name: 'kelcee', pubkey: 'pk1' }
   )
+
   store.applyWindow('room-a', [
     {
       id: 'evt-1',

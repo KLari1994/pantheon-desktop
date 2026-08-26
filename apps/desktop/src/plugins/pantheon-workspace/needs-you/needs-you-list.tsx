@@ -26,11 +26,7 @@ export function NeedsYouList({
     <div className="flex flex-col gap-3 p-3">
       {unique.map(card => (
         <div key={card.id}>
-          <button
-            className="mb-1 text-xs text-(--ui-text-tertiary)"
-            onClick={() => onNavigate(card)}
-            type="button"
-          >
+          <button className="mb-1 text-xs text-(--ui-text-tertiary)" onClick={() => onNavigate(card)} type="button">
             Open {card.agent} {card.context}
           </button>
           <ApprovalCard
@@ -46,7 +42,9 @@ export function NeedsYouList({
             <button
               disabled={!card.roomId}
               onClick={() => {
-                if (card.roomId) {onMute({ kind: 'room', id: card.roomId })}
+                if (card.roomId) {
+                  onMute({ kind: 'room', id: card.roomId })
+                }
               }}
               type="button"
             >

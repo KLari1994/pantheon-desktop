@@ -944,6 +944,7 @@ export function usePromptActions({
       const plan = planRestore(messages, messageId, target)
       const worktree = target?.worktree || $currentCwd.get() || '(no worktree)'
       const machine = target?.machine || rollbackMachineName()
+
       const preview = previewRollback({
         sessionId,
         worktree,

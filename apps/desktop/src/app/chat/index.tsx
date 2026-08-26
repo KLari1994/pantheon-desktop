@@ -439,11 +439,13 @@ const ChatViewContent = memo(function ChatViewContent({
   const inferenceReadiness = useStore($inferenceReadiness)
   // Same seam as the statusbar's openCommandCenterSection('system').
   const openSystemSetup = useCallback(() => navigate(`${COMMAND_CENTER_ROUTE}?section=system`), [navigate])
+
   const offerIntroSetup = shouldOfferIntroSetup({
     gatewayState,
     readiness: inferenceReadiness,
     sessionCount: sessions.length
   })
+
   const resumeExhaustedSessionId = useStore($resumeExhaustedSessionId)
 
   // Durable composer/queue scope (lineage root) so auto-compression tip rotation
@@ -657,7 +659,11 @@ const ChatViewContent = memo(function ChatViewContent({
             gateway={gateway}
             intro={
               showIntro
-                ? { personality: introPersonality, seed: introSeed, onOpenSetup: offerIntroSetup ? openSystemSetup : undefined }
+                ? {
+                    personality: introPersonality,
+                    seed: introSeed,
+                    onOpenSetup: offerIntroSetup ? openSystemSetup : undefined
+                  }
                 : undefined
             }
             loading={threadLoading}

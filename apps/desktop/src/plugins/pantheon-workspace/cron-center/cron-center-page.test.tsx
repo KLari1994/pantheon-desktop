@@ -65,10 +65,13 @@ function job(id: string, extra: Partial<CronCenterPersistedJob> = {}): CronCente
   }
 }
 
-function seededStore(jobs: Array<{ owner: CronCenterOwner; jobs: CronCenterPersistedJob[]; status?: 'degraded' | 'error' | 'ready' }>) {
+function seededStore(
+  jobs: Array<{ owner: CronCenterOwner; jobs: CronCenterPersistedJob[]; status?: 'degraded' | 'error' | 'ready' }>
+) {
   const api = {
     listOwners: async () => jobs.map(entry => entry.owner),
-    listJobs: async (owner: CronCenterOwner) => jobs.find(entry => entry.owner.connectionId === owner.connectionId)?.jobs ?? [],
+    listJobs: async (owner: CronCenterOwner) =>
+      jobs.find(entry => entry.owner.connectionId === owner.connectionId)?.jobs ?? [],
     getHistory: async () => ({
       runs: Array.from({ length: 25 }, (_, index) => ({
         id: `run-${index}`,
@@ -119,7 +122,9 @@ test('loading, empty, partial-degraded, and exhausted error states are distinct'
   const api = {
     listOwners: async () => [ownerA, ownerB],
     listJobs: async (owner: CronCenterOwner) => {
-      if (owner.connectionId === 'conn-b') {throw new Error('timeout')}
+      if (owner.connectionId === 'conn-b') {
+        throw new Error('timeout')
+      }
 
       return [job('ok-job')]
     }
@@ -172,6 +177,7 @@ test('deep links require an exact composite owner key', async () => {
     { owner: ownerA, jobs: [job('shared')] },
     { owner: ownerB, jobs: [job('shared', { name: 'office-shared' })] }
   ])
+
   await hydrate()
   const { rerender } = render(<CronCenterPage initialJobKey="shared" store={store} />)
   expect(screen.queryByText('summarize inbox')).toBeNull()
@@ -193,11 +199,17 @@ test('expanded detail renders every populated source and receipt error field', a
           last_error: 'persisted last error',
           last_delivery_error: 'telegram 401',
           last_fire_error: { detail: 'forward failed' },
-          latest_execution: { id: 'exec-9', status: 'failed', claimed_at: '2026-08-24T03:00:00Z', error: 'receipt boom' }
+          latest_execution: {
+            id: 'exec-9',
+            status: 'failed',
+            claimed_at: '2026-08-24T03:00:00Z',
+            error: 'receipt boom'
+          }
         })
       ]
     }
   ])
+
   await hydrate()
   render(<CronCenterPage store={store} />)
   fireEvent.click(screen.getByRole('button', { name: 'monitor' }))

@@ -35,14 +35,18 @@ export function RoomComposer({
   const mention = useMemo(() => {
     const match = draft.match(/@(\w*)$/)
 
-    if (!match) {return []}
+    if (!match) {
+      return []
+    }
     const prefix = match[1].toLowerCase()
 
     return members.filter(member => (member.name || member.pubkey).toLowerCase().includes(prefix))
   }, [draft, members])
 
   const attachments = (): BuzzAttachment[] | undefined => {
-    if (!attachmentUrl.trim()) {return undefined}
+    if (!attachmentUrl.trim()) {
+      return undefined
+    }
 
     return [
       {
@@ -58,8 +62,12 @@ export function RoomComposer({
       {failed ? (
         <div className="mb-2 flex items-center gap-2 text-xs text-red-600">
           Send failed
-          <Button onClick={onRetry} type="button">Retry</Button>
-          <Button onClick={onRemove} type="button">Remove</Button>
+          <Button onClick={onRetry} type="button">
+            Retry
+          </Button>
+          <Button onClick={onRemove} type="button">
+            Remove
+          </Button>
         </div>
       ) : null}
       {threadRootId ? <div className="mb-2 text-xs text-(--ui-text-tertiary)">Replying in thread</div> : null}

@@ -9,7 +9,9 @@ function fakeApi(overrides: Partial<PantheonBuzzApi> = {}): PantheonBuzzApi {
     status: async () => ({ state: 'open', compatibilityCommit: '0720f5380ce8a6c050afac159f8462c06cd51ab5' }),
     listRooms: async () => ({ rooms: [{ id: 'room-a', name: 'General', members: [] }] }),
     getRoom: async () => ({ id: 'room-a', name: 'General', members: [{ pubkey: 'alice', name: 'Alice' }] }),
-    getMessages: async () => ({ messages: [{ id: 'evt-1', roomId: 'room-a', content: 'hello', createdAt: 1, author: 'alice' }] }),
+    getMessages: async () => ({
+      messages: [{ id: 'evt-1', roomId: 'room-a', content: 'hello', createdAt: 1, author: 'alice' }]
+    }),
     sendMessage: async () => ({ eventId: 'evt-2', createdAt: 2 }),
     addReaction: async () => ({ eventId: 'evt-3' }),
     removeReaction: async () => ({ eventId: 'evt-4' }),

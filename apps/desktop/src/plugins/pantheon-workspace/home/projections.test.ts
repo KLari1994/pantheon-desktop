@@ -2,7 +2,9 @@ import { expect, test } from 'vitest'
 
 import { HOME_SECTIONS, type HomeSourceEvent, navigationTarget, projectHomeItems } from './projections'
 
-function event(partial: Partial<HomeSourceEvent> & Pick<HomeSourceEvent, 'type' | 'sourceKind' | 'sourceId'>): HomeSourceEvent {
+function event(
+  partial: Partial<HomeSourceEvent> & Pick<HomeSourceEvent, 'type' | 'sourceKind' | 'sourceId'>
+): HomeSourceEvent {
   return {
     agent: 'Daedalus',
     context: 'office/ops',

@@ -9,7 +9,9 @@ function atom<T>(initial: T) {
     set: (next: T) => {
       value = next
 
-      for (const listener of listeners) {listener(next)}
+      for (const listener of listeners) {
+        listener(next)
+      }
     },
     listen: (listener: (next: T) => void) => {
       listeners.add(listener)
@@ -22,7 +24,9 @@ function atom<T>(initial: T) {
 export type HomeStoreStatus = 'degraded' | 'idle' | 'loading' | 'ready'
 
 function sameItems(left: HomeItem[], right: HomeItem[]): boolean {
-  if (left.length !== right.length) {return false}
+  if (left.length !== right.length) {
+    return false
+  }
 
   return left.every((item, index) => {
     const other = right[index]
@@ -48,7 +52,9 @@ export class HomeStore {
   private generation = 0
   private readonly keysUsed = new Set<string>()
 
-  constructor(private readonly storage?: { get?: (key: string) => unknown; set?: (key: string, value: unknown) => void }) {}
+  constructor(
+    private readonly storage?: { get?: (key: string) => unknown; set?: (key: string, value: unknown) => void }
+  ) {}
 
   persistedKeys(): string[] {
     return [...this.keysUsed]
@@ -62,7 +68,9 @@ export class HomeStore {
   }
 
   applyRefresh(items: HomeItem[], generation: number): HomeItem[] {
-    if (generation !== this.generation) {return this.$items.get()}
+    if (generation !== this.generation) {
+      return this.$items.get()
+    }
     const previous = this.$items.get()
 
     if (sameItems(previous, items)) {
@@ -78,7 +86,9 @@ export class HomeStore {
   }
 
   markDegraded(generation: number): void {
-    if (generation !== this.generation) {return}
+    if (generation !== this.generation) {
+      return
+    }
     this.$status.set('degraded')
   }
 }

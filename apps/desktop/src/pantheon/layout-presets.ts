@@ -20,7 +20,11 @@ export interface PantheonLayoutPreset {
   tree: LayoutNode
 }
 
-const DIRECT_CHAT = split('row', [group(['sessions'], { id: 'pantheon-direct-sessions' }), group(['workspace'], { id: 'pantheon-direct-main' })], [1, 4])
+const DIRECT_CHAT = split(
+  'row',
+  [group(['sessions'], { id: 'pantheon-direct-sessions' }), group(['workspace'], { id: 'pantheon-direct-main' })],
+  [1, 4]
+)
 
 const OFFICE = split(
   'row',
@@ -107,7 +111,9 @@ export interface PantheonResetResult<Session, Room> {
 }
 
 /** Restore presets/navigation only. Sessions and rooms are copied, never deleted. */
-export function resetToPantheonDefaults<Session, Room>(input: PantheonResetInput<Session, Room>): PantheonResetResult<Session, Room> {
+export function resetToPantheonDefaults<Session, Room>(
+  input: PantheonResetInput<Session, Room>
+): PantheonResetResult<Session, Room> {
   registerPantheonLayoutPresets()
 
   return {
@@ -127,12 +133,14 @@ export function applyPantheonLayoutReset<Session = unknown, Room = unknown>(
   const rooms = (input?.rooms ?? []) as Room[]
   const hidden = input?.navigation?.hidden ?? [...$hiddenStripTabs.get()]
   const order = input?.navigation?.order ?? []
+
   const result = resetToPantheonDefaults({
     sessions,
     rooms,
     navigation: { hidden, order },
     activePresetId: input?.activePresetId ?? $activePresetId.get()
   })
+
   const preset = PANTHEON_LAYOUT_PRESETS.find(entry => entry.id === result.activePresetId)
 
   if (preset) {

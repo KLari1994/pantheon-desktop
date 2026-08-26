@@ -52,9 +52,14 @@ export function findCoverageGaps(
   return {
     missing: expectedIds.filter(id => !listed.has(id)),
     extra: [...listed].filter(id => !expected.has(id)).sort(),
-    duplicates: [...seen.entries()].filter(([, count]) => count > 1).map(([id]) => id).sort(),
+    duplicates: [...seen.entries()]
+      .filter(([, count]) => count > 1)
+      .map(([id]) => id)
+      .sort(),
     invalidStatus: rows.filter(row => !isChecklistStatus(row.status)).map(row => row.id),
-    grokNotUnavailable: rows.filter(row => row.id.startsWith('GROK-') && row.status !== 'unavailable').map(row => row.id),
+    grokNotUnavailable: rows
+      .filter(row => row.id.startsWith('GROK-') && row.status !== 'unavailable')
+      .map(row => row.id),
     missingEvidence: rows.filter(row => row.evidence.length === 0).map(row => row.id)
   }
 }

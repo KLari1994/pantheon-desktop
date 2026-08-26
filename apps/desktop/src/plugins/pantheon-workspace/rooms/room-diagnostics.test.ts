@@ -1,6 +1,11 @@
 import { expect, test, vi } from 'vitest'
 
-import { deriveBindingHealth, diagnosticRuntimeForAgent, liveDiagnosticRoute, loadRoomDiagnostics } from './room-diagnostics'
+import {
+  deriveBindingHealth,
+  diagnosticRuntimeForAgent,
+  liveDiagnosticRoute,
+  loadRoomDiagnostics
+} from './room-diagnostics'
 
 test('health derivation branches', () => {
   expect(deriveBindingHealth({ storedSessionId: 's', runtimeSessionId: 'r' })).toBe('resumable')
@@ -11,23 +16,22 @@ test('health derivation branches', () => {
 test('diagnostics lists hidden sessions through requestProfile and never omits include_hidden', async () => {
   const requestProfile = vi.fn(async (_route: unknown, method: string, _params: Record<string, unknown>) => {
     expect(method).toBe('session.list')
+
     return {
-      sessions: [
-        { id: 'sess-hidden', profile: 'ops', connection_id: 'c1', _lineage_root_id: 'root-1' }
-      ]
+      sessions: [{ id: 'sess-hidden', profile: 'ops', connection_id: 'c1', _lineage_root_id: 'root-1' }]
     }
   })
+
   const rows = await loadRoomDiagnostics(requestProfile, {
     route: { connectionId: 'c1', profile: 'ops' },
     machine: 'desk-1',
     runtimeSessionId: 'live-1',
     lastEventAt: 99
   })
-  expect(requestProfile).toHaveBeenCalledWith(
-    { connectionId: 'c1', profile: 'ops' },
-    'session.list',
-    { include_hidden: true }
-  )
+
+  expect(requestProfile).toHaveBeenCalledWith({ connectionId: 'c1', profile: 'ops' }, 'session.list', {
+    include_hidden: true
+  })
   expect(rows[0]).toMatchObject({
     agent: 'ops',
     connectionId: 'c1',

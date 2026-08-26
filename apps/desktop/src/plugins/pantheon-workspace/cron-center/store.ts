@@ -18,7 +18,9 @@ function atom<T>(initial: T) {
     set: (next: T) => {
       value = next
 
-      for (const listener of listeners) {listener(next)}
+      for (const listener of listeners) {
+        listener(next)
+      }
     },
     listen: (listener: (next: T) => void) => {
       listeners.add(listener)
@@ -100,7 +102,9 @@ export class CronCenterStore {
   }
 
   private publishSlice(slice: CronCenterOwnerSlice): void {
-    if (slice.generation !== this.currentGeneration(ownerKey(slice.owner))) {return}
+    if (slice.generation !== this.currentGeneration(ownerKey(slice.owner))) {
+      return
+    }
     this.$slices.set({ ...this.$slices.get(), [ownerKey(slice.owner)]: slice })
   }
 
@@ -119,7 +123,9 @@ export class CronCenterStore {
       error
     })
 
-    if (!existing) {return}
+    if (!existing) {
+      return
+    }
   }
 
   private enqueue<T>(owner: CronCenterOwner, work: () => Promise<T>): Promise<T> {
@@ -153,15 +159,23 @@ export class CronCenterStore {
     try {
       const jobs = await this.api.listJobs(owner)
 
-      if (generation !== this.currentGeneration(key)) {return}
+      if (generation !== this.currentGeneration(key)) {
+        return
+      }
 
-      if (writeEpoch !== this.currentWriteEpoch(key) || this.writeInFlight(key)) {return}
+      if (writeEpoch !== this.currentWriteEpoch(key) || this.writeInFlight(key)) {
+        return
+      }
 
       this.publishSlice({ owner, jobs, generation, status: 'ready', error: null })
     } catch (error) {
-      if (generation !== this.currentGeneration(key)) {return}
+      if (generation !== this.currentGeneration(key)) {
+        return
+      }
 
-      if (writeEpoch !== this.currentWriteEpoch(key) || this.writeInFlight(key)) {return}
+      if (writeEpoch !== this.currentWriteEpoch(key) || this.writeInFlight(key)) {
+        return
+      }
 
       this.publishSlice({
         owner,
@@ -181,7 +195,9 @@ export class CronCenterStore {
     try {
       owners = await this.api.listOwners()
     } catch (error) {
-      if (inventoryGeneration !== this.inventoryGeneration) {return}
+      if (inventoryGeneration !== this.inventoryGeneration) {
+        return
+      }
       const slices = this.$slices.get()
       const next: Record<string, CronCenterOwnerSlice> = {}
 
@@ -199,19 +215,25 @@ export class CronCenterStore {
       return
     }
 
-    if (inventoryGeneration !== this.inventoryGeneration) {return}
+    if (inventoryGeneration !== this.inventoryGeneration) {
+      return
+    }
 
     const keep = new Set(owners.map(owner => ownerKey(owner)))
     const retained: Record<string, CronCenterOwnerSlice> = {}
 
     for (const [key, slice] of Object.entries(this.$slices.get())) {
-      if (keep.has(key)) {retained[key] = slice}
+      if (keep.has(key)) {
+        retained[key] = slice
+      }
     }
 
     this.$slices.set(retained)
     await Promise.all(owners.map(owner => this.refreshOwner(owner)))
 
-    if (inventoryGeneration !== this.inventoryGeneration) {return}
+    if (inventoryGeneration !== this.inventoryGeneration) {
+      return
+    }
 
     const slices = Object.values(this.$slices.get())
     const allFailed = slices.length > 0 && slices.every(slice => slice.status === 'error' && slice.jobs.length === 0)
@@ -331,11 +353,15 @@ export class CronCenterStore {
     try {
       const { runs } = await this.api.getHistory(owner, jobId, 20)
 
-      if (generation !== this.historyGeneration) {return}
+      if (generation !== this.historyGeneration) {
+        return
+      }
 
       this.$history.set({ key, rows: projectCronHistory(runs ?? [], 20) })
     } catch {
-      if (generation !== this.historyGeneration) {return}
+      if (generation !== this.historyGeneration) {
+        return
+      }
 
       this.$history.set({ key, rows: [] })
     }

@@ -1,11 +1,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 
-import {
-  secretShapedValue,
-  sensitiveFileBlockReason,
-  sha256File
-} from './hardening'
+import { secretShapedValue, sensitiveFileBlockReason, sha256File } from './hardening'
 import { PANTHEON_BINDER_SCHEMA_VERSION } from './pantheon-compatibility'
 
 export const PANTHEON_BACKUP_SCHEMA_VERSION = 1
@@ -34,11 +30,7 @@ export interface PantheonBackupDeps {
   now?: () => number
 }
 
-const CREDENTIAL_BASENAMES = new Set([
-  'connection.json',
-  'native-oauth-tokens.json',
-  'desktop-installation.json'
-])
+const CREDENTIAL_BASENAMES = new Set(['connection.json', 'native-oauth-tokens.json', 'desktop-installation.json'])
 
 const LAYOUT_RELATIVE_PATHS = ['window-state.json', 'layout.json', 'terminals.json']
 
@@ -89,14 +81,21 @@ function readInstallCommit(hermesHome: string, fsImpl: typeof fs): string | null
   return null
 }
 
-function collectSources(hermesHome: string, userDataDir?: string): Array<{ source: string; relPath: string; required: boolean }> {
+function collectSources(
+  hermesHome: string,
+  userDataDir?: string
+): Array<{ source: string; relPath: string; required: boolean }> {
   const sources: Array<{ source: string; relPath: string; required: boolean }> = [
     { source: path.join(hermesHome, 'pantheon', 'workspace.json'), relPath: 'pantheon/workspace.json', required: true },
     { source: path.join(hermesHome, 'config.yaml'), relPath: 'config.yaml', required: false },
     { source: path.join(hermesHome, '.env'), relPath: '.env', required: false },
     { source: path.join(hermesHome, 'connection.json'), relPath: 'connection.json', required: false },
     { source: path.join(hermesHome, 'native-oauth-tokens.json'), relPath: 'native-oauth-tokens.json', required: false },
-    { source: path.join(hermesHome, 'desktop-installation.json'), relPath: 'desktop-installation.json', required: false }
+    {
+      source: path.join(hermesHome, 'desktop-installation.json'),
+      relPath: 'desktop-installation.json',
+      required: false
+    }
   ]
 
   if (userDataDir) {
@@ -114,10 +113,7 @@ function collectSources(hermesHome: string, userDataDir?: string): Array<{ sourc
   return sources
 }
 
-export function createPantheonUpdateBackup(
-  hermesHome: string,
-  deps: PantheonBackupDeps = {}
-): PantheonBackupReceipt {
+export function createPantheonUpdateBackup(hermesHome: string, deps: PantheonBackupDeps = {}): PantheonBackupReceipt {
   const fsImpl = deps.fs ?? fs
   const createdAt = new Date((deps.now ?? Date.now)()).toISOString()
   const backupDir = path.join(hermesHome, 'pantheon', 'backups', receiptStamp(createdAt))
@@ -136,6 +132,7 @@ export function createPantheonUpdateBackup(
   for (const item of collectSources(hermesHome, deps.userDataDir)) {
     if (isCredentialSource(item.source)) {
       receipt.excluded.push({ source: item.source, reason: 'credential-file' })
+
       continue
     }
 
@@ -148,6 +145,7 @@ export function createPantheonUpdateBackup(
 
       if (code === 'ENOENT') {
         receipt.excluded.push({ source: item.source, reason: 'missing' })
+
         continue
       }
 
@@ -156,6 +154,7 @@ export function createPantheonUpdateBackup(
       }
 
       receipt.excluded.push({ source: item.source, reason: 'locked' })
+
       continue
     }
 
@@ -169,6 +168,7 @@ export function createPantheonUpdateBackup(
       }
 
       receipt.excluded.push({ source: item.source, reason: 'locked' })
+
       continue
     }
 
@@ -176,6 +176,7 @@ export function createPantheonUpdateBackup(
 
     if (textContainsSecret(text)) {
       receipt.excluded.push({ source: item.source, reason: 'secret-shaped-content' })
+
       continue
     }
 
@@ -242,6 +243,7 @@ export function restorePantheonBackup(
 
       if (textContainsSecret(bytes.toString('utf8')) || isCredentialSource(to)) {
         failed.push(entry.relPath)
+
         continue
       }
 
@@ -267,10 +269,7 @@ export function writeRollbackMarker(
   fsImpl.writeFileSync(dest, `${JSON.stringify(marker, null, 2)}\n`, 'utf8')
 }
 
-export function readRollbackMarker(
-  hermesHome: string,
-  deps: PantheonBackupDeps = {}
-): PantheonRollbackMarker | null {
+export function readRollbackMarker(hermesHome: string, deps: PantheonBackupDeps = {}): PantheonRollbackMarker | null {
   const fsImpl = deps.fs ?? fs
   const dest = rollbackMarkerPath(hermesHome)
 

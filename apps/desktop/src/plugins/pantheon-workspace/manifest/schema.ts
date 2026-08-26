@@ -22,9 +22,12 @@ export function parseWorkspaceManifest(value: unknown): WorkspaceManifest {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
     throw new Error('invalid_manifest')
   }
+
   const record = value as Record<string, unknown>
+
   if (record.version !== undefined && record.version !== 1) {
     throw new Error('unsupported_version')
   }
+
   return { version: 1, ...record }
 }

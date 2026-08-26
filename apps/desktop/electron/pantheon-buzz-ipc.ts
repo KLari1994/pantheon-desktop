@@ -161,13 +161,17 @@ export interface PantheonBuzzIpcDeps {
 export function broadcastPantheonBuzzEvent(
   channel: string,
   payload: unknown,
-  windows?: Array<{ isDestroyed(): boolean; webContents: { isDestroyed(): boolean; send(channel: string, payload: unknown): void } }>
+  windows?: Array<{
+    isDestroyed(): boolean
+    webContents: { isDestroyed(): boolean; send(channel: string, payload: unknown): void }
+  }>
 ): void {
-  const list =
-    windows ?? (typeof BrowserWindow?.getAllWindows === 'function' ? BrowserWindow.getAllWindows() : [])
+  const list = windows ?? (typeof BrowserWindow?.getAllWindows === 'function' ? BrowserWindow.getAllWindows() : [])
 
   for (const win of list) {
-    if (win.isDestroyed() || win.webContents.isDestroyed()) {continue}
+    if (win.isDestroyed() || win.webContents.isDestroyed()) {
+      continue
+    }
     win.webContents.send(channel, payload)
   }
 }
@@ -181,12 +185,14 @@ let active: PantheonBuzzIpcHandle | null = null
 export function registerPantheonBuzzIpc(deps?: PantheonBuzzIpcDeps): PantheonBuzzIpcHandle {
   const ipcMain = deps?.ipcMain ?? defaultIpcMain
 
-  const processHandle = (deps?.createProcess ??
+  const processHandle = (
+    deps?.createProcess ??
     (() =>
       createPantheonBuzzProcess({
         binaryPath: resolveBuzzBridgeBinary(),
         relayUrl: resolveBuzzRelayUrl({ homeDir: deps?.homeDir })
-      })))()
+      }))
+  )()
 
   ipcMain.handle(PANTHEON_BUZZ_IPC.status, async () => processHandle.request('status'))
   ipcMain.handle(PANTHEON_BUZZ_IPC.listRooms, async (_event, input?: { cursor?: string }) =>
@@ -195,34 +201,43 @@ export function registerPantheonBuzzIpc(deps?: PantheonBuzzIpcDeps): PantheonBuz
   ipcMain.handle(PANTHEON_BUZZ_IPC.getRoom, async (_event, input: { roomId: string }) =>
     processHandle.request('rooms.get', { roomId: validateRoomId(input?.roomId) })
   )
-  ipcMain.handle(PANTHEON_BUZZ_IPC.getMessages, async (_event, input: { roomId: string; before?: string; limit: number }) =>
-    processHandle.request('messages.window', {
-      roomId: validateRoomId(input?.roomId),
-      before: input?.before,
-      limit: validateMessageLimit(input?.limit)
-    })
+  ipcMain.handle(
+    PANTHEON_BUZZ_IPC.getMessages,
+    async (_event, input: { roomId: string; before?: string; limit: number }) =>
+      processHandle.request('messages.window', {
+        roomId: validateRoomId(input?.roomId),
+        before: input?.before,
+        limit: validateMessageLimit(input?.limit)
+      })
   )
-  ipcMain.handle(PANTHEON_BUZZ_IPC.sendMessage, async (_event, input: {
-    roomId: string
-    content: string
-    threadRootId?: string
-    mentions?: string[]
-    attachments?: unknown[]
-  }) =>
-    processHandle.request('messages.send', {
-      roomId: validateRoomId(input?.roomId),
-      content: validateContent(input?.content),
-      threadRootId: input?.threadRootId,
-      mentions: validateBoundedArray<string>(input?.mentions, 'mentions'),
-      attachments: validateBoundedArray(input?.attachments, 'attachments')
-    })
+  ipcMain.handle(
+    PANTHEON_BUZZ_IPC.sendMessage,
+    async (
+      _event,
+      input: {
+        roomId: string
+        content: string
+        threadRootId?: string
+        mentions?: string[]
+        attachments?: unknown[]
+      }
+    ) =>
+      processHandle.request('messages.send', {
+        roomId: validateRoomId(input?.roomId),
+        content: validateContent(input?.content),
+        threadRootId: input?.threadRootId,
+        mentions: validateBoundedArray<string>(input?.mentions, 'mentions'),
+        attachments: validateBoundedArray(input?.attachments, 'attachments')
+      })
   )
-  ipcMain.handle(PANTHEON_BUZZ_IPC.addReaction, async (_event, input: { roomId: string; targetEventId: string; emoji: string }) =>
-    processHandle.request('reactions.add', {
-      roomId: validateRoomId(input?.roomId),
-      targetEventId: validateRoomId(input?.targetEventId),
-      emoji: validateEmoji(input?.emoji)
-    })
+  ipcMain.handle(
+    PANTHEON_BUZZ_IPC.addReaction,
+    async (_event, input: { roomId: string; targetEventId: string; emoji: string }) =>
+      processHandle.request('reactions.add', {
+        roomId: validateRoomId(input?.roomId),
+        targetEventId: validateRoomId(input?.targetEventId),
+        emoji: validateEmoji(input?.emoji)
+      })
   )
   ipcMain.handle(PANTHEON_BUZZ_IPC.removeReaction, async (_event, input: { roomId: string; reactionEventId: string }) =>
     processHandle.request('reactions.remove', {
@@ -230,12 +245,14 @@ export function registerPantheonBuzzIpc(deps?: PantheonBuzzIpcDeps): PantheonBuz
       reactionEventId: validateRoomId(input?.reactionEventId)
     })
   )
-  ipcMain.handle(PANTHEON_BUZZ_IPC.addMember, async (_event, input: { roomId: string; pubkey: string; role?: string }) =>
-    processHandle.request('members.add', {
-      roomId: validateRoomId(input?.roomId),
-      pubkey: validateRoomId(input?.pubkey),
-      role: input?.role
-    })
+  ipcMain.handle(
+    PANTHEON_BUZZ_IPC.addMember,
+    async (_event, input: { roomId: string; pubkey: string; role?: string }) =>
+      processHandle.request('members.add', {
+        roomId: validateRoomId(input?.roomId),
+        pubkey: validateRoomId(input?.pubkey),
+        role: input?.role
+      })
   )
   ipcMain.handle(PANTHEON_BUZZ_IPC.removeMember, async (_event, input: { roomId: string; pubkey: string }) =>
     processHandle.request('members.remove', {
@@ -250,12 +267,18 @@ export function registerPantheonBuzzIpc(deps?: PantheonBuzzIpcDeps): PantheonBuz
   })
   ipcMain.handle(PANTHEON_BUZZ_IPC.stopSubscription, async () => processHandle.request('subscribe.stop', {}))
   ipcMain.handle(PANTHEON_BUZZ_IPC.workspaceManifest, async () => readWorkspaceManifest(deps?.homeDir))
-  ipcMain.handle(PANTHEON_BUZZ_IPC.updateRoomMembership, async (_event, input: {
-    roomId: string
-    kind?: string
-    name?: string
-    memberAgentIds?: string[]
-  }) => updateWorkspaceRoomMembership(deps?.homeDir, input))
+  ipcMain.handle(
+    PANTHEON_BUZZ_IPC.updateRoomMembership,
+    async (
+      _event,
+      input: {
+        roomId: string
+        kind?: string
+        name?: string
+        memberAgentIds?: string[]
+      }
+    ) => updateWorkspaceRoomMembership(deps?.homeDir, input)
+  )
 
   const stopEvents = processHandle.onEvent?.(frame => {
     if (frameContainsPrivateKey(frame)) {

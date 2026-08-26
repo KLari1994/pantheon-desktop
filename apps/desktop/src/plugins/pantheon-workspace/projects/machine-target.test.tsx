@@ -1,12 +1,7 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, expect, test, vi } from 'vitest'
 
-import {
-  MachineTargetBanner,
-  observeMachineRoute,
-  resolveMachineTarget,
-  switchMachineTarget
-} from './machine-target'
+import { MachineTargetBanner, observeMachineRoute, resolveMachineTarget, switchMachineTarget } from './machine-target'
 import type { MachineTarget } from './types'
 
 afterEach(() => cleanup())
@@ -69,15 +64,15 @@ test('a later connection change blocks instead of retargeting', () => {
   expect(
     observeMachineRoute(target, { connectionId: 'homelab', machineId: 'install-aaa', profile: 'daedalus' }).status
   ).toBe('available')
-  expect(observeMachineRoute(target, { connectionId: 'office', machineId: 'install-aaa', profile: 'daedalus' }).status).toBe(
-    'blocked'
-  )
-  expect(observeMachineRoute(target, { connectionId: 'homelab', machineId: 'install-bbb', profile: 'daedalus' }).status).toBe(
-    'blocked'
-  )
-  expect(observeMachineRoute(target, { connectionId: 'homelab', machineId: 'install-aaa', profile: 'other' }).status).toBe(
-    'blocked'
-  )
+  expect(
+    observeMachineRoute(target, { connectionId: 'office', machineId: 'install-aaa', profile: 'daedalus' }).status
+  ).toBe('blocked')
+  expect(
+    observeMachineRoute(target, { connectionId: 'homelab', machineId: 'install-bbb', profile: 'daedalus' }).status
+  ).toBe('blocked')
+  expect(
+    observeMachineRoute(target, { connectionId: 'homelab', machineId: 'install-aaa', profile: 'other' }).status
+  ).toBe('blocked')
 })
 
 test('machine label is textual and not color-only', () => {

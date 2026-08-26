@@ -3,7 +3,9 @@ import { expect, test } from 'vitest'
 import { type HomeSourceEvent, projectHomeItems } from './projections'
 import { HomeStore } from './store'
 
-function source(partial: Partial<HomeSourceEvent> & Pick<HomeSourceEvent, 'type' | 'sourceKind' | 'sourceId'>): HomeSourceEvent {
+function source(
+  partial: Partial<HomeSourceEvent> & Pick<HomeSourceEvent, 'type' | 'sourceKind' | 'sourceId'>
+): HomeSourceEvent {
   return {
     agent: 'Daedalus',
     context: 'ops',

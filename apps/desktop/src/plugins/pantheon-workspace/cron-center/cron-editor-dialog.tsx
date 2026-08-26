@@ -1,7 +1,13 @@
 import { useState } from 'react'
 
 import { cronCenterEnglish, type CronCenterText } from './i18n'
-import { type CronCenterJobUpdates, type CronCenterPersistedJob, cronEditorUpdates, jobIsScriptOnly, validateCronEditor } from './types'
+import {
+  type CronCenterJobUpdates,
+  type CronCenterPersistedJob,
+  cronEditorUpdates,
+  jobIsScriptOnly,
+  validateCronEditor
+} from './types'
 
 export function CronEditorDialog({
   job,
@@ -22,7 +28,11 @@ export function CronEditorDialog({
   const [error, setError] = useState<string | null>(null)
 
   return (
-    <div aria-modal="true" className="fixed inset-0 z-20 flex items-center justify-center bg-black/30 p-4" role="dialog">
+    <div
+      aria-modal="true"
+      className="fixed inset-0 z-20 flex items-center justify-center bg-black/30 p-4"
+      role="dialog"
+    >
       <form
         className="w-full max-w-lg rounded-md border border-(--ui-stroke-tertiary) bg-(--ui-bg) p-4"
         onSubmit={event => {
@@ -50,15 +60,27 @@ export function CronEditorDialog({
         <h2 className="text-sm font-medium">{text.edit}</h2>
         <label className="mt-3 block text-xs">
           {text.name}
-          <input className="mt-1 w-full border px-2 py-1" onChange={event => setName(event.target.value)} value={name} />
+          <input
+            className="mt-1 w-full border px-2 py-1"
+            onChange={event => setName(event.target.value)}
+            value={name}
+          />
         </label>
         <label className="mt-3 block text-xs">
           {text.schedule}
-          <input className="mt-1 w-full border px-2 py-1" onChange={event => setSchedule(event.target.value)} value={schedule} />
+          <input
+            className="mt-1 w-full border px-2 py-1"
+            onChange={event => setSchedule(event.target.value)}
+            value={schedule}
+          />
         </label>
         <label className="mt-3 block text-xs">
           {text.delivery}
-          <input className="mt-1 w-full border px-2 py-1" onChange={event => setDeliver(event.target.value)} value={deliver} />
+          <input
+            className="mt-1 w-full border px-2 py-1"
+            onChange={event => setDeliver(event.target.value)}
+            value={deliver}
+          />
         </label>
         {scriptOnly ? (
           <p className="mt-3 text-xs text-(--ui-text-secondary)">
@@ -68,7 +90,11 @@ export function CronEditorDialog({
         ) : (
           <label className="mt-3 block text-xs">
             {text.prompt}
-            <textarea className="mt-1 w-full border px-2 py-1" onChange={event => setPrompt(event.target.value)} value={prompt} />
+            <textarea
+              className="mt-1 w-full border px-2 py-1"
+              onChange={event => setPrompt(event.target.value)}
+              value={prompt}
+            />
           </label>
         )}
         {error ? <p className="mt-2 text-xs text-destructive">{error}</p> : null}

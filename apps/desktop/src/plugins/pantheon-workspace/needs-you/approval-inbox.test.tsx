@@ -2,7 +2,12 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, expect, test, vi } from 'vitest'
 
 import { ApprovalInbox } from './approval-inbox'
-import { type ApprovalOwnerRoute, type ApprovalSource, projectApproval, sharedApprovalInFlight } from './approval-projections'
+import {
+  type ApprovalOwnerRoute,
+  type ApprovalSource,
+  projectApproval,
+  sharedApprovalInFlight
+} from './approval-projections'
 import { NeedsYouList } from './needs-you-list'
 
 afterEach(() => cleanup())
@@ -78,14 +83,7 @@ test('mute clicks pass stable bot and room ids, not display labels', () => {
     roomId: 'room-ops'
   })
 
-  render(
-    <NeedsYouList
-      cards={[card]}
-      onMute={onMute}
-      onNavigate={() => undefined}
-      onRespond={() => undefined}
-    />
-  )
+  render(<NeedsYouList cards={[card]} onMute={onMute} onNavigate={() => undefined} onRespond={() => undefined} />)
   fireEvent.click(screen.getByRole('button', { name: 'Mute notifications from Daedalus' }))
   fireEvent.click(screen.getByRole('button', { name: 'Mute notifications from session sess-1' }))
   expect(onMute).toHaveBeenCalledWith({ kind: 'bot', id: 'bot-daedalus' })
@@ -95,9 +93,10 @@ test('mute clicks pass stable bot and room ids, not display labels', () => {
 test('separate inboxes share one in-flight map so double-submit is rejected', async () => {
   sharedApprovalInFlight.clear()
 
-  const hold = () => new Promise(resolve => {
-    setTimeout(resolve, 20)
-  })
+  const hold = () =>
+    new Promise(resolve => {
+      setTimeout(resolve, 20)
+    })
 
   const firstInbox = new ApprovalInbox({
     requestOwned: async () => hold(),
@@ -124,7 +123,9 @@ test('separate inboxes share one in-flight map so double-submit is rejected', as
   const second = await secondInbox.respond(card, 'deny')
   expect(second.ok).toBe(false)
 
-  if (second.ok === false) {expect(second.reason).toBe('in-flight')}
+  if (second.ok === false) {
+    expect(second.reason).toBe('in-flight')
+  }
   await first
   sharedApprovalInFlight.clear()
 })

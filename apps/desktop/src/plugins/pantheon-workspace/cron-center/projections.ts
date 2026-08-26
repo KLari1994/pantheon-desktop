@@ -36,14 +36,18 @@ export function jobKey(owner: Pick<CronCenterOwner, 'connectionId' | 'profile'>,
 }
 
 function parseInstant(value: unknown): number | null {
-  if (typeof value !== 'string' || !value.trim()) {return null}
+  if (typeof value !== 'string' || !value.trim()) {
+    return null
+  }
   const parsed = Date.parse(value)
 
   return Number.isFinite(parsed) ? parsed : null
 }
 
 function hasText(value: unknown): boolean {
-  if (typeof value === 'string') {return value.trim().length > 0}
+  if (typeof value === 'string') {
+    return value.trim().length > 0
+  }
 
   if (value && typeof value === 'object' && 'detail' in value) {
     return asText((value as { detail?: unknown }).detail).length > 0
@@ -112,7 +116,9 @@ export function projectJobHealth(job: CronCenterPersistedJob): CronCenterHealth 
 export function projectCurrentExecution(job: CronCenterPersistedJob): CronCenterCurrentExecution {
   const executionStatus = asText(job.latest_execution?.status).toLowerCase()
 
-  if (executionStatus === 'running' || executionStatus === 'claimed') {return executionStatus}
+  if (executionStatus === 'running' || executionStatus === 'claimed') {
+    return executionStatus
+  }
 
   return null
 }
@@ -137,7 +143,11 @@ export function projectCronRow(
     provider,
     model,
     reasoning,
-    agentLabel: scriptOnly ? labels.noAgent : model || provider || reasoning ? [provider, model, reasoning].filter(Boolean).join(' / ') : labels.defaultAgent,
+    agentLabel: scriptOnly
+      ? labels.noAgent
+      : model || provider || reasoning
+        ? [provider, model, reasoning].filter(Boolean).join(' / ')
+        : labels.defaultAgent,
     nextRun: asText(job.next_run_at) || null,
     lastRun: asText(job.last_run_at) || null,
     result,

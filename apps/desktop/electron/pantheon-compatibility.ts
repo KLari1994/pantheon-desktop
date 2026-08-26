@@ -85,6 +85,7 @@ function readPantheonIdentity(
     path.join(updateRoot, 'apps', 'desktop', 'package.json'),
     path.join(updateRoot, 'package.json')
   ]
+
   let version: string | null = null
 
   for (const candidate of packageCandidates) {
@@ -93,6 +94,7 @@ function readPantheonIdentity(
 
     if (next) {
       version = next
+
       break
     }
   }
@@ -110,6 +112,7 @@ function readPantheonIdentity(
 
     if (next) {
       commit = next
+
       break
     }
   }
@@ -164,13 +167,17 @@ function inspectBuzzBridge(
 ): PantheonCompatibilityReceipt['buzzBridge'] {
   const root = resourcesPath || process.cwd()
   const binaryPath = resolveBuzzBridgeBinary(root)
-  const present = Boolean(readText(fsImpl, binaryPath) !== null || (() => {
-    try {
-      return fsImpl.statSync(binaryPath).isFile()
-    } catch {
-      return false
-    }
-  })())
+
+  const present = Boolean(
+    readText(fsImpl, binaryPath) !== null ||
+    (() => {
+      try {
+        return fsImpl.statSync(binaryPath).isFile()
+      } catch {
+        return false
+      }
+    })()
+  )
 
   if (!present) {
     return { present: false, pinnedVersion: null, sha256: null, integrity: 'missing' }
@@ -209,11 +216,12 @@ function inspectBuzzBridge(
 export function evaluateCompatibility(receipt: PantheonCompatibilityReceipt): { ok: boolean; reasons: string[] } {
   const reasons = [...receipt.reasons]
 
-  if (receipt.buzzBridge.present && (receipt.buzzBridge.integrity === 'mismatch' || receipt.buzzBridge.integrity === 'unpinned')) {
+  if (
+    receipt.buzzBridge.present &&
+    (receipt.buzzBridge.integrity === 'mismatch' || receipt.buzzBridge.integrity === 'unpinned')
+  ) {
     reasons.push(
-      receipt.buzzBridge.integrity === 'mismatch'
-        ? 'buzz-bridge-integrity-mismatch'
-        : 'buzz-bridge-unpinned'
+      receipt.buzzBridge.integrity === 'mismatch' ? 'buzz-bridge-integrity-mismatch' : 'buzz-bridge-unpinned'
     )
 
     return { ok: false, reasons: [...new Set(reasons)] }
@@ -239,6 +247,7 @@ export function buildCompatibilityReceipt(deps: CompatibilityDeps): PantheonComp
   }
 
   const host = deps.platform?.() ?? { platform: os.platform(), release: os.release() }
+
   const draft: PantheonCompatibilityReceipt = {
     schemaVersion: 1,
     createdAt,
@@ -251,6 +260,7 @@ export function buildCompatibilityReceipt(deps: CompatibilityDeps): PantheonComp
     result: 'compatible',
     reasons
   }
+
   const evaluation = evaluateCompatibility(draft)
 
   return {

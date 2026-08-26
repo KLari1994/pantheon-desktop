@@ -27,24 +27,23 @@ afterEach(() => {
 })
 
 async function flushHomeSources(): Promise<void> {
-  for (let i = 0; i < 20; i += 1) {await Promise.resolve()}
+  for (let i = 0; i < 20; i += 1) {
+    await Promise.resolve()
+  }
 }
 
 test('startSubscription is called with listed room ids', async () => {
   const startSubscription = vi.fn(async () => ({ started: true }))
   const subscribe = vi.fn(() => () => undefined)
 
-  const unsub = subscribeAuthoritativeHomeSources(
-    () => undefined,
-    {
-      buzz: {
-        subscribe,
-        startSubscription,
-        listRooms: async () => ({ rooms: [{ id: 'room-ops', name: 'Ops', members: [] }] }),
-        status: async () => ({ state: 'open', pubkey: 'pk-me' })
-      }
+  const unsub = subscribeAuthoritativeHomeSources(() => undefined, {
+    buzz: {
+      subscribe,
+      startSubscription,
+      listRooms: async () => ({ rooms: [{ id: 'room-ops', name: 'Ops', members: [] }] }),
+      status: async () => ({ state: 'open', pubkey: 'pk-me' })
     }
-  )
+  })
 
   await Promise.resolve()
   await Promise.resolve()

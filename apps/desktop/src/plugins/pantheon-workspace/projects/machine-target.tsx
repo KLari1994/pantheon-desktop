@@ -30,7 +30,11 @@ export function observeMachineRoute(
   target: MachineTarget,
   current: { connectionId?: string; machineId?: string; profile?: string }
 ): MachineAvailability {
-  if (current.connectionId !== target.connectionId || current.profile !== target.profile || current.machineId !== target.machineId) {
+  if (
+    current.connectionId !== target.connectionId ||
+    current.profile !== target.profile ||
+    current.machineId !== target.machineId
+  ) {
     return { status: 'blocked', reason: 'route-changed', target }
   }
 
@@ -58,12 +62,20 @@ export function MachineTargetBanner({ resolved }: { resolved: MachineAvailabilit
   const availability = resolved.status === 'available' ? 'available' : 'blocked'
 
   return (
-    <div aria-label="Machine target" className="flex flex-wrap items-center gap-2 text-sm" data-status={resolved.status}>
+    <div
+      aria-label="Machine target"
+      className="flex flex-wrap items-center gap-2 text-sm"
+      data-status={resolved.status}
+    >
       <span>{target?.label || 'Unknown machine'}</span>
       <span>connection {target?.connectionId || 'missing'}</span>
       <span>machine {target?.machineId || 'unverified'}</span>
       <span>profile {target?.profile || 'missing'}</span>
-      <span>{availability === 'available' ? 'available' : `blocked (${resolved.status === 'blocked' ? resolved.reason : 'unavailable'})`}</span>
+      <span>
+        {availability === 'available'
+          ? 'available'
+          : `blocked (${resolved.status === 'blocked' ? resolved.reason : 'unavailable'})`}
+      </span>
     </div>
   )
 }

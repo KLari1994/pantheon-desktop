@@ -1,6 +1,12 @@
 import type { BuzzMessage, BuzzReaction, BuzzRoom } from '@hermes/plugin-sdk'
 
-import { type OutgoingState, type RoomKind, type RoomMessage, ROOMS_READ_WATERMARKS_KEY, type RoomSummary } from './types'
+import {
+  type OutgoingState,
+  type RoomKind,
+  type RoomMessage,
+  ROOMS_READ_WATERMARKS_KEY,
+  type RoomSummary
+} from './types'
 
 function atom<T>(initial: T) {
   let value = initial
@@ -11,7 +17,9 @@ function atom<T>(initial: T) {
     set: (next: T) => {
       value = next
 
-      for (const listener of listeners) {listener(next)}
+      for (const listener of listeners) {
+        listener(next)
+      }
     },
     listen: (listener: (next: T) => void) => {
       listeners.add(listener)
@@ -36,7 +44,9 @@ export interface RoomLiveEvent {
 
 function eventTags(event: RoomLiveEvent, key: string): string[] {
   return (event.tags || []).flatMap(tag => {
-    if (!Array.isArray(tag) || tag[0] !== key) {return []}
+    if (!Array.isArray(tag) || tag[0] !== key) {
+      return []
+    }
 
     return typeof tag[1] === 'string' ? [tag[1]] : []
   })
@@ -86,7 +96,10 @@ export class RoomsStore {
     const pending = current.messages.filter(message => message.outgoing === 'pending')
     const byId = new Map<string, RoomMessage>()
 
-    for (const message of [...current.messages.filter(row => row.outgoing !== 'pending'), ...messages.map(toRoomMessage)]) {
+    for (const message of [
+      ...current.messages.filter(row => row.outgoing !== 'pending'),
+      ...messages.map(toRoomMessage)
+    ]) {
       byId.set(message.id, message)
     }
 
@@ -145,7 +158,14 @@ export class RoomsStore {
   }
 
   ingestEvent(roomId: string, event: RoomLiveEvent): 'refresh-room' | void {
-    if (!event.id && event.kind !== 5 && event.kind !== 9000 && event.kind !== 9001 && event.kind !== 39000 && event.kind !== 39002) {
+    if (
+      !event.id &&
+      event.kind !== 5 &&
+      event.kind !== 9000 &&
+      event.kind !== 9001 &&
+      event.kind !== 39000 &&
+      event.kind !== 39002
+    ) {
       return
     }
 
@@ -153,7 +173,9 @@ export class RoomsStore {
     const window = this.$windows.get()[roomId] || { messages: [], reactions: [] }
 
     if (kind === 7) {
-      if (!event.id || window.reactions.some(reaction => reaction.id === event.id)) {return}
+      if (!event.id || window.reactions.some(reaction => reaction.id === event.id)) {
+        return
+      }
       this.$windows.set({
         ...this.$windows.get(),
         [roomId]: {
@@ -176,7 +198,9 @@ export class RoomsStore {
     if (kind === 5) {
       const deleted = new Set(eventTags(event, 'e'))
 
-      if (deleted.size === 0) {return}
+      if (deleted.size === 0) {
+        return
+      }
       this.$windows.set({
         ...this.$windows.get(),
         [roomId]: {
@@ -192,7 +216,9 @@ export class RoomsStore {
       return 'refresh-room'
     }
 
-    if (!event.id || window.messages.some(message => message.id === event.id)) {return}
+    if (!event.id || window.messages.some(message => message.id === event.id)) {
+      return
+    }
     this.$windows.set({
       ...this.$windows.get(),
       [roomId]: {
@@ -230,9 +256,7 @@ export class RoomsStore {
     for (const [roomId, window] of Object.entries(windows)) {
       next[roomId] = {
         ...window,
-        messages: window.messages.map(message =>
-          message.outgoing === 'pending' ? message : message
-        )
+        messages: window.messages.map(message => (message.outgoing === 'pending' ? message : message))
       }
     }
 
@@ -264,7 +288,9 @@ export class RoomsStore {
   }
 
   private isUnread(roomId: string, createdAt?: number): boolean {
-    if (!createdAt) {return false}
+    if (!createdAt) {
+      return false
+    }
     const marks = this.readWatermarks()
 
     return createdAt > (marks[roomId] || 0)
@@ -286,36 +312,47 @@ export class RoomsStore {
   }
 
   private deriveNeedsYou(message?: RoomMessage): boolean {
-    if (!message || !this.owner) {return false}
+    if (!message || !this.owner) {
+      return false
+    }
     const haystack = message.content.toLowerCase()
     const mentions = message.mentions || []
 
     return Boolean(
       (this.owner.pubkey && mentions.some(mention => mention.toLowerCase() === this.owner?.pubkey?.toLowerCase())) ||
-        (this.owner.name && haystack.includes(`@${this.owner.name.toLowerCase()}`)) ||
-        (this.owner.pubkey && haystack.includes(this.owner.pubkey.toLowerCase()))
+      (this.owner.name && haystack.includes(`@${this.owner.name.toLowerCase()}`)) ||
+      (this.owner.pubkey && haystack.includes(this.owner.pubkey.toLowerCase()))
     )
   }
 }
 
 function eventAttachments(event: RoomLiveEvent): RoomMessage['attachments'] {
   const attachments = (event.tags || []).flatMap(tag => {
-    if (!Array.isArray(tag) || tag[0] !== 'imeta') {return []}
+    if (!Array.isArray(tag) || tag[0] !== 'imeta') {
+      return []
+    }
     let url: string | undefined
     let mimeType = 'application/octet-stream'
     let name: string | undefined
     let sizeBytes: number | undefined
 
     for (const part of tag.slice(1)) {
-      if (typeof part !== 'string') {continue}
+      if (typeof part !== 'string') {
+        continue
+      }
 
-      if (part.startsWith('url ')) {url = part.slice(4)}
-      else if (part.startsWith('m ')) {mimeType = part.slice(2)}
-      else if (part.startsWith('alt ')) {name = part.slice(4)}
-      else if (part.startsWith('size ')) {
+      if (part.startsWith('url ')) {
+        url = part.slice(4)
+      } else if (part.startsWith('m ')) {
+        mimeType = part.slice(2)
+      } else if (part.startsWith('alt ')) {
+        name = part.slice(4)
+      } else if (part.startsWith('size ')) {
         const parsed = Number(part.slice(5))
 
-        if (Number.isFinite(parsed)) {sizeBytes = parsed}
+        if (Number.isFinite(parsed)) {
+          sizeBytes = parsed
+        }
       }
     }
 

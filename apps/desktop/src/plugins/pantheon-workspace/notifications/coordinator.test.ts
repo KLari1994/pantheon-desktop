@@ -25,12 +25,14 @@ test('historical hydration establishes a baseline and emits nothing', () => {
 
 test('duplicate event ids notify once', () => {
   const toast = vi.fn()
+
   const coordinator = new NotificationCoordinator({
     toast,
     native: vi.fn(),
     navigate: vi.fn(),
     focused: () => true
   })
+
   coordinator.hydrate([])
   coordinator.ingest(event({ type: 'approval', id: 'dup-1' }))
   coordinator.ingest(event({ type: 'approval', id: 'dup-1' }))
@@ -39,12 +41,14 @@ test('duplicate event ids notify once', () => {
 
 test('action-worthy terminal events flush immediately and healthy events stay quiet', () => {
   const toast = vi.fn()
+
   const coordinator = new NotificationCoordinator({
     toast,
     native: vi.fn(),
     navigate: vi.fn(),
     focused: () => true
   })
+
   coordinator.hydrate([])
   coordinator.ingest(event({ type: 'approval', id: 'now-1' }))
   coordinator.ingest(event({ type: 'successful-cron', id: 'quiet-1' }))
@@ -55,12 +59,14 @@ test('action-worthy terminal events flush immediately and healthy events stay qu
 test('foreground uses toast door and background uses native door', () => {
   const toast = vi.fn()
   const native = vi.fn()
+
   const coordinator = new NotificationCoordinator({
     toast,
     native,
     navigate: vi.fn(),
     focused: () => true
   })
+
   coordinator.hydrate([])
   coordinator.ingest(event({ type: 'direct-mention', id: 'fg-1' }))
   expect(toast).toHaveBeenCalledTimes(1)
@@ -73,6 +79,7 @@ test('foreground uses toast door and background uses native door', () => {
 test('activation navigates only after the user clicks', () => {
   const navigate = vi.fn()
   let activate: (() => void) | undefined
+
   const coordinator = new NotificationCoordinator({
     toast: input => {
       activate = input.onActivate
@@ -83,6 +90,7 @@ test('activation navigates only after the user clicks', () => {
     navigate,
     focused: () => true
   })
+
   coordinator.hydrate([])
   coordinator.ingest(event({ type: 'approval', id: 'click-1', target: { kind: 'session', href: '/sess-9' } }))
   expect(navigate).not.toHaveBeenCalled()
@@ -92,6 +100,7 @@ test('activation navigates only after the user clicks', () => {
 
 test('teardown removes subscriptions and handlers', () => {
   const unsubscribe = vi.fn()
+
   const coordinator = new NotificationCoordinator({
     toast: vi.fn(),
     native: vi.fn(),
@@ -99,6 +108,7 @@ test('teardown removes subscriptions and handlers', () => {
     focused: () => true,
     subscribe: () => unsubscribe
   })
+
   coordinator.start()
   coordinator.dispose()
   expect(unsubscribe).toHaveBeenCalledTimes(1)
@@ -107,6 +117,7 @@ test('teardown removes subscriptions and handlers', () => {
 test('live mute getter is read at ingest time', () => {
   const toast = vi.fn()
   let mutedBots: string[] = []
+
   const coordinator = new NotificationCoordinator({
     toast,
     native: vi.fn(),
@@ -114,6 +125,7 @@ test('live mute getter is read at ingest time', () => {
     focused: () => true,
     mutes: () => ({ mutedBots, mutedRooms: [] })
   })
+
   coordinator.hydrate([])
   coordinator.ingest(event({ type: 'approval', id: 'mute-1', botId: 'bot-daedalus' }))
   expect(toast).toHaveBeenCalledTimes(1)
@@ -124,6 +136,7 @@ test('live mute getter is read at ingest time', () => {
 
 test('notification failures do not block projection refresh or retry-loop', () => {
   const refresh = vi.fn()
+
   const coordinator = new NotificationCoordinator({
     toast: () => {
       throw new Error('toast failed')
@@ -133,6 +146,7 @@ test('notification failures do not block projection refresh or retry-loop', () =
     focused: () => true,
     onRefresh: refresh
   })
+
   coordinator.hydrate([])
   expect(() => coordinator.ingest(event({ type: 'approval', id: 'boom-1' }))).not.toThrow()
   expect(refresh).toHaveBeenCalledTimes(1)

@@ -33,11 +33,7 @@ function isExplicitLocalTarget(target?: DesktopGitTarget): boolean {
   return connectionId === '' || connectionId === 'local'
 }
 
-function desktopApi<T>(
-  path: string,
-  body?: Record<string, unknown>,
-  target?: DesktopGitTarget
-): Promise<T> {
+function desktopApi<T>(path: string, body?: Record<string, unknown>, target?: DesktopGitTarget): Promise<T> {
   const desktop = window.hermesDesktop
 
   if (!desktop) {

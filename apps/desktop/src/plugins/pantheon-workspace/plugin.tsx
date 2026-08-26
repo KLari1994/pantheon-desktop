@@ -35,7 +35,13 @@ import {
   subscribeAuthoritativeHomeSources,
   toNotificationEvent
 } from './home-sources'
-import { botIdFromMembershipSearch, cronCenterJobKeyFromSearch, openHomeTarget, pickRoomId, registeredHref } from './home/navigation'
+import {
+  botIdFromMembershipSearch,
+  cronCenterJobKeyFromSearch,
+  openHomeTarget,
+  pickRoomId,
+  registeredHref
+} from './home/navigation'
 import { HomeStore } from './home/store'
 import { applyRoomMembership } from './manifest/store'
 import { AgentEditorCapabilities } from './memory/capability-embed'
@@ -93,7 +99,9 @@ function RoomsPage({ embedded, roomId }: { embedded?: boolean; roomId?: string }
         const page = await client.listRooms()
         const nextManifest = await client.getWorkspaceManifest().catch(() => ({ version: 1, rooms: [] }))
 
-        if (cancelled) {return}
+        if (cancelled) {
+          return
+        }
         store.mergeRooms(page.rooms)
         setStatus(nextStatus)
         setManifest(nextManifest)
@@ -119,17 +127,21 @@ function RoomsPage({ embedded, roomId }: { embedded?: boolean; roomId?: string }
           }
         })
 
-        const targetId = roomId || pickRoomId(
-          page.rooms.map(room => room.id),
-          search
-        )
+        const targetId =
+          roomId ||
+          pickRoomId(
+            page.rooms.map(room => room.id),
+            search
+          )
 
         if (targetId) {
           await selectRoom(store, targetId, setSelected)
           await client.startSubscription({ roomIds: page.rooms.map(room => room.id) })
         }
       } catch (err) {
-        if (!cancelled) {setError(err instanceof Error ? err.message : String(err))}
+        if (!cancelled) {
+          setError(err instanceof Error ? err.message : String(err))
+        }
       }
     }
 
@@ -142,7 +154,9 @@ function RoomsPage({ embedded, roomId }: { embedded?: boolean; roomId?: string }
   }, [roomId, search, store])
 
   useEffect(() => {
-    if (!selected) {return}
+    if (!selected) {
+      return
+    }
     let cancelled = false
     const agents = (manifest.agents || []) as Array<WorkspaceAgent & { pubkey?: string }>
     const owner = host.state.focusedSessionOwner.get()
@@ -183,10 +197,14 @@ function RoomsPage({ embedded, roomId }: { embedded?: boolean; roomId?: string }
       })
     )
       .then(groups => {
-        if (!cancelled) {setDiagnostics(groups.flat())}
+        if (!cancelled) {
+          setDiagnostics(groups.flat())
+        }
       })
       .catch(() => {
-        if (!cancelled) {setDiagnostics([])}
+        if (!cancelled) {
+          setDiagnostics([])
+        }
       })
 
     return () => {
@@ -194,9 +212,13 @@ function RoomsPage({ embedded, roomId }: { embedded?: boolean; roomId?: string }
     }
   }, [selected, status.compatibilityCommit, windows, manifest])
 
-  if (error) {return <div className="p-4 text-sm text-(--ui-text-secondary)">{error}</div>}
+  if (error) {
+    return <div className="p-4 text-sm text-(--ui-text-secondary)">{error}</div>
+  }
 
-  if (!selected) {return <div className="p-4 text-sm text-(--ui-text-secondary)">Loading rooms…</div>}
+  if (!selected) {
+    return <div className="p-4 text-sm text-(--ui-text-secondary)">Loading rooms…</div>
+  }
 
   const window = windows[selected.id]
   const failed = window?.messages.find(message => message.outgoing === 'failed') || null
@@ -204,15 +226,15 @@ function RoomsPage({ embedded, roomId }: { embedded?: boolean; roomId?: string }
   return (
     <div className="flex h-full min-h-0">
       {embedded ? null : (
-      <aside className="w-72 border-r border-(--ui-stroke-tertiary)">
-        <RoomList
-          onSelect={id => {
-            void selectRoom(store, id, setSelected)
-          }}
-          rooms={rooms}
-          selectedId={selected.id}
-        />
-      </aside>
+        <aside className="w-72 border-r border-(--ui-stroke-tertiary)">
+          <RoomList
+            onSelect={id => {
+              void selectRoom(store, id, setSelected)
+            }}
+            rooms={rooms}
+            selectedId={selected.id}
+          />
+        </aside>
       )}
       <RoomWorkspace
         diagnostics={diagnostics}
@@ -220,7 +242,9 @@ function RoomsPage({ embedded, roomId }: { embedded?: boolean; roomId?: string }
         hasCredential={status.hasCredential === true}
         messages={window?.messages || []}
         onInvite={pubkey => {
-          if (!pubkey) {return}
+          if (!pubkey) {
+            return
+          }
           void desktopBuzzClient().inviteMember({ roomId: selected.id, pubkey })
         }}
         onKick={pubkey => {
@@ -230,13 +254,17 @@ function RoomsPage({ embedded, roomId }: { embedded?: boolean; roomId?: string }
           void desktopBuzzClient().addReaction({ roomId: selected.id, targetEventId, emoji })
         }}
         onRemove={() => {
-          if (failed?.nonce) {store.removeOptimistic(failed.nonce)}
+          if (failed?.nonce) {
+            store.removeOptimistic(failed.nonce)
+          }
         }}
         onRemoveReaction={reactionEventId => {
           void desktopBuzzClient().removeReaction({ roomId: selected.id, reactionEventId })
         }}
         onRetry={() => {
-          if (!failed?.nonce || !failed.content) {return}
+          if (!failed?.nonce || !failed.content) {
+            return
+          }
           const nonce = failed.nonce
           void desktopBuzzClient()
             .sendMessage({
@@ -286,11 +314,7 @@ function RoomsPage({ embedded, roomId }: { embedded?: boolean; roomId?: string }
   )
 }
 
-async function selectRoom(
-  store: RoomsStore,
-  roomId: string,
-  setSelected: (room: BuzzRoom) => void
-): Promise<void> {
+async function selectRoom(store: RoomsStore, roomId: string, setSelected: (room: BuzzRoom) => void): Promise<void> {
   const client = desktopBuzzClient()
   const detail = await client.getRoom({ roomId })
   const window = await client.getMessages({ roomId, limit: 50 })
@@ -335,7 +359,9 @@ export function AgentEditorRoomsMount({
         const nextManifest = await client.getWorkspaceManifest()
         const page = await client.listRooms()
 
-        if (cancelled) {return}
+        if (cancelled) {
+          return
+        }
         setManifest(nextManifest)
         setLiveRooms(page.rooms)
       } catch {
@@ -349,14 +375,20 @@ export function AgentEditorRoomsMount({
   }, [])
 
   const selected = {
-    connectionId: connectionId || bot?.route?.connectionId || bot?.connectionId || host.state.connectionId.get() || undefined,
+    connectionId:
+      connectionId || bot?.route?.connectionId || bot?.connectionId || host.state.connectionId.get() || undefined,
     profile: profile || bot?.route?.profile || bot?.name || requestedBot || undefined
   }
 
-  const agentRecord = selectMembershipAgent((manifest.agents || []) as Array<WorkspaceAgent & { pubkey?: string }>, selected)
+  const agentRecord = selectMembershipAgent(
+    (manifest.agents || []) as Array<WorkspaceAgent & { pubkey?: string }>,
+    selected
+  )
 
   if (!agentRecord) {
-    return <div className="p-4 text-sm text-(--ui-text-secondary)">Select a bot in the Agent Editor to manage rooms</div>
+    return (
+      <div className="p-4 text-sm text-(--ui-text-secondary)">Select a bot in the Agent Editor to manage rooms</div>
+    )
   }
 
   const pubkey = resolveAgentPubkey(agentRecord, liveRooms)
@@ -424,7 +456,9 @@ function currentMuteScope() {
 }
 
 function refreshMuteScope() {
-  if (!muteStorage) {return}
+  if (!muteStorage) {
+    return
+  }
   muteState = mutesForCurrentScope(muteStorage, currentMuteScope(), muteState)
 }
 
@@ -454,7 +488,9 @@ function CronCenterRoute() {
         : () => undefined
 
     const tick = window.setInterval(() => {
-      if (typeof document !== 'undefined' && document.visibilityState === 'hidden') {return}
+      if (typeof document !== 'undefined' && document.visibilityState === 'hidden') {
+        return
+      }
       void store.refreshAll()
     }, 60_000)
 
@@ -495,7 +531,9 @@ function HomeRoute() {
         cards,
         errors,
         onMute: target => {
-          if (!muteStorage) {return}
+          if (!muteStorage) {
+            return
+          }
           refreshMuteScope()
           muteState = muteScope(muteStorage, currentMuteScope(), target)
         },
@@ -530,7 +568,11 @@ function bindHomeNotifications(ctx: PluginContext) {
       })
     },
     native: input => {
-      ctx.os.notify({ title: input.title || 'Pantheon', body: input.message || input.title || 'Needs you', onActivate: input.onActivate })
+      ctx.os.notify({
+        title: input.title || 'Pantheon',
+        body: input.message || input.title || 'Needs you',
+        onActivate: input.onActivate
+      })
     },
     navigate: href => navigateHome(href),
     focused: () => typeof document !== 'undefined' && document.hasFocus(),
@@ -690,10 +732,20 @@ const plugin: HermesPlugin = {
     ctx.onDispose(() => {
       disposeNotifications()
       delete (globalThis as { __PantheonAgentRooms?: typeof AgentEditorRoomsMount }).__PantheonAgentRooms
-      delete (globalThis as { __PantheonAgentCapabilities?: typeof AgentEditorCapabilities }).__PantheonAgentCapabilities
+      delete (globalThis as { __PantheonAgentCapabilities?: typeof AgentEditorCapabilities })
+        .__PantheonAgentCapabilities
       const path = window.location.pathname
 
-      if (typeof host.navigate === 'function' && (path.startsWith('/rooms') || path === '/home' || path.startsWith('/cron-center') || path.startsWith('/projects') || path.startsWith('/search') || path.startsWith('/memory') || path.startsWith('/grok'))) {
+      if (
+        typeof host.navigate === 'function' &&
+        (path.startsWith('/rooms') ||
+          path === '/home' ||
+          path.startsWith('/cron-center') ||
+          path.startsWith('/projects') ||
+          path.startsWith('/search') ||
+          path.startsWith('/memory') ||
+          path.startsWith('/grok'))
+      ) {
         host.navigate('/')
       }
     })

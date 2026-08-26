@@ -18,19 +18,21 @@ const SILENT_TYPES = new Set<HomeEventType>([
   'tool-call'
 ])
 
-const SECTION_FOR: Record<Exclude<HomeEventType, 'ordinary-message' | 'routine-background-completion' | 'successful-cron' | 'tool-call'>, HomeSection> =
-  {
-    approval: 'Needs You',
-    'direct-mention': 'Needs You',
-    'explicit-needs-you': 'Needs You',
-    running: 'Working',
-    stalled: 'Stalled/Failed',
-    'exhausted-retry': 'Stalled/Failed',
-    failed: 'Stalled/Failed',
-    'long-running-completion': 'Today',
-    'merge-decision': 'Today',
-    'review-decision': 'Today'
-  }
+const SECTION_FOR: Record<
+  Exclude<HomeEventType, 'ordinary-message' | 'routine-background-completion' | 'successful-cron' | 'tool-call'>,
+  HomeSection
+> = {
+  approval: 'Needs You',
+  'direct-mention': 'Needs You',
+  'explicit-needs-you': 'Needs You',
+  running: 'Working',
+  stalled: 'Stalled/Failed',
+  'exhausted-retry': 'Stalled/Failed',
+  failed: 'Stalled/Failed',
+  'long-running-completion': 'Today',
+  'merge-decision': 'Today',
+  'review-decision': 'Today'
+}
 
 const DEFAULT_STATUS: Record<string, string> = {
   approval: 'needs-input',
@@ -99,7 +101,9 @@ function statusLabel(status: string): string {
 }
 
 function toItem(event: HomeSourceEvent): HomeItem | null {
-  if (SILENT_TYPES.has(event.type)) {return null}
+  if (SILENT_TYPES.has(event.type)) {
+    return null
+  }
   const kind = event.type as HomeItem['kind']
   const status = event.status || DEFAULT_STATUS[event.type] || event.type
 
@@ -127,9 +131,13 @@ export function projectHomeItems(events: readonly HomeSourceEvent[]): HomeItem[]
   for (const event of events) {
     const item = toItem(event)
 
-    if (!item) {continue}
+    if (!item) {
+      continue
+    }
 
-    if (!byId.has(item.id)) {byId.set(item.id, item)}
+    if (!byId.has(item.id)) {
+      byId.set(item.id, item)
+    }
   }
 
   const sectionRank = new Map(HOME_SECTIONS.map((section, index) => [section, index]))
@@ -137,7 +145,9 @@ export function projectHomeItems(events: readonly HomeSourceEvent[]): HomeItem[]
   return [...byId.values()].sort((a, b) => {
     const sectionDelta = (sectionRank.get(a.section) ?? 99) - (sectionRank.get(b.section) ?? 99)
 
-    if (sectionDelta !== 0) {return sectionDelta}
+    if (sectionDelta !== 0) {
+      return sectionDelta
+    }
 
     return a.timestamp - b.timestamp
   })

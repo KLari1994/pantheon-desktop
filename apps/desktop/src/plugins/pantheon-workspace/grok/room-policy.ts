@@ -22,10 +22,7 @@ export function canSend(membership: GrokRoomMembership): boolean {
   return membership.invited && !membership.removed
 }
 
-export function canReceive(
-  membership: GrokRoomMembership,
-  event: { roomId?: string }
-): boolean {
+export function canReceive(membership: GrokRoomMembership, event: { roomId?: string }): boolean {
   if (!membership.invited || membership.removed) {
     return false
   }

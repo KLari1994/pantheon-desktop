@@ -484,11 +484,7 @@ declare global {
       status: () => Promise<BuzzStatus>
       listRooms: (input?: { cursor?: string }) => Promise<BuzzRoomPage>
       getRoom: (input: { roomId: string }) => Promise<BuzzRoom>
-      getMessages: (input: {
-        roomId: string
-        before?: string
-        limit: number
-      }) => Promise<BuzzMessageWindow>
+      getMessages: (input: { roomId: string; before?: string; limit: number }) => Promise<BuzzMessageWindow>
       sendMessage: (input: {
         roomId: string
         content: string

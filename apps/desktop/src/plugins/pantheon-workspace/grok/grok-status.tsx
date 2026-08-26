@@ -1,16 +1,8 @@
 import { useEffect, useState } from 'react'
 
-import {
-  createGrokProductAdapter,
-  type GrokProductAdapter,
-  type GrokProductStatus
-} from './adapter'
+import { createGrokProductAdapter, type GrokProductAdapter, type GrokProductStatus } from './adapter'
 
-export function GrokStatusPage({
-  adapter = createGrokProductAdapter()
-}: {
-  adapter?: GrokProductAdapter
-}) {
+export function GrokStatusPage({ adapter = createGrokProductAdapter() }: { adapter?: GrokProductAdapter }) {
   const [status, setStatus] = useState<GrokProductStatus | null>(null)
 
   useEffect(() => {

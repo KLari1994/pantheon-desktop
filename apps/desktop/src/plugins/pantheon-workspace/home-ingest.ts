@@ -23,7 +23,9 @@ export function startHomeIngestion(options: HomeIngestionOptions): {
   let disposed = false
 
   const apply = (events: HomeSourceEvent[]) => {
-    if (disposed) {return}
+    if (disposed) {
+      return
+    }
     const generation = options.store.beginHydration()
 
     try {
@@ -35,7 +37,9 @@ export function startHomeIngestion(options: HomeIngestionOptions): {
 
   const unsubscribeSnapshot = options.subscribe(events => apply(events))
   queueMicrotask(() => {
-    if (disposed) {return}
+    if (disposed) {
+      return
+    }
     const events = options.listEvents()
     apply(events)
     options.onHydrate?.(events)
@@ -45,7 +49,9 @@ export function startHomeIngestion(options: HomeIngestionOptions): {
 
   return {
     startNotifications() {
-      if (!options.notifications) {return}
+      if (!options.notifications) {
+        return
+      }
       unsubscribeNotifications = options.notifications.subscribe(event => options.notifications?.ingest(event))
     },
     dispose() {

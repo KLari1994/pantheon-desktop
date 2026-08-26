@@ -46,19 +46,16 @@ test('settled cards disappear and empty state is shown', () => {
   )
 
   expect(screen.getByText('rm')).toBeTruthy()
-  rerender(<NeedsYouList cards={[]} onMute={() => undefined} onNavigate={() => undefined} onRespond={() => undefined} />)
+  rerender(
+    <NeedsYouList cards={[]} onMute={() => undefined} onNavigate={() => undefined} onRespond={() => undefined} />
+  )
   expect(screen.queryByText('rm')).toBeNull()
   expect(screen.getByText('Nothing needs you')).toBeTruthy()
 })
 
 test('per-bot and per-room mutes exist and there is no estate-wide approve-all', () => {
   render(
-    <NeedsYouList
-      cards={[first]}
-      onMute={() => undefined}
-      onNavigate={() => undefined}
-      onRespond={() => undefined}
-    />
+    <NeedsYouList cards={[first]} onMute={() => undefined} onNavigate={() => undefined} onRespond={() => undefined} />
   )
   expect(screen.getByRole('button', { name: 'Mute notifications from Daedalus' })).toBeTruthy()
   expect(screen.getByRole('button', { name: 'Mute notifications from session sess-1' })).toBeTruthy()

@@ -66,14 +66,18 @@ export function resetHomeSourceState(seed?: {
 
 function memberLabels(members: Array<{ pubkey?: string; name?: string } | string> | undefined): string[] {
   return (members || []).flatMap(member => {
-    if (typeof member === 'string') {return member ? [member] : []}
+    if (typeof member === 'string') {
+      return member ? [member] : []
+    }
 
     return [member.pubkey, member.name].filter((value): value is string => Boolean(value))
   })
 }
 
 function displayNameForPubkey(pubkey: string | undefined): string | undefined {
-  if (!pubkey) {return undefined}
+  if (!pubkey) {
+    return undefined
+  }
   const needle = pubkey.toLowerCase()
 
   for (const room of knownRooms) {
@@ -81,7 +85,9 @@ function displayNameForPubkey(pubkey: string | undefined): string | undefined {
       member => member.pubkey?.toLowerCase() === needle && member.name && member.name.toLowerCase() !== needle
     )
 
-    if (match?.name) {return match.name}
+    if (match?.name) {
+      return match.name
+    }
   }
 
   return undefined
@@ -149,14 +155,18 @@ function resolveApprovalRequest(sessionId: string): ApprovalRequest | null {
       aliases.add(runtimeId)
       aliases.add(stored)
 
-      for (const alias of lineageAliases(stored, sessions)) {aliases.add(alias)}
+      for (const alias of lineageAliases(stored, sessions)) {
+        aliases.add(alias)
+      }
     }
   }
 
   for (const id of aliases) {
     const request = sessionApprovalRequest(id).get()
 
-    if (request) {return request}
+    if (request) {
+      return request
+    }
   }
 
   return null
@@ -166,10 +176,14 @@ function approvalCandidateIds(): string[] {
   const ids = new Set<string>($attentionSessionIds.get())
 
   for (const [runtimeId, state] of Object.entries($sessionStates.get())) {
-    if (!state?.needsInput) {continue}
+    if (!state?.needsInput) {
+      continue
+    }
     ids.add(runtimeId)
 
-    if (state.storedSessionId) {ids.add(state.storedSessionId)}
+    if (state.storedSessionId) {
+      ids.add(state.storedSessionId)
+    }
   }
 
   return [...ids]
@@ -182,10 +196,14 @@ export function collectAuthoritativeHomeEvents(): HomeSourceEvent[] {
   for (const sessionId of approvalCandidateIds()) {
     const request = resolveApprovalRequest(sessionId)
 
-    if (!request) {continue}
+    if (!request) {
+      continue
+    }
     const key = request.requestId || `${request.sessionId || sessionId}`
 
-    if (seenApprovals.has(key)) {continue}
+    if (seenApprovals.has(key)) {
+      continue
+    }
     seenApprovals.add(key)
     const identity = identityForSession(request.sessionId || sessionId)
     events.push({
@@ -239,7 +257,9 @@ export function collectAuthoritativeHomeEvents(): HomeSourceEvent[] {
     const exhausted = job.state === 'exhausted'
     const failed = job.state === 'failed'
 
-    if (!exhausted && !failed) {continue}
+    if (!exhausted && !failed) {
+      continue
+    }
     const connectionId = host.state.connectionId.get() || 'local'
     const profile = host.state.profile.get() || 'agent'
     events.push({
@@ -262,18 +282,25 @@ export function collectAuthoritativeHomeEvents(): HomeSourceEvent[] {
   return events
 }
 
-export function collectApprovalInboxRows(): Array<{ request: ApprovalSource; card: ReturnType<typeof projectApproval> }> {
+export function collectApprovalInboxRows(): Array<{
+  request: ApprovalSource
+  card: ReturnType<typeof projectApproval>
+}> {
   const rows = []
   const seen = new Set<string>()
 
   for (const sessionId of approvalCandidateIds()) {
     const request = resolveApprovalRequest(sessionId)
 
-    if (!request) {continue}
+    if (!request) {
+      continue
+    }
     const identity = identityForSession(request.sessionId || sessionId)
     const card = projectApproval(approvalSource(request), identity)
 
-    if (seen.has(card.id)) {continue}
+    if (seen.has(card.id)) {
+      continue
+    }
     seen.add(card.id)
     rows.push({ request: approvalSource(request), card })
   }
@@ -282,15 +309,25 @@ export function collectApprovalInboxRows(): Array<{ request: ApprovalSource; car
 }
 
 export function toNotificationEvent(event: HomeSourceEvent): NotificationEvent | null {
-  if (event.type === 'approval') {return null}
+  if (event.type === 'approval') {
+    return null
+  }
   const type = notificationType(event.type)
 
-  if (!type) {return null}
+  if (!type) {
+    return null
+  }
 
   return {
     id: event.id || `${event.type}:${event.sourceKind}:${event.sourceId}:${event.requestId || ''}`,
     type,
-    target: { kind: event.sourceKind, href: registeredHref(event.sourceKind, event.sourceId, { connectionId: event.connectionId, profile: event.profile }) },
+    target: {
+      kind: event.sourceKind,
+      href: registeredHref(event.sourceKind, event.sourceId, {
+        connectionId: event.connectionId,
+        profile: event.profile
+      })
+    },
     botId: event.botId,
     roomId: event.roomId || (event.sourceKind === 'room' ? event.sourceId : undefined)
   }
@@ -319,14 +356,18 @@ function notificationType(type: HomeEventType): NotificationEventType | null {
 
 function eventTags(live: RoomLiveEvent, key: string): string[] {
   return (live.tags || []).flatMap(tag => {
-    if (!Array.isArray(tag) || tag[0] !== key) {return []}
+    if (!Array.isArray(tag) || tag[0] !== key) {
+      return []
+    }
 
     return typeof tag[1] === 'string' ? [tag[1]] : []
   })
 }
 
 export function classifyRoomLiveEvent(live: RoomLiveEvent, roomId: string): HomeSourceEvent | null {
-  if (live.kind != null && MEMBERSHIP_KINDS.has(live.kind)) {return null}
+  if (live.kind != null && MEMBERSHIP_KINDS.has(live.kind)) {
+    return null
+  }
   const content = live.content || ''
   const lower = content.toLowerCase()
   const typed = eventTags(live, 't')[0] || eventTags(live, 'type')[0]
@@ -335,17 +376,23 @@ export function classifyRoomLiveEvent(live: RoomLiveEvent, roomId: string): Home
 
   const mentioned = Boolean(
     (homeViewer.pubkey && pTags.some(value => value.toLowerCase() === homeViewer.pubkey?.toLowerCase())) ||
-      (homeViewer.name && lower.includes(`@${homeViewer.name.toLowerCase()}`)) ||
-      (homeViewer.pubkey && lower.includes(homeViewer.pubkey.toLowerCase()))
+    (homeViewer.name && lower.includes(`@${homeViewer.name.toLowerCase()}`)) ||
+    (homeViewer.pubkey && lower.includes(homeViewer.pubkey.toLowerCase()))
   )
 
   let type: HomeEventType | null = null
 
-  if (typed && TYPED_EVENTS.has(typed as HomeEventType)) {type = typed as HomeEventType}
-  else if (explicit) {type = 'explicit-needs-you'}
-  else if (mentioned) {type = 'direct-mention'}
+  if (typed && TYPED_EVENTS.has(typed as HomeEventType)) {
+    type = typed as HomeEventType
+  } else if (explicit) {
+    type = 'explicit-needs-you'
+  } else if (mentioned) {
+    type = 'direct-mention'
+  }
 
-  if (!type) {return null}
+  if (!type) {
+    return null
+  }
   const id = live.id || `${roomId}:${live.createdAt || live.created_at || content}`
   const sourceKind = type === 'review-decision' ? 'pr' : type === 'merge-decision' ? 'project' : 'room'
 
@@ -365,14 +412,20 @@ export function classifyRoomLiveEvent(live: RoomLiveEvent, roomId: string): Home
 }
 
 export function ingestBuzzBridgeEvent(event: BuzzBridgeEvent): void {
-  if (event.type !== 'room.event') {return}
+  if (event.type !== 'room.event') {
+    return
+  }
   const roomId = event.roomId || event.room_id
   const live = event.event && typeof event.event === 'object' ? (event.event as RoomLiveEvent) : null
 
-  if (!roomId || !live) {return}
+  if (!roomId || !live) {
+    return
+  }
   const next = classifyRoomLiveEvent(live, roomId)
 
-  if (!next || !next.id) {return}
+  if (!next || !next.id) {
+    return
+  }
   roomEvents.set(next.id, next)
 }
 
@@ -388,7 +441,9 @@ export function applyHomeSourceSnapshot(
   for (const event of events) {
     const next = toNotificationEvent(event)
 
-    if (next) {handlers.ingestNotification?.(next)}
+    if (next) {
+      handlers.ingestNotification?.(next)
+    }
   }
 }
 
@@ -413,11 +468,14 @@ export function subscribeAuthoritativeHomeSources(
     try {
       const client = deps?.buzz || desktopBuzzClient()
 
-      if (deps?.viewer) {homeViewer = { ...deps.viewer }}
-      else {
+      if (deps?.viewer) {
+        homeViewer = { ...deps.viewer }
+      } else {
         const status = await client.status()
 
-        if (cancelled) {return}
+        if (cancelled) {
+          return
+        }
         homeViewer = { pubkey: status.pubkey }
       }
 
@@ -427,7 +485,9 @@ export function subscribeAuthoritativeHomeSources(
       })
       const page = await client.listRooms()
 
-      if (cancelled) {return}
+      if (cancelled) {
+        return
+      }
       knownRooms = page.rooms.map(room => ({
         id: room.id,
         members: [...room.members],
@@ -440,7 +500,9 @@ export function subscribeAuthoritativeHomeSources(
           try {
             const detail = await client.getRoom({ roomId: room.id })
 
-            if (cancelled) {return}
+            if (cancelled) {
+              return
+            }
             room.members = [...detail.members]
             room.memberNames = memberLabels(detail.members)
           } catch {
@@ -455,13 +517,17 @@ export function subscribeAuthoritativeHomeSources(
         try {
           const manifest = await client.getWorkspaceManifest()
 
-          if (cancelled) {return}
+          if (cancelled) {
+            return
+          }
 
           for (const room of stillEmpty) {
             const listed = (manifest.rooms || []).find(item => item.id === room.id)
             const ids = listed?.memberAgentIds || []
 
-            if (ids.length === 0) {continue}
+            if (ids.length === 0) {
+              continue
+            }
             room.members = ids.map(id => ({ name: id }))
             room.memberNames = memberLabels(ids)
           }
@@ -476,9 +542,13 @@ export function subscribeAuthoritativeHomeSources(
 
       const roomIds = page.rooms.map(room => room.id)
 
-      if (roomIds.length > 0) {await client.startSubscription({ roomIds })}
+      if (roomIds.length > 0) {
+        await client.startSubscription({ roomIds })
+      }
 
-      if (!cancelled) {emit()}
+      if (!cancelled) {
+        emit()
+      }
     } catch {
       /* sidecar absent in tests and headless */
     }
@@ -489,7 +559,9 @@ export function subscribeAuthoritativeHomeSources(
   return () => {
     cancelled = true
 
-    for (const unsub of unsubs) {unsub()}
+    for (const unsub of unsubs) {
+      unsub()
+    }
     unsubBuzz()
   }
 }
@@ -499,7 +571,9 @@ export function createPluginApprovalInbox(): ApprovalInbox {
     requestOwned: (sessionId, method, params) => {
       const gateway = $gateway.get()
 
-      if (!gateway) {return Promise.reject(new Error('no gateway'))}
+      if (!gateway) {
+        return Promise.reject(new Error('no gateway'))
+      }
 
       return requestForOwnedSession(sessionId, gateway.request.bind(gateway) as typeof gateway.request, method, params)
     },

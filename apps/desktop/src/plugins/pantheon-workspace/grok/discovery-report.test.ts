@@ -54,6 +54,7 @@ test('schema file lists every required discovery field', () => {
   }
 
   expect(schema.required).toEqual([...requiredFields])
+
   for (const field of requiredFields) {
     expect(schema.properties[field]).toBeTruthy()
   }
@@ -63,6 +64,7 @@ test('a complete documented-ipc report with a non-invasive health probe is accep
   const result = validateDiscoveryReport(passingReport())
 
   expect(result.ok).toBe(true)
+
   if (result.ok) {
     expect(result.report.result).toBe('pass')
     expect(result.report.integrationSurface.type).toBe('documented-ipc')
@@ -74,6 +76,7 @@ test('missing required fields are rejected', () => {
     const { [field]: _removed, ...incomplete } = passingReport()
     const result = validateDiscoveryReport(incomplete)
     expect(result.ok).toBe(false)
+
     if (!result.ok) {
       expect(result.reason).toMatch(new RegExp(field, 'i'))
     }
@@ -81,34 +84,43 @@ test('missing required fields are rejected', () => {
 })
 
 test('process presence alone is rejected', () => {
-  const result = validateDiscoveryReport(passingReport({
-    integrationSurface: { type: 'process-presence', documentation: 'tasklist' },
-    healthProbe: { kind: 'process-presence', description: 'process is running' }
-  }))
+  const result = validateDiscoveryReport(
+    passingReport({
+      integrationSurface: { type: 'process-presence', documentation: 'tasklist' },
+      healthProbe: { kind: 'process-presence', description: 'process is running' }
+    })
+  )
 
   expect(result.ok).toBe(false)
+
   if (!result.ok) {
     expect(result.reason).toMatch(/process presence|documented/i)
   }
 })
 
 test('screen scraping is rejected', () => {
-  const result = validateDiscoveryReport(passingReport({
-    integrationSurface: { type: 'screen-scraping', documentation: 'ui automation' }
-  }))
+  const result = validateDiscoveryReport(
+    passingReport({
+      integrationSurface: { type: 'screen-scraping', documentation: 'ui automation' }
+    })
+  )
 
   expect(result.ok).toBe(false)
+
   if (!result.ok) {
     expect(result.reason).toMatch(/scrap/i)
   }
 })
 
 test('a remote xAI model API is rejected', () => {
-  const result = validateDiscoveryReport(passingReport({
-    integrationSurface: { type: 'remote-model-api', documentation: 'https://api.x.ai' }
-  }))
+  const result = validateDiscoveryReport(
+    passingReport({
+      integrationSurface: { type: 'remote-model-api', documentation: 'https://api.x.ai' }
+    })
+  )
 
   expect(result.ok).toBe(false)
+
   if (!result.ok) {
     expect(result.reason).toMatch(/model api|remote/i)
   }

@@ -216,9 +216,15 @@ describe('quickComposerReducer', () => {
     expect(reopenedRoom.state.draft).toBe('')
 
     const afterBot = run(
-      [{ type: 'shown' }, { target: 'bot-sess-1', type: 'target' }, { draft: 'hello bot', type: 'edit' }, { type: 'submit' }],
+      [
+        { type: 'shown' },
+        { target: 'bot-sess-1', type: 'target' },
+        { draft: 'hello bot', type: 'edit' },
+        { type: 'submit' }
+      ],
       reopenedRoom.state
     )
+
     const reopenedBot = run(
       [
         {
@@ -287,7 +293,16 @@ describe('quickComposerReducer', () => {
     expect(picked.state.draft).toBe('hello room')
 
     const healthy = run(
-      [{ connected: true, sessions: [], rooms: [{ id: 'room-ops', title: 'Ops' }], bridgeHealthy: true, type: 'state' }, { type: 'submit' }],
+      [
+        {
+          connected: true,
+          sessions: [],
+          rooms: [{ id: 'room-ops', title: 'Ops' }],
+          bridgeHealthy: true,
+          type: 'state'
+        },
+        { type: 'submit' }
+      ],
       picked.state
     )
 
@@ -301,10 +316,7 @@ describe('quickComposerReducer', () => {
   })
 
   it('selecting a room destination does not mutate the ambient profile default', () => {
-    const { state } = run([
-      connect,
-      { target: 'room:room-ops', type: 'target' }
-    ])
+    const { state } = run([connect, { target: 'room:room-ops', type: 'target' }])
 
     expect(state.target).toBe('room:room-ops')
     expect(state.profileDefaultAgentId).toBe(initialQuickComposerState.profileDefaultAgentId)

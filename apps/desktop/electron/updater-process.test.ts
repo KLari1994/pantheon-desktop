@@ -471,14 +471,12 @@ test('resolveRollbackHandoff appends explicit rollback args for the host script'
       fileExists: candidate => candidate.endsWith(`${path.sep}posix.sh`)
     }
   )
+
   assert.ok(posix)
-  assert.deepEqual(posix.args.slice(-4), [
-    '--rollback',
-    '--backup-dir',
-    '/opt/hermes/pantheon/backups/1',
-    '--previous-commit',
-    'abc123'
-  ].slice(-4))
+  assert.deepEqual(
+    posix.args.slice(-4),
+    ['--rollback', '--backup-dir', '/opt/hermes/pantheon/backups/1', '--previous-commit', 'abc123'].slice(-4)
+  )
   assert.ok(posix.args.includes('--rollback'))
   assert.ok(posix.args.includes('--backup-dir'))
   assert.ok(posix.args.includes('--previous-commit'))
@@ -491,6 +489,7 @@ test('resolveRollbackHandoff appends explicit rollback args for the host script'
       fileExists: candidate => candidate.endsWith('windows.ps1')
     }
   )
+
   assert.ok(windows)
   assert.ok(windows.args.includes('-Rollback'))
   assert.ok(windows.args.includes('-BackupDir'))

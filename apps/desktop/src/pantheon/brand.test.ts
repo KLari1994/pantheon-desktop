@@ -19,6 +19,7 @@ describe('Pantheon brand', () => {
   it('records downstream and upstream source provenance', () => {
     expect(PANTHEON_PROVENANCE.upstreamHermesCommit).toBe('c584d15cdc31e1ebf3989c426ed05fb2ddb0c9fc')
     expect(PANTHEON_PROVENANCE.buzzCompatibilityCommit).toBe('0720f5380ce8a6c050afac159f8462c06cd51ab5')
+
     for (const sha of [PANTHEON_PROVENANCE.upstreamHermesCommit, PANTHEON_PROVENANCE.buzzCompatibilityCommit]) {
       expect(sha).toMatch(/^[0-9a-f]{40}$/)
     }
@@ -42,9 +43,7 @@ describe('Pantheon brand', () => {
     expect(mainSrc).toContain(`app.setAppUserModelId('${PANTHEON_BRAND.appId}')`)
     expect(mainSrc).toContain(`process.env.HERMES_DESKTOP_APP_NAME || '${PANTHEON_BRAND.productName}'`)
     expect(mainSrc).toContain(`'${PANTHEON_BRAND.protocol}-dev' : '${PANTHEON_BRAND.protocol}'`)
-    expect(mainSrc).toContain(
-      `DEV_SERVER ? [HERMES_PROTOCOL, '${PANTHEON_BRAND.protocol}'] : [HERMES_PROTOCOL]`
-    )
+    expect(mainSrc).toContain(`DEV_SERVER ? [HERMES_PROTOCOL, '${PANTHEON_BRAND.protocol}'] : [HERMES_PROTOCOL]`)
   })
 
   it('packaged install-stamp records downstream SHA plus upstream Hermes and Buzz pins', () => {

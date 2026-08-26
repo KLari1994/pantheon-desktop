@@ -13,6 +13,7 @@ export function ApprovalCard({
 }) {
   const disabled = Boolean(busy)
   const statusLabel = error ? 'Needs retry' : busy ? 'Submitting' : 'Needs input'
+
   return (
     <article className="rounded-md border border-(--ui-stroke-tertiary) p-3" data-approval-id={card.id}>
       <div className="flex items-center gap-2 text-sm">

@@ -106,9 +106,7 @@ test('ipc rejects out-of-range limits and unknown rooms stay typed', async () =>
     )
   })
 
-  await assert.rejects(async () =>
-    handlers.get(PANTHEON_BUZZ_IPC.getMessages)!({}, { roomId: 'room-a', limit: 201 })
-  )
+  await assert.rejects(async () => handlers.get(PANTHEON_BUZZ_IPC.getMessages)!({}, { roomId: 'room-a', limit: 201 }))
   api.dispose()
 })
 
@@ -180,10 +178,7 @@ test('workspace config supplies relay URL and ignores env escape hatches', () =>
   try {
     const workspacePath = path.join(homeDir, 'pantheon', 'workspace.json')
     fs.mkdirSync(path.dirname(workspacePath), { recursive: true })
-    fs.writeFileSync(
-      workspacePath,
-      JSON.stringify({ buzz: { relayUrl: 'https://community.example.test' } })
-    )
+    fs.writeFileSync(workspacePath, JSON.stringify({ buzz: { relayUrl: 'https://community.example.test' } }))
     process.env.PANTHEON_BUZZ_RELAY_URL = 'https://env-escape.example.test'
     assert.equal(resolveBuzzRelayUrl({ homeDir }), 'https://community.example.test')
     assert.equal(
@@ -214,21 +209,24 @@ test('spawn error is swallowed so the desktop shell stays up', () => {
 })
 
 test('write IPC channels are allowlisted and validators reject oversized payloads', async () => {
-  assert.deepEqual(Object.values(PANTHEON_BUZZ_IPC).sort(), [
-    'pantheon-buzz:members.add',
-    'pantheon-buzz:members.remove',
-    'pantheon-buzz:messages.send',
-    'pantheon-buzz:messages.window',
-    'pantheon-buzz:reactions.add',
-    'pantheon-buzz:reactions.remove',
-    'pantheon-buzz:rooms.get',
-    'pantheon-buzz:rooms.list',
-    'pantheon-buzz:status',
-    'pantheon-buzz:subscribe.start',
-    'pantheon-buzz:subscribe.stop',
-    'pantheon-buzz:workspace.manifest',
-    'pantheon-buzz:workspace.updateRoomMembership'
-  ].sort())
+  assert.deepEqual(
+    Object.values(PANTHEON_BUZZ_IPC).sort(),
+    [
+      'pantheon-buzz:members.add',
+      'pantheon-buzz:members.remove',
+      'pantheon-buzz:messages.send',
+      'pantheon-buzz:messages.window',
+      'pantheon-buzz:reactions.add',
+      'pantheon-buzz:reactions.remove',
+      'pantheon-buzz:rooms.get',
+      'pantheon-buzz:rooms.list',
+      'pantheon-buzz:status',
+      'pantheon-buzz:subscribe.start',
+      'pantheon-buzz:subscribe.stop',
+      'pantheon-buzz:workspace.manifest',
+      'pantheon-buzz:workspace.updateRoomMembership'
+    ].sort()
+  )
 
   const api = registerPantheonBuzzIpc({
     ipcMain: ipcMain as never,
@@ -243,7 +241,10 @@ test('write IPC channels are allowlisted and validators reject oversized payload
     await handlers.get(PANTHEON_BUZZ_IPC.sendMessage)!({}, { roomId: 'room-a', content: 'x'.repeat(64 * 1024 + 1) })
   })
   await assert.rejects(async () => {
-    await handlers.get(PANTHEON_BUZZ_IPC.addReaction)!({}, { roomId: 'room-a', targetEventId: 'evt-1', emoji: '🙂'.repeat(65) })
+    await handlers.get(PANTHEON_BUZZ_IPC.addReaction)!(
+      {},
+      { roomId: 'room-a', targetEventId: 'evt-1', emoji: '🙂'.repeat(65) }
+    )
   })
   api.dispose()
 })
@@ -326,14 +327,17 @@ test('workspace manifest read and membership update round-trip', async () => {
       })
     })
 
-    const read = await handlers.get(PANTHEON_BUZZ_IPC.workspaceManifest)!({}) as Record<string, unknown>
+    const read = (await handlers.get(PANTHEON_BUZZ_IPC.workspaceManifest)!({})) as Record<string, unknown>
     assert.equal((read.buzz as { relayUrl: string }).relayUrl, 'https://relay.example.test')
 
-    const updated = await handlers.get(PANTHEON_BUZZ_IPC.updateRoomMembership)!({}, {
-      roomId: 'room-a',
-      kind: 'office',
-      memberAgentIds: ['agent-1']
-    }) as { rooms: Array<{ id: string; memberAgentIds: string[] }> }
+    const updated = (await handlers.get(PANTHEON_BUZZ_IPC.updateRoomMembership)!(
+      {},
+      {
+        roomId: 'room-a',
+        kind: 'office',
+        memberAgentIds: ['agent-1']
+      }
+    )) as { rooms: Array<{ id: string; memberAgentIds: string[] }> }
 
     assert.deepEqual(updated.rooms[0], { id: 'room-a', kind: 'office', name: 'room-a', memberAgentIds: ['agent-1'] })
     const persisted = JSON.parse(fs.readFileSync(filePath, 'utf8')) as typeof updated

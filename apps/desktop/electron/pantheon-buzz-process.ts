@@ -26,15 +26,19 @@ export function isPrivateKeyShaped(value: string): boolean {
 
 export function sanitizeBridgeEnv(env: NodeJS.ProcessEnv | Record<string, string | undefined>): Record<string, string> {
   const next: Record<string, string> = {}
+
   for (const [key, value] of Object.entries(env)) {
     if (typeof value !== 'string' || isPrivateKeyShaped(value)) {
       continue
     }
+
     if (!BRIDGE_ENV_ALLOWLIST.has(key)) {
       continue
     }
+
     next[key] = value
   }
+
   return next
 }
 
@@ -62,23 +66,29 @@ export interface PantheonBuzzProcess {
 
 export function resolveBuzzBridgeBinary(root = process.resourcesPath || process.cwd()): string {
   const name = process.platform === 'win32' ? 'buzz-bridge.exe' : 'buzz-bridge'
+
   return path.join(root, 'buzz-bridge', name)
 }
 
 export function createPantheonBuzzProcess(options: BuzzProcessOptions): PantheonBuzzProcess {
   const spawnImpl = options.spawnImpl ?? spawn
+
   const sleep =
     options.sleep ??
     ((ms: number) =>
       new Promise<void>(resolve => {
         setTimeout(resolve, ms)
       }))
+
   const timeoutMs = options.requestTimeoutMs ?? REQUEST_TIMEOUT_MS
   let child: ChildProcess | null = null
   let restarts = 0
   let disposed = false
   let buffer = ''
-  const pending = new Map<string, { resolve: (value: unknown) => void; reject: (error: Error) => void; timer: ReturnType<typeof setTimeout> }>()
+  const pending = new Map<
+    string,
+    { resolve: (value: unknown) => void; reject: (error: Error) => void; timer: ReturnType<typeof setTimeout> }
+  >()
   const eventListeners = new Set<(frame: unknown) => void>()
 
   const args = options.relayUrl ? ['--relay-url', options.relayUrl] : []
@@ -91,6 +101,7 @@ export function createPantheonBuzzProcess(options: BuzzProcessOptions): Pantheon
     next.stdout?.on('data', (chunk: string) => {
       buffer += chunk
       let newline = buffer.indexOf('\n')
+
       while (newline >= 0) {
         const line = buffer.slice(0, newline)
         buffer = buffer.slice(newline + 1)
@@ -105,9 +116,11 @@ export function createPantheonBuzzProcess(options: BuzzProcessOptions): Pantheon
       if (disposed) {
         return
       }
+
       if (restarts >= MAX_RESTARTS) {
         return
       }
+
       const delay = RESTART_BACKOFF_MS[restarts] ?? RESTART_BACKOFF_MS[RESTART_BACKOFF_MS.length - 1]
       restarts += 1
       void Promise.resolve(sleep(delay)).then(() => {
@@ -126,6 +139,7 @@ export function createPantheonBuzzProcess(options: BuzzProcessOptions): Pantheon
         env,
         stdio: ['pipe', 'pipe', 'pipe']
       })
+
       attach(next)
     } catch {
       // A thrown spawn (missing binary in some stubs) must not crash the app.
@@ -136,19 +150,30 @@ export function createPantheonBuzzProcess(options: BuzzProcessOptions): Pantheon
     if (!line.trim()) {
       return
     }
+
     try {
-      const parsed = JSON.parse(line) as { id?: string; ok?: boolean; result?: unknown; error?: { message?: string }; type?: string }
+      const parsed = JSON.parse(line) as {
+        id?: string
+        ok?: boolean
+        result?: unknown
+        error?: { message?: string }
+        type?: string
+      }
       const waiter = parsed.id ? pending.get(parsed.id) : undefined
+
       if (!waiter) {
         if (parsed.type) {
           for (const listener of eventListeners) {
             listener(parsed)
           }
         }
+
         return
       }
+
       clearTimeout(waiter.timer)
       pending.delete(parsed.id as string)
+
       if (parsed.ok) {
         waiter.resolve(parsed.result)
       } else {
@@ -164,12 +189,15 @@ export function createPantheonBuzzProcess(options: BuzzProcessOptions): Pantheon
   return {
     request(method, params = {}) {
       const id = randomUUID()
+
       return new Promise((resolve, reject) => {
         const timer = setTimeout(() => {
           pending.delete(id)
           reject(new Error('buzz bridge timeout'))
         }, timeoutMs)
+
         pending.set(id, { resolve, reject, timer })
+
         try {
           child?.stdin?.write(`${JSON.stringify({ id, method, params })}\n`)
         } catch {
@@ -181,16 +209,19 @@ export function createPantheonBuzzProcess(options: BuzzProcessOptions): Pantheon
     },
     onEvent(callback) {
       eventListeners.add(callback)
+
       return () => {
         eventListeners.delete(callback)
       }
     },
     dispose() {
       disposed = true
+
       for (const waiter of pending.values()) {
         clearTimeout(waiter.timer)
         waiter.reject(new Error('buzz bridge disposed'))
       }
+
       pending.clear()
       child?.kill()
       child = null

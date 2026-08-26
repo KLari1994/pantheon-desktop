@@ -1,11 +1,6 @@
 import { expect, test } from 'vitest'
 
-import {
-  approvalLogicalId,
-  type ApprovalOwnerRoute,
-  projectApproval,
-  respondToApproval
-} from './approval-projections'
+import { approvalLogicalId, type ApprovalOwnerRoute, projectApproval, respondToApproval } from './approval-projections'
 
 const owner: ApprovalOwnerRoute = { connectionId: 'conn-a', profile: 'daedalus', machine: 'win' }
 
@@ -45,7 +40,13 @@ test('projected approval names agent, room/session, action, and machine', () => 
 
 test('choices stay within once, session, and deny even if backend also offers always', () => {
   const card = projectApproval(
-    { requestId: 'req-3', sessionId: 's', command: 'x', description: 'y', choices: ['once', 'session', 'always', 'deny'] },
+    {
+      requestId: 'req-3',
+      sessionId: 's',
+      command: 'x',
+      description: 'y',
+      choices: ['once', 'session', 'always', 'deny']
+    },
     { agent: 'A', context: 'c', machine: 'm', owner }
   )
 
@@ -57,27 +58,35 @@ test('in-flight guard prevents double submission', async () => {
   const inFlight = new Set<string>()
   const request = { requestId: 'req-4', sessionId: 'sess-4', command: 'x', description: 'y' }
 
-  const first = respondToApproval({ request, choice: 'once', owner, inFlight }, {
-    requestOwned: async (...args) => {
-      calls.push(args)
+  const first = respondToApproval(
+    { request, choice: 'once', owner, inFlight },
+    {
+      requestOwned: async (...args) => {
+        calls.push(args)
 
-      return { resolved: true }
-    },
-    clear: () => undefined
-  })
+        return { resolved: true }
+      },
+      clear: () => undefined
+    }
+  )
 
-  const second = await respondToApproval({ request, choice: 'deny', owner, inFlight }, {
-    requestOwned: async (...args) => {
-      calls.push(args)
+  const second = await respondToApproval(
+    { request, choice: 'deny', owner, inFlight },
+    {
+      requestOwned: async (...args) => {
+        calls.push(args)
 
-      return { resolved: true }
-    },
-    clear: () => undefined
-  })
+        return { resolved: true }
+      },
+      clear: () => undefined
+    }
+  )
 
   expect(second.ok).toBe(false)
 
-  if (second.ok === false) {expect(second.reason).toBe('in-flight')}
+  if (second.ok === false) {
+    expect(second.reason).toBe('in-flight')
+  }
   await first
   expect(calls).toHaveLength(1)
 })
@@ -141,7 +150,9 @@ test('stale success from an older request never clears a newer request', async (
 
   expect(result.ok).toBe(false)
 
-  if (result.ok === false) {expect(result.reason).toBe('stale')}
+  if (result.ok === false) {
+    expect(result.reason).toBe('stale')
+  }
   expect(cleared).toEqual([])
 })
 
@@ -161,7 +172,9 @@ test('failed responses retain the card with a recoverable error', async () => {
 
   expect(result.ok).toBe(false)
 
-  if (result.ok === false) {expect(result.error).toBe('gateway down')}
+  if (result.ok === false) {
+    expect(result.error).toBe('gateway down')
+  }
   expect(result.settledId).toBeUndefined()
   expect(cleared).toEqual([])
 })

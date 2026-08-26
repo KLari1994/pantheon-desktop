@@ -4,9 +4,11 @@ import { applyRoomMembership } from './store'
 
 test('routes exact pubkey and rolls back the manifest when the relay write fails', async () => {
   const calls: unknown[] = []
+
   const api = {
     updateRoomMembership: vi.fn(async input => {
       calls.push(['manifest', input])
+
       return { version: 1, rooms: [{ id: input.roomId, memberAgentIds: input.memberAgentIds }] }
     }),
     inviteMember: vi.fn(async input => {
@@ -15,6 +17,7 @@ test('routes exact pubkey and rolls back the manifest when the relay write fails
     }),
     removeMember: vi.fn()
   }
+
   await expect(
     applyRoomMembership(api, {
       roomId: 'room-a',
@@ -40,6 +43,7 @@ test('failed remove rolls back the agent id, not the pubkey', async () => {
       throw new Error('relay_down')
     })
   }
+
   await expect(
     applyRoomMembership(api, {
       roomId: 'room-a',

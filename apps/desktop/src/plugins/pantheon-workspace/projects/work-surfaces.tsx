@@ -36,8 +36,8 @@ export async function loadReadOnlyReview(
   binding: ProjectRoomBinding,
   git?: ReadOnlyReviewGit
 ): Promise<ReadOnlyReviewSnapshot> {
-  const client =
-    git ?? desktopGit({ connectionId: binding.machine.connectionId, profile: binding.machine.profile })
+  const client = git ?? desktopGit({ connectionId: binding.machine.connectionId, profile: binding.machine.profile })
+
   const list = client?.review?.list
 
   if (!list) {

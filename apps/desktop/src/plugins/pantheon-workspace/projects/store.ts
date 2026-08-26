@@ -1,7 +1,13 @@
 import type { HermesGitWorktree } from '@hermes/plugin-sdk'
 
 import { validateLinearIssueUrl } from './pr-lifecycle'
-import type { MachineTarget, PrLifecycleState, ProjectRoomBinding, ProjectRoomEvidence, ProjectRoomRecord } from './types'
+import type {
+  MachineTarget,
+  PrLifecycleState,
+  ProjectRoomBinding,
+  ProjectRoomEvidence,
+  ProjectRoomRecord
+} from './types'
 
 const LIFECYCLES: readonly PrLifecycleState[] = [
   'open',
@@ -179,11 +185,7 @@ export function joinProjectRooms(input: {
 
     const tree = input.trees.find(item => item.id === binding.projectId)
 
-    const repoPaths = [
-      project.primary_path,
-      tree?.path,
-      ...(tree?.repos || []).map(repo => repo.path)
-    ]
+    const repoPaths = [project.primary_path, tree?.path, ...(tree?.repos || []).map(repo => repo.path)]
       .filter((path): path is string => isNonEmpty(path))
       .map(normalizePath)
 
@@ -198,7 +200,10 @@ export function joinProjectRooms(input: {
   })
 }
 
-export function preflightWorktree(binding: ProjectRoomBinding, worktrees: readonly HermesGitWorktree[]): WorktreePreflight {
+export function preflightWorktree(
+  binding: ProjectRoomBinding,
+  worktrees: readonly HermesGitWorktree[]
+): WorktreePreflight {
   const wanted = normalizePath(binding.worktreePath)
   const match = worktrees.find(item => normalizePath(item.path) === wanted)
 

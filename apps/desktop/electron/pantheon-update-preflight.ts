@@ -25,6 +25,7 @@ export interface PantheonActivitySnapshot {
 
 export function decidePantheonUpdate(snapshot: PantheonActivitySnapshot): PantheonUpdateDecision {
   const blockers: PantheonUpdateBlocker[] = []
+
   const unknown =
     snapshot.activeAgentCount === 'unknown' ||
     snapshot.streamingSession === 'unknown' ||

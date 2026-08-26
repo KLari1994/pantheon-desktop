@@ -216,7 +216,11 @@ export const initialQuickComposerState: QuickComposerState = {
   visible: true
 }
 
-function targetStillOffered(state: QuickComposerState, sessions: QuickEntrySessionOption[], rooms: QuickEntryRoomOption[]): boolean {
+function targetStillOffered(
+  state: QuickComposerState,
+  sessions: QuickEntrySessionOption[],
+  rooms: QuickEntryRoomOption[]
+): boolean {
   if (state.target === QUICK_TARGET_CURRENT || state.target === QUICK_TARGET_NEW) {
     return true
   }

@@ -5,7 +5,8 @@ import { expect, test, vi } from 'vitest'
 import plugin from './plugin'
 
 function fakeCtx() {
-  const contributions: Array<{ id: string; area: string; order?: number; data?: { path?: string; label?: string } }> = []
+  const contributions: Array<{ id: string; area: string; order?: number; data?: { path?: string; label?: string } }> =
+    []
   const disposers: Array<() => void> = []
 
   return {

@@ -15,9 +15,13 @@ export function deriveBindingHealth(input: {
   storedSessionId?: string
   runtimeSessionId?: string
 }): RoomDiagnosticRow['health'] {
-  if (input.storedSessionId && input.runtimeSessionId) {return 'resumable'}
+  if (input.storedSessionId && input.runtimeSessionId) {
+    return 'resumable'
+  }
 
-  if (!input.storedSessionId) {return 'missing'}
+  if (!input.storedSessionId) {
+    return 'missing'
+  }
 
   return 'unknown'
 }
@@ -60,7 +64,7 @@ export async function loadRoomDiagnostics(
   const listed = await requestProfile(input.route, 'session.list', { include_hidden: true })
 
   const sessions = Array.isArray((listed as { sessions?: unknown[] })?.sessions)
-    ? ((listed as { sessions: Array<Record<string, unknown>> }).sessions)
+    ? (listed as { sessions: Array<Record<string, unknown>> }).sessions
     : []
 
   return sessions.map(session => {

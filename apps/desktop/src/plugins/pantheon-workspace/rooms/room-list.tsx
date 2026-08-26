@@ -6,7 +6,9 @@ import { type RoomSummary, VIRTUALIZE_THRESHOLD } from './types'
 function hashHue(value: string): string {
   let hash = 0
 
-  for (const char of value) {hash = (hash * 31 + char.charCodeAt(0)) % 360}
+  for (const char of value) {
+    hash = (hash * 31 + char.charCodeAt(0)) % 360
+  }
 
   return `hsl(${hash} 55% 55%)`
 }
@@ -56,7 +58,9 @@ export function RoomList({
           {room.needsYou ? (
             <span className="rounded bg-amber-500/20 px-1 text-[0.65rem] text-amber-700">Needs You</span>
           ) : null}
-          {room.expiresAt ? <span className="text-[0.65rem] text-(--ui-text-tertiary)">TTL {room.expiresAt}</span> : null}
+          {room.expiresAt ? (
+            <span className="text-[0.65rem] text-(--ui-text-tertiary)">TTL {room.expiresAt}</span>
+          ) : null}
         </div>
         <div className="truncate text-xs text-(--ui-text-tertiary)">{room.latestPreview}</div>
       </div>

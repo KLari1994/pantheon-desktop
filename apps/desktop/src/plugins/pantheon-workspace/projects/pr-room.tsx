@@ -71,7 +71,9 @@ export function PrRoom({
               disabled={disabled}
               key={item.id}
               onClick={() => {
-                if (disabled) {return}
+                if (disabled) {
+                  return
+                }
                 setTab(item.id)
                 onActivateTab?.(item.id)
               }}

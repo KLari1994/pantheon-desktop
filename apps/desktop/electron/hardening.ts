@@ -337,8 +337,7 @@ function pantheonAdapterInstallBlockReason(identifier: string): string | null {
     return null
   }
 
-  const remote =
-    /^(https?:\/\/|git@|ssh:\/\/|file:\/\/)/i.test(raw) || /^[\w.-]+\/[\w.-]+/.test(raw)
+  const remote = /^(https?:\/\/|git@|ssh:\/\/|file:\/\/)/i.test(raw) || /^[\w.-]+\/[\w.-]+/.test(raw)
 
   if (!remote) {
     return null
@@ -441,7 +440,10 @@ function rejectUnsafePathSyntax(filePath: any, purpose = 'File read') {
   return raw
 }
 
-function resolveRequestedPathForIpc(filePath: any, options: { purpose?: string; baseDir?: fs.PathOrFileDescriptor } = {}) {
+function resolveRequestedPathForIpc(
+  filePath: any,
+  options: { purpose?: string; baseDir?: fs.PathOrFileDescriptor } = {}
+) {
   const purpose = String(options.purpose || 'File read')
   let raw = rejectUnsafePathSyntax(filePath, purpose)
 
@@ -482,7 +484,12 @@ function resolveRequestedPathForIpc(filePath: any, options: { purpose?: string; 
   return resolvedPath
 }
 
-async function statForIpc(fsImpl: { promises: { stat: typeof fs.promises.stat } }, resolvedPath: any, purpose: any, typeLabel: any) {
+async function statForIpc(
+  fsImpl: { promises: { stat: typeof fs.promises.stat } },
+  resolvedPath: any,
+  purpose: any,
+  typeLabel: any
+) {
   try {
     return await fsImpl.promises.stat(resolvedPath)
   } catch (error) {

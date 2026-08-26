@@ -155,7 +155,8 @@ export async function gatherPantheonActivity(): Promise<PantheonActivitySnapshot
 
   try {
     const working = typeof snapshot.activeAgentCount === 'number' && snapshot.activeAgentCount > 0
-    snapshot.activeTerminalProcess = $terminals.get().some(term => term.kind === 'agent' && Boolean(term.procId)) && working
+    snapshot.activeTerminalProcess =
+      $terminals.get().some(term => term.kind === 'agent' && Boolean(term.procId)) && working
   } catch {
     snapshot.activeTerminalProcess = 'unknown'
   }

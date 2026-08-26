@@ -2,12 +2,7 @@ import { desktopBuzzClient, getStarmapGraph, host, StarmapView } from '@hermes/p
 import { useEffect, useMemo, useState } from 'react'
 
 import { memorySliceFromGraph } from './graph-refs'
-import {
-  aggregateMemoryReferences,
-  type MemoryOwnerRoute,
-  type MemoryReference,
-  resolveMemoryScope
-} from './scope'
+import { aggregateMemoryReferences, type MemoryOwnerRoute, type MemoryReference, resolveMemoryScope } from './scope'
 
 function activeBotRoute(): MemoryOwnerRoute | null {
   const connectionId = host.state.connectionId.get()?.trim()

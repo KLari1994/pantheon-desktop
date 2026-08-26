@@ -33,12 +33,16 @@ export class NotificationCoordinator {
   }
 
   hydrate(events: NotificationEvent[]): void {
-    for (const event of events) {this.seen.add(event.id)}
+    for (const event of events) {
+      this.seen.add(event.id)
+    }
     this.hydrated = true
   }
 
   start(): void {
-    if (!this.options.subscribe) {return}
+    if (!this.options.subscribe) {
+      return
+    }
     this.unsubscribe = this.options.subscribe(event => this.ingest(event))
   }
 
@@ -62,8 +66,11 @@ export class NotificationCoordinator {
       }
 
       try {
-        if (this.focused()) {this.options.toast(input)}
-        else {this.options.native(input)}
+        if (this.focused()) {
+          this.options.toast(input)
+        } else {
+          this.options.native(input)
+        }
       } catch {
         /* delivery failure must not retry or block refresh */
       }

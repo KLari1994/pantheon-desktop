@@ -2,15 +2,7 @@ import type { ArtifactRecord } from '@hermes/plugin-sdk'
 
 import type { PantheonArtifactSource } from './provenance'
 
-export type ArtifactIndexFacet =
-  | 'agent'
-  | 'fileType'
-  | 'machine'
-  | 'office'
-  | 'pr'
-  | 'project'
-  | 'room'
-  | 'session'
+export type ArtifactIndexFacet = 'agent' | 'fileType' | 'machine' | 'office' | 'pr' | 'project' | 'room' | 'session'
 
 export interface IndexedArtifact {
   id: string
@@ -29,15 +21,23 @@ export type ArtifactIndexFilters = Partial<Record<ArtifactIndexFacet, string>>
 
 export function fileTypeFromValue(value: string): string | undefined {
   const match = /\.([a-z0-9]{1,8})(?:\?.*)?$/i.exec(value.trim())
+
   return match?.[1]?.toLowerCase()
 }
 
 export function indexArtifact(
-  record: ArtifactRecord & { office?: string; pr?: string; project?: string; room?: string; source?: PantheonArtifactSource }
+  record: ArtifactRecord & {
+    office?: string
+    pr?: string
+    project?: string
+    room?: string
+    source?: PantheonArtifactSource
+  }
 ): IndexedArtifact {
   const source = record.source
-  const session =
-    source?.kind === 'session' ? source.storedSessionId : record.sessionId
+
+  const session = source?.kind === 'session' ? source.storedSessionId : record.sessionId
+
   const agent = source && 'profile' in source ? source.profile : record.profile
   const machine = source && 'machine' in source ? source.machine : record.connectionId
   const room = source?.kind === 'room' ? source.roomId : record.room
@@ -64,7 +64,5 @@ export function filterArtifactIndex(
 ): IndexedArtifact[] {
   const entries = Object.entries(filters).filter(([, value]) => Boolean(value))
 
-  return items.filter(item =>
-    entries.every(([facet, value]) => item[facet as ArtifactIndexFacet] === value)
-  )
+  return items.filter(item => entries.every(([facet, value]) => item[facet as ArtifactIndexFacet] === value))
 }

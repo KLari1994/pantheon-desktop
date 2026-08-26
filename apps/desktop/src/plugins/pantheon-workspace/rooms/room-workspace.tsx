@@ -47,7 +47,10 @@ export function RoomWorkspace({
   const canModerate = room.selfRole === 'owner' || room.selfRole === 'admin'
 
   const visible = useMemo(
-    () => (threadRoot ? messages.filter(message => message.threadRootId === threadRoot || message.id === threadRoot) : messages),
+    () =>
+      threadRoot
+        ? messages.filter(message => message.threadRootId === threadRoot || message.id === threadRoot)
+        : messages,
     [messages, threadRoot]
   )
 
@@ -62,9 +65,15 @@ export function RoomWorkspace({
           </p>
         </div>
         <div className="flex gap-2">
-          <Button onClick={() => setTab('chat')} type="button">Chat</Button>
-          <Button onClick={() => setTab('canvas')} type="button">Canvas</Button>
-          <Button onClick={() => setShowDiagnostics(value => !value)} type="button">Diagnostics</Button>
+          <Button onClick={() => setTab('chat')} type="button">
+            Chat
+          </Button>
+          <Button onClick={() => setTab('canvas')} type="button">
+            Canvas
+          </Button>
+          <Button onClick={() => setShowDiagnostics(value => !value)} type="button">
+            Diagnostics
+          </Button>
         </div>
       </header>
       {tab === 'canvas' ? (
@@ -73,7 +82,9 @@ export function RoomWorkspace({
         <>
           <div className="flex min-h-0 flex-1">
             <ScrollArea className="min-h-0 flex-1 p-3">
-              <Button onClick={onShowEarlier} type="button">Show earlier</Button>
+              <Button onClick={onShowEarlier} type="button">
+                Show earlier
+              </Button>
               <ol className="mt-3 space-y-2">
                 {visible.map(message => (
                   <li className="rounded-md bg-(--ui-surface) px-3 py-2 text-sm" key={message.id}>
@@ -85,18 +96,24 @@ export function RoomWorkspace({
                       </a>
                     ))}
                     <div className="mt-1 flex flex-wrap gap-1">
-                      {reactions.filter(reaction => reaction.targetEventId === message.id).map(reaction => (
-                        <Button
-                          aria-label={`Remove ${reaction.emoji}`}
-                          key={reaction.id}
-                          onClick={() => onRemoveReaction?.(reaction.id)}
-                          type="button"
-                        >
-                          {reaction.emoji}
-                        </Button>
-                      ))}
-                      <Button onClick={() => onReact?.(message.id, '👍')} type="button">React</Button>
-                      <Button onClick={() => setThreadRoot(message.threadRootId || message.id)} type="button">Thread</Button>
+                      {reactions
+                        .filter(reaction => reaction.targetEventId === message.id)
+                        .map(reaction => (
+                          <Button
+                            aria-label={`Remove ${reaction.emoji}`}
+                            key={reaction.id}
+                            onClick={() => onRemoveReaction?.(reaction.id)}
+                            type="button"
+                          >
+                            {reaction.emoji}
+                          </Button>
+                        ))}
+                      <Button onClick={() => onReact?.(message.id, '👍')} type="button">
+                        React
+                      </Button>
+                      <Button onClick={() => setThreadRoot(message.threadRootId || message.id)} type="button">
+                        Thread
+                      </Button>
                     </div>
                   </li>
                 ))}
@@ -109,7 +126,9 @@ export function RoomWorkspace({
                   <li className="mb-1 flex items-center justify-between gap-1" key={member.pubkey}>
                     <span>{member.name || member.pubkey}</span>
                     <span className="text-[0.65rem] text-(--ui-text-tertiary)">{member.role}</span>
-                    <Button disabled={!canModerate} onClick={() => onKick?.(member.pubkey)} type="button">Remove</Button>
+                    <Button disabled={!canModerate} onClick={() => onKick?.(member.pubkey)} type="button">
+                      Remove
+                    </Button>
                   </li>
                 ))}
               </ul>

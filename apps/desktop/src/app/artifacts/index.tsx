@@ -34,7 +34,11 @@ import { downloadGatewayMediaFile, isRemoteGateway } from '@/lib/media'
 import { normalize } from '@/lib/text'
 import { fmtDayTime } from '@/lib/time'
 import { cn } from '@/lib/utils'
-import { type ArtifactIndexFilters, filterArtifactIndex, indexArtifact } from '@/plugins/pantheon-workspace/artifacts/index-contract'
+import {
+  type ArtifactIndexFilters,
+  filterArtifactIndex,
+  indexArtifact
+} from '@/plugins/pantheon-workspace/artifacts/index-contract'
 import { openArtifactSource } from '@/plugins/pantheon-workspace/artifacts/provenance'
 import { notify, notifyError } from '@/store/notifications'
 

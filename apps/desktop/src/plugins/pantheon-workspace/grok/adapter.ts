@@ -1,7 +1,4 @@
-import {
-  type GrokDiscoveryReport,
-  validateDiscoveryReport
-} from './discovery-report'
+import { type GrokDiscoveryReport, validateDiscoveryReport } from './discovery-report'
 
 export const GROK_UNAVAILABLE_REASONS = {
   missing: 'UNAVAILABLE — discovery report missing',
@@ -50,18 +47,14 @@ function currentDiscoveryHost(explicit?: string): string {
     return explicit
   }
 
-  return typeof process !== 'undefined' && process.platform === 'win32'
-    ? 'windows-workstation'
-    : 'linux-vps'
+  return typeof process !== 'undefined' && process.platform === 'win32' ? 'windows-workstation' : 'linux-vps'
 }
 
 function unavailableStatus(reason: string): GrokProductStatus {
   return { available: false, reason }
 }
 
-export function resolveGrokProductStatus(
-  options: GrokProductAdapterOptions = {}
-): GrokProductStatus {
+export function resolveGrokProductStatus(options: GrokProductAdapterOptions = {}): GrokProductStatus {
   const host = currentDiscoveryHost(options.discoveryHost)
   const unsupportedHost = host !== 'windows-workstation'
 
@@ -93,9 +86,7 @@ export function resolveGrokProductStatus(
   }
 }
 
-export function createGrokProductAdapter(
-  options: GrokProductAdapterOptions = {}
-): GrokProductAdapter {
+export function createGrokProductAdapter(options: GrokProductAdapterOptions = {}): GrokProductAdapter {
   const transport = options.transport ?? null
 
   const requireAvailable = async () => {

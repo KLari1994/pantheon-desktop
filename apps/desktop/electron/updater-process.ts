@@ -119,8 +119,18 @@ export function resolveRollbackHandoff(
   }
 
   const rollbackArgs = isWindows
-    ? ['-Rollback', '-BackupDir', marker.backupDir, ...(marker.previousCommit ? ['-PreviousCommit', marker.previousCommit] : [])]
-    : ['--rollback', '--backup-dir', marker.backupDir, ...(marker.previousCommit ? ['--previous-commit', marker.previousCommit] : [])]
+    ? [
+        '-Rollback',
+        '-BackupDir',
+        marker.backupDir,
+        ...(marker.previousCommit ? ['-PreviousCommit', marker.previousCommit] : [])
+      ]
+    : [
+        '--rollback',
+        '--backup-dir',
+        marker.backupDir,
+        ...(marker.previousCommit ? ['--previous-commit', marker.previousCommit] : [])
+      ]
 
   return {
     ...base,

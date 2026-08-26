@@ -493,7 +493,10 @@ export function useSessionTileActions({ requestGateway, runtimeId, scope, stored
   )
 
   const restoreToMessage = useCallback(
-    async (messageId: string, target?: { text?: string; userOrdinal?: number | null; approved?: boolean; worktree?: string; machine?: string }) => {
+    async (
+      messageId: string,
+      target?: { text?: string; userOrdinal?: number | null; approved?: boolean; worktree?: string; machine?: string }
+    ) => {
       const sessionId = runtimeIdRef.current
       const messages = readMessages()
       const plan = planRestore(messages, messageId, target)

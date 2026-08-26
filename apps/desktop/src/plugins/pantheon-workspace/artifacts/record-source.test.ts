@@ -31,11 +31,15 @@ test('collected artifacts keep the owning connection and profile on the existing
 
   expect(artifact?.connectionId).toBe('homelab')
   expect(artifact?.profile).toBe('ops')
-  expect(artifactIdentityKey(sessionArtifactSource({
-    connectionId: artifact!.connectionId!,
-    profile: artifact!.profile!,
-    storedSessionId: artifact!.sessionId
-  }))).toContain('homelab')
+  expect(
+    artifactIdentityKey(
+      sessionArtifactSource({
+        connectionId: artifact!.connectionId!,
+        profile: artifact!.profile!,
+        storedSessionId: artifact!.sessionId
+      })
+    )
+  ).toContain('homelab')
 })
 
 test('the same stored session id on two connections stays distinct after collection', () => {

@@ -55,19 +55,20 @@ function createApi(handler: (request: CronCenterRequest) => Promise<unknown>) {
 test('inventory keeps duplicate profile names distinct by connection', async () => {
   const { api } = createApi(async () => [])
   const owners = await api.listOwners()
-  expect(owners.map(owner => `${owner.connectionId}::${owner.profile}`)).toEqual([
-    'conn-a::worker',
-    'conn-b::worker'
-  ])
+  expect(owners.map(owner => `${owner.connectionId}::${owner.profile}`)).toEqual(['conn-a::worker', 'conn-b::worker'])
   expect(owners[0]?.label).toContain('Homelab')
   expect(owners[1]?.label).toContain('Office')
 })
 
 test('reads, history, and every mutation include the captured owner', async () => {
   const { api, requests } = createApi(async request => {
-    if (request.path.includes('/runs')) {return { runs: [] }}
+    if (request.path.includes('/runs')) {
+      return { runs: [] }
+    }
 
-    if (request.method === 'DELETE') {return { ok: true }}
+    if (request.method === 'DELETE') {
+      return { ok: true }
+    }
 
     return { id: 'job-1', enabled: true }
   })
@@ -105,10 +106,15 @@ test('same-connection duplicate job ids keep the captured target profile on ever
     mode: 'remote',
     label: 'Homelab / writer'
   }
-  const { api, requests } = createApi(async request => {
-    if (request.path.includes('/runs')) {return { runs: [] }}
 
-    if (request.method === 'DELETE') {return { ok: true }}
+  const { api, requests } = createApi(async request => {
+    if (request.path.includes('/runs')) {
+      return { runs: [] }
+    }
+
+    if (request.method === 'DELETE') {
+      return { ok: true }
+    }
 
     return { id: 'shared-id', enabled: true }
   })
@@ -150,7 +156,9 @@ test('an in-flight action keeps the captured owner after the foreground connecti
 test('one failed owner list does not reject the remaining owners', async () => {
   const api = new CronCenterApi({
     hermesApi: (async (request: CronCenterRequest) => {
-      if (request.connectionId === 'conn-a') {throw new Error('conn-a down')}
+      if (request.connectionId === 'conn-a') {
+        throw new Error('conn-a down')
+      }
 
       return [{ id: 'job-1', enabled: true, name: 'alive' }]
     }) as CronCenterApiDeps['hermesApi'],

@@ -15,7 +15,18 @@ test('All Pantheon references keep titles and routes without memory bodies', () 
     clusters: [],
     edges: [],
     memory: [{ body: 'private ops text', source: 'memory', title: 'ops note' }],
-    nodes: [{ category: 'note', createdBy: null, id: 'n1', kind: 'memory', label: 'ops node', pinned: false, state: 'active', useCount: 1 }],
+    nodes: [
+      {
+        category: 'note',
+        createdBy: null,
+        id: 'n1',
+        kind: 'memory',
+        label: 'ops node',
+        pinned: false,
+        state: 'active',
+        useCount: 1
+      }
+    ],
     stats: {}
   })
 

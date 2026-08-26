@@ -1,6 +1,15 @@
 import { expect, test, vi } from 'vitest'
 
-import { botIdFromMembershipSearch, cronCenterJobKeyFromSearch, membershipHref, openHomeTarget, pickRoomId, registeredHref, roomsSearchHref, sourceIdFromRoomsSearch } from './navigation'
+import {
+  botIdFromMembershipSearch,
+  cronCenterJobKeyFromSearch,
+  membershipHref,
+  openHomeTarget,
+  pickRoomId,
+  registeredHref,
+  roomsSearchHref,
+  sourceIdFromRoomsSearch
+} from './navigation'
 
 test('room, project, and pr use the registered /rooms path with an encoded source id', () => {
   expect(registeredHref('room', 'room/9')).toBe('/rooms?room=room%2F9')

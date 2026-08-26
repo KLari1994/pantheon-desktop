@@ -56,7 +56,5 @@ test('marks hidden sessions so default federation can exclude them', () => {
     ]
   })
 
-  expect(hits).toEqual([
-    expect.objectContaining({ destinationId: 'sess-hidden', hidden: true, sourceType: 'session' })
-  ])
+  expect(hits).toEqual([expect.objectContaining({ destinationId: 'sess-hidden', hidden: true, sourceType: 'session' })])
 })

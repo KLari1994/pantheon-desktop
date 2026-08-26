@@ -31,7 +31,10 @@ function hasSecretShape(value: unknown, key = ''): boolean {
   }
 
   if (typeof value === 'string') {
-    return secretShapedValue(value) || value.split(/[\s"'=:{},[\]]+/).some(token => token.length > 0 && secretShapedValue(token))
+    return (
+      secretShapedValue(value) ||
+      value.split(/[\s"'=:{},[\]]+/).some(token => token.length > 0 && secretShapedValue(token))
+    )
   }
 
   if (Array.isArray(value)) {
@@ -107,9 +110,7 @@ describe('desktop security receipts', () => {
     const root = tmp('pin')
     writeFile(root, 'buzz-bridge/buzz-bridge', 'tampered')
 
-    const result = verifyPinnedArtifacts(root, [
-      { relPath: 'buzz-bridge/buzz-bridge', sha256: '0'.repeat(64) }
-    ])
+    const result = verifyPinnedArtifacts(root, [{ relPath: 'buzz-bridge/buzz-bridge', sha256: '0'.repeat(64) }])
 
     expect(result.ok).toBe(false)
     expect(result.failures[0]?.reason).toBe('hash-mismatch')

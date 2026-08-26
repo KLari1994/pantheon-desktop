@@ -16,7 +16,9 @@ function actionMessage(error: unknown): string {
 }
 
 function fieldText(value: unknown): string {
-  if (typeof value === 'string') {return value.trim()}
+  if (typeof value === 'string') {
+    return value.trim()
+  }
 
   if (value && typeof value === 'object' && 'detail' in value) {
     return typeof (value as { detail?: unknown }).detail === 'string' ? (value as { detail: string }).detail.trim() : ''
@@ -50,8 +52,7 @@ export function CronCenterPage({
   const labels = useMemo(() => cronCenterLabels(text), [text])
 
   const rows = useMemo(
-    () =>
-      Object.values(slices).flatMap(slice => slice.jobs.map(job => projectCronRow(slice.owner, job, labels))),
+    () => Object.values(slices).flatMap(slice => slice.jobs.map(job => projectCronRow(slice.owner, job, labels))),
     [labels, slices]
   )
 
@@ -64,7 +65,9 @@ export function CronCenterPage({
   const [didApplyInitial, setDidApplyInitial] = useState(false)
 
   useEffect(() => {
-    if (didApplyInitial || !initialJobKey) {return}
+    if (didApplyInitial || !initialJobKey) {
+      return
+    }
     const match = rows.find(row => row.key === initialJobKey)
 
     if (match) {
@@ -74,7 +77,9 @@ export function CronCenterPage({
   }, [didApplyInitial, initialJobKey, rows])
 
   useEffect(() => {
-    if (!selected) {return}
+    if (!selected) {
+      return
+    }
     void store.loadHistory(selected.owner, selected.job.id)
   }, [selected, store])
 
@@ -127,8 +132,12 @@ export function CronCenterPage({
                 <span>{row.agentLabel}</span>
                 <span>{row.resultLabel}</span>
                 {row.currentExecution ? <span>{text.runningNow}</span> : null}
-                <span>{text.nextRun}: {row.nextRun || text.unavailable}</span>
-                <span>{text.lastRun}: {row.lastRun || text.unavailable}</span>
+                <span>
+                  {text.nextRun}: {row.nextRun || text.unavailable}
+                </span>
+                <span>
+                  {text.lastRun}: {row.lastRun || text.unavailable}
+                </span>
                 <span>{row.delivery}</span>
                 <span>{row.failureStreak}</span>
               </div>
@@ -334,7 +343,9 @@ function CronCenterDetail({
       <section className="mt-4">
         <h3 className="text-sm font-medium">{text.receipt}</h3>
         <p className="mt-1 text-xs">
-          {receipt ? `${receipt.id || 'execution'} ${receipt.status || ''} ${receipt.claimed_at || ''}`.trim() : text.unavailable}
+          {receipt
+            ? `${receipt.id || 'execution'} ${receipt.status || ''} ${receipt.claimed_at || ''}`.trim()
+            : text.unavailable}
         </p>
         {errors.map(entry => (
           <p className="mt-1 text-xs" key={entry.label}>

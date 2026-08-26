@@ -17,6 +17,7 @@ describe('Pantheon parity contract', () => {
   it('every probe anchors to a real source or test path', () => {
     for (const probe of PANTHEON_PARITY_FEATURES) {
       expect(probe.anchors.length).toBeGreaterThan(0)
+
       for (const anchor of probe.anchors) {
         expect(existsSync(resolve(DESKTOP_ROOT, anchor)), `${probe.feature}: missing ${anchor}`).toBe(true)
       }

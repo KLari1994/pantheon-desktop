@@ -48,6 +48,7 @@ export function StarmapView({ onClose, route }: StarmapViewProps) {
         connectionId: route!.connectionId,
         profile: route!.targetProfile || route!.profile
       })
+
       return
     }
 

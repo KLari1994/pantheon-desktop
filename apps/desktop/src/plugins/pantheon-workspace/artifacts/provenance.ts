@@ -124,6 +124,8 @@ export function openArtifactSource(source: PantheonArtifactSource, deps: OpenArt
 
   const params = new URLSearchParams({ project: source.projectId })
 
-  if (source.prId) {params.set('pr', source.prId)}
+  if (source.prId) {
+    params.set('pr', source.prId)
+  }
   deps.navigate?.(`/projects?${params.toString()}`)
 }

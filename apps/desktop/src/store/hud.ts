@@ -89,7 +89,9 @@ export function closeHud(): void {
 export const toggleHud = (sessionId?: null | string) => ($hudActive.get() ? closeHud() : openHud(sessionId))
 
 /** Open HUD only for bot/session destinations. Rooms hand off to the main window. */
-export function openDestination(destination: PantheonDestination): { surface: 'hud'; storedSessionId: string } | { surface: 'main-window'; href: string } {
+export function openDestination(
+  destination: PantheonDestination
+): { surface: 'hud'; storedSessionId: string } | { surface: 'main-window'; href: string } {
   const handoff = hudHandoffForDestination(destination)
 
   if (handoff.surface === 'hud') {

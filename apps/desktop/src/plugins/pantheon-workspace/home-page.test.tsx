@@ -8,7 +8,9 @@ import type { HomeSourceEvent } from './home/types'
 
 afterEach(() => cleanup())
 
-function source(partial: Partial<HomeSourceEvent> & Pick<HomeSourceEvent, 'type' | 'sourceKind' | 'sourceId'>): HomeSourceEvent {
+function source(
+  partial: Partial<HomeSourceEvent> & Pick<HomeSourceEvent, 'type' | 'sourceKind' | 'sourceId'>
+): HomeSourceEvent {
   return {
     agent: 'Daedalus',
     context: 'ops',
@@ -23,10 +25,14 @@ function seededStore(events: HomeSourceEvent[], status: 'degraded' | 'loading' |
   const store = new HomeStore()
   const generation = store.beginHydration()
 
-  if (status === 'loading') {return store}
+  if (status === 'loading') {
+    return store
+  }
   store.applyRefresh(projectHomeItems(events), generation)
 
-  if (status === 'degraded') {store.markDegraded(generation)}
+  if (status === 'degraded') {
+    store.markDegraded(generation)
+  }
 
   return store
 }
@@ -50,7 +56,14 @@ test('every rendered source type has exact navigation and visible identity', () 
   const store = seededStore([
     source({ type: 'approval', sourceKind: 'session', sourceId: 'sess-1', requestId: 'r1', title: 'Allow rm' }),
     source({ type: 'running', sourceKind: 'bot', sourceId: 'daedalus', title: 'Coding' }),
-    source({ type: 'stalled', sourceKind: 'cron', sourceId: 'job-1', title: 'Stalled cron', connectionId: 'conn-a', profile: 'worker' }),
+    source({
+      type: 'stalled',
+      sourceKind: 'cron',
+      sourceId: 'job-1',
+      title: 'Stalled cron',
+      connectionId: 'conn-a',
+      profile: 'worker'
+    }),
     source({ type: 'long-running-completion', sourceKind: 'artifact', sourceId: 'art-1', title: 'Wrote file' }),
     source({ type: 'direct-mention', sourceKind: 'room', sourceId: 'room-9', title: 'Mention' }),
     source({ type: 'merge-decision', sourceKind: 'project', sourceId: 'proj-1', title: 'Project ready' }),
@@ -93,7 +106,10 @@ test('arriving data does not navigate or steal focus', () => {
   const store = seededStore([])
   render(<HomePage onNavigate={onNavigate} store={store} />)
   const generation = store.beginHydration()
-  store.applyRefresh(projectHomeItems([source({ type: 'approval', sourceKind: 'session', sourceId: 'sess-2', requestId: 'late' })]), generation)
+  store.applyRefresh(
+    projectHomeItems([source({ type: 'approval', sourceKind: 'session', sourceId: 'sess-2', requestId: 'late' })]),
+    generation
+  )
   expect(onNavigate).not.toHaveBeenCalled()
   expect(document.activeElement === document.body || document.activeElement === null).toBe(true)
 })

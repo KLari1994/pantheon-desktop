@@ -1,11 +1,6 @@
 import { expect, test } from 'vitest'
 
-import {
-  aggregateMemoryReferences,
-  type MemoryGraphSlice,
-  requireExactMemoryRoute,
-  resolveMemoryScope
-} from './scope'
+import { aggregateMemoryReferences, type MemoryGraphSlice, requireExactMemoryRoute, resolveMemoryScope } from './scope'
 
 const opsRoute = {
   connectionId: 'local',
@@ -47,9 +42,9 @@ test('All Pantheon aggregates references without copying private memory bodies',
 })
 
 test('memory actions fail closed without an exact connection and profile', () => {
-  expect(() => requireExactMemoryRoute({ connectionId: '', profile: 'ops', targetProfile: 'ops', mode: 'local' })).toThrow(
-    /exact/i
-  )
+  expect(() =>
+    requireExactMemoryRoute({ connectionId: '', profile: 'ops', targetProfile: 'ops', mode: 'local' })
+  ).toThrow(/exact/i)
   expect(() =>
     requireExactMemoryRoute({ connectionId: 'local', profile: 'ops', targetProfile: '', mode: 'local' })
   ).toThrow(/exact/i)

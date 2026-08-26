@@ -147,6 +147,7 @@ export function createBuzzClient(api: PantheonBuzzApi): PantheonBuzzApi {
       if (!Number.isInteger(input.limit) || input.limit < MIN_LIMIT || input.limit > MAX_LIMIT) {
         return Promise.reject(new Error('invalid_limit'))
       }
+
       return api.getMessages(input)
     },
     sendMessage: input => {
@@ -157,12 +158,14 @@ export function createBuzzClient(api: PantheonBuzzApi): PantheonBuzzApi {
       } catch (error) {
         return Promise.reject(error)
       }
+
       return api.sendMessage(input)
     },
     addReaction: input => {
       if (!input.emoji || [...input.emoji].length > MAX_EMOJI) {
         return Promise.reject(new Error('invalid_emoji'))
       }
+
       return api.addReaction(input)
     },
     removeReaction: input => api.removeReaction(input),
@@ -178,8 +181,10 @@ export function createBuzzClient(api: PantheonBuzzApi): PantheonBuzzApi {
 
 export function desktopBuzzClient(): PantheonBuzzApi {
   const bridge = typeof window === 'undefined' ? undefined : window.pantheonBuzz
+
   if (!bridge) {
     throw new Error('Pantheon Buzz bridge is unavailable')
   }
+
   return createBuzzClient(bridge)
 }

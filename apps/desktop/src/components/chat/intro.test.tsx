@@ -56,7 +56,12 @@ describe('first-run setup action', () => {
 
 describe('shouldOfferIntroSetup', () => {
   const needsSetup = { checksDisagree: false, ready: false, reason: 'no provider', source: 'setup_status' } as const
-  const unavailable = { checksDisagree: true, ready: false, reason: 'resolution failed', source: 'runtime_check' } as const
+  const unavailable = {
+    checksDisagree: true,
+    ready: false,
+    reason: 'resolution failed',
+    source: 'runtime_check'
+  } as const
   const ready = { checksDisagree: false, ready: true, reason: null, source: 'runtime_check' } as const
 
   it('offers setup only for needs_setup/unavailable on an open gateway with no sessions', () => {

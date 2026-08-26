@@ -42,7 +42,9 @@ async function defaultLoadBindings() {
   const manifest = await client.getWorkspaceManifest().catch(() => ({ version: 1, rooms: [] }))
   const rooms = await client.listRooms().catch(() => ({ rooms: [] }))
   const parsed = parseManifestBindings(manifest)
-  const valid = parsed.filter((item): item is { status: 'valid'; binding: ProjectRoomBinding } => item.status === 'valid')
+  const valid = parsed.filter(
+    (item): item is { status: 'valid'; binding: ProjectRoomBinding } => item.status === 'valid'
+  )
   const invalid = parsed.filter(item => item.status !== 'valid')
 
   const joined = joinProjectRooms({
@@ -78,7 +80,9 @@ const defaultDeps: ProjectPageDeps = {
   listWorktrees: async binding => {
     const git = desktopGit({ connectionId: binding.machine.connectionId, profile: binding.machine.profile })
 
-    if (!git) {throw new Error('git-unavailable')}
+    if (!git) {
+      throw new Error('git-unavailable')
+    }
 
     return git.worktreeList(binding.repoPath)
   },
@@ -94,7 +98,11 @@ function recordLabel(record: ProjectRoomRecord): string {
   return 'Invalid binding'
 }
 
-function resolveLiveRoute(sampled: LiveMachineRoute, sources: readonly RosterSource[], hostRoute: LiveMachineRoute): LiveMachineRoute {
+function resolveLiveRoute(
+  sampled: LiveMachineRoute,
+  sources: readonly RosterSource[],
+  hostRoute: LiveMachineRoute
+): LiveMachineRoute {
   const connectionId = sampled.connectionId ?? hostRoute.connectionId
   const profile = sampled.profile ?? hostRoute.profile
   const machineId = sampled.machineId ?? sources.find(item => item.connectionId === connectionId)?.installId
@@ -121,6 +129,7 @@ export function ProjectPage({
   const hostConnectionId = useValue(host.state.connectionId)
   const hostProfile = useValue(host.state.profile)
   const sampledRoute = deps.currentRoute()
+
   const route = resolveLiveRoute(sampledRoute, sources, {
     connectionId: hostConnectionId ?? undefined,
     profile: hostProfile || undefined
@@ -128,17 +137,24 @@ export function ProjectPage({
 
   useEffect(() => {
     let cancelled = false
-    void deps.loadBindings().then(next => {
-      if (cancelled) {return}
-      store.applyProjection(next.records)
-      setRecords(next.records)
-      setSources(next.sources)
-      setStatus('ready')
-    }).catch(err => {
-      if (cancelled) {return}
-      setError(err instanceof Error ? err.message : String(err))
-      setStatus('error')
-    })
+    void deps
+      .loadBindings()
+      .then(next => {
+        if (cancelled) {
+          return
+        }
+        store.applyProjection(next.records)
+        setRecords(next.records)
+        setSources(next.sources)
+        setStatus('ready')
+      })
+      .catch(err => {
+        if (cancelled) {
+          return
+        }
+        setError(err instanceof Error ? err.message : String(err))
+        setStatus('error')
+      })
 
     return () => {
       cancelled = true
@@ -170,7 +186,6 @@ export function ProjectPage({
     if (next.status !== 'available') {
       return
     }
-
     void (async () => {
       try {
         await deps.activate({
@@ -179,7 +194,9 @@ export function ProjectPage({
         })
         const worktrees = await deps.listWorktrees(selectedBinding)
 
-        if (cancelled) {return}
+        if (cancelled) {
+          return
+        }
         const result = preflightWorktree(selectedBinding, worktrees)
 
         if (!result.ok) {
@@ -216,7 +233,9 @@ export function ProjectPage({
     return (
       <div className="p-4">
         <h1 className="text-sm font-medium">{projectEnglish.title}</h1>
-        {records.length === 0 ? <p className="mt-2 text-sm text-(--ui-text-secondary)">{projectEnglish.empty}</p> : null}
+        {records.length === 0 ? (
+          <p className="mt-2 text-sm text-(--ui-text-secondary)">{projectEnglish.empty}</p>
+        ) : null}
         <ul className="mt-3 flex flex-col gap-2">
           {records.map((record, index) => (
             <li key={record.status === 'valid' ? record.binding.buzzRoomId : `invalid-${index}`}>
@@ -231,7 +250,9 @@ export function ProjectPage({
                 {recordLabel(record)}
               </button>
               {record.status === 'invalid' ? (
-                <p className="text-xs text-(--ui-text-secondary)">{projectEnglish.invalidBinding}: {record.reason}</p>
+                <p className="text-xs text-(--ui-text-secondary)">
+                  {projectEnglish.invalidBinding}: {record.reason}
+                </p>
               ) : null}
             </li>
           ))}
@@ -241,7 +262,11 @@ export function ProjectPage({
   }
 
   if (selected.status === 'invalid') {
-    return <div className="p-4 text-sm">{projectEnglish.invalidBinding}: {selected.reason}</div>
+    return (
+      <div className="p-4 text-sm">
+        {projectEnglish.invalidBinding}: {selected.reason}
+      </div>
+    )
   }
 
   if (!machine || machine.status !== 'available' || proof !== 'verified') {
@@ -261,11 +286,13 @@ export function ProjectPage({
       machine={machine}
       onActivateTab={tab => {
         if (tab === 'review') {
-          void (deps.loadReview ?? loadReadOnlyReview)(selected.binding).then(next => {
-            setReview(next)
-          }).catch(err => {
-            setReview({ files: [], base: err instanceof Error ? err.message : String(err) })
-          })
+          void (deps.loadReview ?? loadReadOnlyReview)(selected.binding)
+            .then(next => {
+              setReview(next)
+            })
+            .catch(err => {
+              setReview({ files: [], base: err instanceof Error ? err.message : String(err) })
+            })
 
           return
         }

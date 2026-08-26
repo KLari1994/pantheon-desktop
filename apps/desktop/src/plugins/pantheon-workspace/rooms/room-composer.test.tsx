@@ -31,13 +31,7 @@ test('room composer exposes dictation without auto-speaking', () => {
 
 test('composer can attach a descriptor and keep thread root', () => {
   const onSend = vi.fn()
-  render(
-    <RoomComposer
-      members={[{ pubkey: 'alice', name: 'Alice' }]}
-      onSend={onSend}
-      threadRootId="evt-1"
-    />
-  )
+  render(<RoomComposer members={[{ pubkey: 'alice', name: 'Alice' }]} onSend={onSend} threadRootId="evt-1" />)
   fireEvent.change(screen.getByLabelText('Attachment URL'), { target: { value: 'https://files.example/a.png' } })
   fireEvent.change(screen.getByLabelText('Attachment MIME type'), { target: { value: 'image/png' } })
   fireEvent.change(screen.getByLabelText('Room message'), { target: { value: 'see this' } })

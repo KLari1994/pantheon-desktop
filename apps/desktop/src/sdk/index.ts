@@ -1384,11 +1384,7 @@ export { $gateway } from '@/store/gateway'
 export { revealFileInTree } from '@/store/layout'
 export { openPreview } from '@/store/preview'
 export { $projects, $projectTree, refreshProjects, refreshProjectTree } from '@/store/projects'
-export {
-  type ApprovalRequest,
-  clearApprovalRequest,
-  sessionApprovalRequest
-} from '@/store/prompts'
+export { type ApprovalRequest, clearApprovalRequest, sessionApprovalRequest } from '@/store/prompts'
 
 export const PANES_AREA = 'panes'
 export { openReview } from '@/store/review'

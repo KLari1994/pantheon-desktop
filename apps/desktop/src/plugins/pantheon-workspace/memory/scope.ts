@@ -5,9 +5,7 @@ export interface MemoryOwnerRoute {
   targetProfile: string
 }
 
-export type MemoryScope =
-  | { kind: 'active-bot'; route: MemoryOwnerRoute }
-  | { kind: 'all-pantheon' }
+export type MemoryScope = { kind: 'active-bot'; route: MemoryOwnerRoute } | { kind: 'all-pantheon' }
 
 export interface MemoryRecord {
   body: string

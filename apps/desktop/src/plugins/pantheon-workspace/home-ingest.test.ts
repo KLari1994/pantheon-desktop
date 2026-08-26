@@ -5,7 +5,9 @@ import { HomeStore } from './home/store'
 import type { HomeSourceEvent } from './home/types'
 import type { NotificationEvent } from './notifications/policy'
 
-function event(partial: Partial<HomeSourceEvent> & Pick<HomeSourceEvent, 'type' | 'sourceKind' | 'sourceId'>): HomeSourceEvent {
+function event(
+  partial: Partial<HomeSourceEvent> & Pick<HomeSourceEvent, 'type' | 'sourceKind' | 'sourceId'>
+): HomeSourceEvent {
   return {
     agent: 'Daedalus',
     context: 'ops',

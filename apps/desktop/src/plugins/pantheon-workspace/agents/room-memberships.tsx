@@ -16,19 +16,17 @@ export function RoomMemberships({
   agent: RoomMembershipAgent
   manifest: WorkspaceManifest
   liveRooms: BuzzRoom[]
-  onToggle: (input: {
-    roomId: string
-    pubkey: string
-    connectionId: string
-    profile: string
-    add: boolean
-  }) => void
+  onToggle: (input: { roomId: string; pubkey: string; connectionId: string; profile: string; add: boolean }) => void
 }) {
   const listed = new Map<string, string>()
 
-  for (const room of manifest.rooms || []) {listed.set(room.id, room.name || room.id)}
+  for (const room of manifest.rooms || []) {
+    listed.set(room.id, room.name || room.id)
+  }
 
-  for (const room of liveRooms) {listed.set(room.id, room.name)}
+  for (const room of liveRooms) {
+    listed.set(room.id, room.name)
+  }
 
   return (
     <section className="space-y-2">
@@ -36,8 +34,7 @@ export function RoomMemberships({
       {[...listed.entries()].map(([id, name]) => {
         const inManifest = (manifest.rooms || []).some(
           room =>
-            room.id === id &&
-            (room.memberAgentIds?.includes(agent.id) || room.memberAgentIds?.includes(agent.pubkey))
+            room.id === id && (room.memberAgentIds?.includes(agent.id) || room.memberAgentIds?.includes(agent.pubkey))
         )
 
         const live = liveRooms.find(room => room.id === id)?.members.some(member => member.pubkey === agent.pubkey)

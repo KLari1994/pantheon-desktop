@@ -46,7 +46,9 @@ export class ApprovalInbox {
     const unique = new Map<string, ApprovalInboxRow>()
 
     for (const row of rows) {
-      if (!unique.has(row.card.id)) {unique.set(row.card.id, row)}
+      if (!unique.has(row.card.id)) {
+        unique.set(row.card.id, row)
+      }
     }
 
     this.rows = [...unique.values()]
@@ -56,7 +58,9 @@ export class ApprovalInbox {
   async respond(card: ApprovalProjection, choice: ApprovalChoice): Promise<ApprovalRespondResult> {
     const row = this.rows.find(item => item.card.id === card.id)
 
-    if (!row) {return { ok: false, reason: 'failed', error: 'missing approval' }}
+    if (!row) {
+      return { ok: false, reason: 'failed', error: 'missing approval' }
+    }
     this.currentBusyId = card.id
     this.emit()
 
@@ -88,6 +92,8 @@ export class ApprovalInbox {
   }
 
   private emit(): void {
-    for (const listener of this.listeners) {listener()}
+    for (const listener of this.listeners) {
+      listener()
+    }
   }
 }

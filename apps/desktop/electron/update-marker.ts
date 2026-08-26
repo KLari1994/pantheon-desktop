@@ -23,15 +23,8 @@
 import fs from 'fs'
 import path from 'path'
 
-import {
-  createPantheonUpdateBackup,
-  writeRollbackMarker
-} from './pantheon-backup'
-import {
-  buildCompatibilityReceipt,
-  evaluateCompatibility,
-  writeCompatibilityReceipt
-} from './pantheon-compatibility'
+import { createPantheonUpdateBackup, writeRollbackMarker } from './pantheon-backup'
+import { buildCompatibilityReceipt, evaluateCompatibility, writeCompatibilityReceipt } from './pantheon-compatibility'
 
 // Even with a live-looking PID, never treat a marker older than this as a live
 // update. A full update (git pull + pip + desktop rebuild) is minutes, not tens

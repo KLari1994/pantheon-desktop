@@ -67,10 +67,11 @@ async function openProject() {
 }
 
 test('operational tabs stay blocked until worktree proof completes', async () => {
-  let resolveWorktrees: ((worktrees: typeof linked[]) => void) | undefined
+  let resolveWorktrees: ((worktrees: (typeof linked)[]) => void) | undefined
+
   const listWorktrees = vi.fn(
     () =>
-      new Promise<typeof linked[]>(resolve => {
+      new Promise<(typeof linked)[]>(resolve => {
         resolveWorktrees = resolve
       })
   )
@@ -100,7 +101,10 @@ test('route drift after verified preflight disables operational tabs without ret
 
     return (
       <>
-        <button onClick={() => setRoute({ connectionId: 'office', machineId: 'install-bbb', profile: 'other' })} type="button">
+        <button
+          onClick={() => setRoute({ connectionId: 'office', machineId: 'install-bbb', profile: 'other' })}
+          type="button"
+        >
           switch machine
         </button>
         <ProjectPage

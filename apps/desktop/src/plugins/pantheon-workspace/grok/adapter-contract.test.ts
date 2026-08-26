@@ -48,6 +48,7 @@ test('a failed discovery report stays unavailable', async () => {
   const adapter = createGrokProductAdapter({
     report: passingReport({ result: 'fail' })
   })
+
   const status = await adapter.status()
 
   expect(status.available).toBe(false)
@@ -64,10 +65,12 @@ test('a passing report without an injected transport stays unavailable', async (
 
 test('status is available only for a passing documented surface plus transport', async () => {
   const adapter = createGrokProductAdapter({
-    report: passingReport({ integrationSurface: {
-      type: 'documented-api',
-      documentation: 'https://docs.x.ai/grok-bot/local-api'
-    } }),
+    report: passingReport({
+      integrationSurface: {
+        type: 'documented-api',
+        documentation: 'https://docs.x.ai/grok-bot/local-api'
+      }
+    }),
     transport: {
       sendDirect: async () => ({ messageId: 'm1' }),
       inviteToRoom: async () => undefined,
@@ -97,6 +100,7 @@ test('unavailable adapter rejects outbound chat and does not invent a Grok subst
 test('onMessage can be unsubscribed without delivering events when unavailable', () => {
   const adapter = createGrokProductAdapter()
   const seen: string[] = []
+
   const stop = adapter.onMessage(event => {
     seen.push(event.messageId)
   })
