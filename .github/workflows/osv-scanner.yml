@@ -25,10 +25,8 @@ name: OSV-Scanner
 
 on:
   workflow_call:
-  schedule:
-    # Weekly scan against main — catches CVEs published after merge for
-    # deps that haven't changed since.
-    - cron: '0 9 * * 1'
+  # MANUAL-ONLY: the weekly ``schedule`` was removed so this repository spends
+  # no Actions minutes on its own. Dispatch the scan when you want it.
   workflow_dispatch:
 
 permissions:

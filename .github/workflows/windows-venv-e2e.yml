@@ -12,10 +12,11 @@ name: Windows venv-holder live E2E
 # wine2e/** working branches, so it costs nothing on normal PRs. Delete or
 # keep dormant after the venv-holder work lands.
 
+# MANUAL-ONLY: the ``push: wine2e/**`` trigger was removed so this repository
+# spends no Actions minutes on its own — pushing a wine2e branch no longer
+# starts a billed windows-latest run.
 on:
-  push:
-    branches:
-      - "wine2e/**"
+  workflow_dispatch:
 
 permissions:
   contents: read

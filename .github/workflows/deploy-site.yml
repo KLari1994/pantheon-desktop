@@ -1,15 +1,9 @@
 name: Deploy Site
 
+# MANUAL-ONLY: the ``release: published`` and ``push: main`` triggers were
+# removed so this repository spends no Actions minutes on its own. The site now
+# deploys only when this workflow is dispatched by hand.
 on:
-  release:
-    types: [published]
-  push:
-    branches: [main]
-    paths:
-      - 'website/**'
-      - 'skills/**'
-      - 'optional-skills/**'
-      - '.github/workflows/deploy-site.yml'
   workflow_dispatch:
     inputs:
       skills_index_run_id:

@@ -1,15 +1,9 @@
 name: Build Skills Index
 
+# MANUAL-ONLY: the twice-daily ``schedule`` and the ``push: main`` trigger were
+# removed so this repository spends no Actions minutes on its own.
 on:
-  schedule:
-    # Run twice daily: 6 AM and 6 PM UTC
-    - cron: "0 6,18 * * *"
   workflow_dispatch: # Manual trigger
-  push:
-    branches: [main]
-    paths:
-      - "scripts/build_skills_index.py"
-      - ".github/workflows/skills-index.yml"
 
 permissions:
   contents: read

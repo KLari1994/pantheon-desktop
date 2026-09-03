@@ -37,14 +37,9 @@ on:
         required: false
         type: string
         default: '5'
-  schedule:
-    # Every 12 hours, off the hour to avoid the top-of-hour runner crunch.
-    - cron: '20 7,19 * * *'
-  push:
-    tags:
-      # Release tags only: the repo also carries backup/* and one-off tags.
-      - 'v[0-9]+.[0-9]+.[0-9]+'
-      - 'v[0-9]+.[0-9]+.[0-9]+.[0-9]+'
+  # MANUAL-ONLY: the twice-daily ``schedule`` and the release-tag ``push``
+  # trigger were removed so this repository spends no Actions minutes on its
+  # own. This suite now runs only when dispatched by hand.
 
 permissions:
   contents: read

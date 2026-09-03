@@ -9,11 +9,12 @@ on:
   #
   # Trusted main pushes resolve the environment-scoped Docker Hub secrets in
   # this same workflow, never across a workflow boundary.
-  pull_request:
-  push:
-    branches: [main]
-  release:
-    types: [published]
+  #
+  # MANUAL-ONLY: the ``pull_request`` / ``push: main`` / ``release`` triggers
+  # were removed so this repository spends no Actions minutes on its own. Note
+  # that the publish jobs below are gated on ``github.event_name`` being push or
+  # release, so a dispatched run builds and tests images but never publishes.
+  workflow_dispatch:
 
 permissions:
   contents: read

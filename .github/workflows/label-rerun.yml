@@ -13,22 +13,29 @@ name: Label rerun
 # ci-review-comment.yml watches the CI run through the API. It gets the
 # rerun results.
 
+# MANUAL-ONLY. The ``pull_request: [labeled]`` trigger was removed so this
+# repository spends no Actions minutes on its own; adding ``ci-reviewed`` to a
+# PR no longer starts a run. Dispatch it with the PR head SHA instead, which is
+# the only thing the job below actually needed from the label event.
 on:
-  pull_request:
-    types: [labeled]
+  workflow_dispatch:
+    inputs:
+      head_sha:
+        description: 'Head SHA of the PR whose failed CI jobs should be rerun.'
+        required: true
+        type: string
 
 permissions:
   actions: write
   pull-requests: read
 
 concurrency:
-  group: label-rerun-${{ github.event.pull_request.number }}
+  group: label-rerun-${{ inputs.head_sha }}
   cancel-in-progress: true
 
 jobs:
   rerun-review-labels:
     name: Rerun review-labels job
-    if: github.event.label.name == 'ci-reviewed'
     runs-on: ubuntu-latest
     timeout-minutes: 40
     steps:
@@ -36,7 +43,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REPO: ${{ github.repository }}
-          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          HEAD_SHA: ${{ inputs.head_sha }}
         run: |
           set -uo pipefail
 

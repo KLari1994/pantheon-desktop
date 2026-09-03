@@ -10,10 +10,10 @@ name: Nix flake check
 # in progress. One slow advisory job in the CI lane blocks every rerun of the
 # fast required jobs beside it. A separate run reruns and cancels on its own.
 
+# MANUAL-ONLY: automatic ``pull_request`` / ``push: main`` triggers removed so
+# this repository spends no Actions minutes on its own. Dispatch it by hand.
 on:
-  pull_request:
-  push:
-    branches: [main]
+  workflow_dispatch:
 
 permissions:
   contents: read

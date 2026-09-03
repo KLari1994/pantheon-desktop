@@ -14,10 +14,14 @@ name: CI
 # Do not add ``secrets: inherit`` or GitHub App credentials here. Trusted
 # main-only automation uses protected environments in its own workflows.
 
+# MANUAL-ONLY. The automatic ``pull_request`` / ``push: main`` triggers were
+# removed so this repository consumes no GitHub Actions minutes on its own.
+# CI now runs only when someone dispatches it: Actions → CI → "Run workflow",
+# or ``gh workflow run ci.yaml --ref <branch>``. Because every sub-workflow
+# below is ``workflow_call``-only, none of them fire unless this file does.
+# Restore the two triggers under ``on:`` to go back to automatic PR gating.
 on:
-  pull_request:
-  push:
-    branches: [main]
+  workflow_dispatch:
 
 permissions:
   contents: read

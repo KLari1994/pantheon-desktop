@@ -1,10 +1,10 @@
 name: Pantheon Windows CI
 
+# MANUAL-ONLY: the ``pull_request`` / ``push`` triggers on ``staging`` were
+# removed so this repository spends no Actions minutes on its own. This lane is
+# the costliest in the repo — a windows-latest runner bills at 2x the Linux
+# rate, with a 120-minute timeout — so it now runs only when dispatched.
 on:
-  pull_request:
-    branches: [staging]
-  push:
-    branches: [staging]
   workflow_dispatch:
 
 permissions:

@@ -2966,7 +2966,22 @@ async function checkUpdates() {
 // tested); this wrapper only does the bounded network call. Any failure —
 // offline, 4xx/5xx, rate limit, shape surprise — returns null so callers keep
 // the honest "update available, count unknown" state.
+//
+// OFF BY DEFAULT. This is the desktop app's only call to api.github.com, and
+// every unauthenticated hit spends from the caller's per-IP GitHub rate limit.
+// The count it recovers is a cosmetic refinement — without it the UI still says
+// "update available", just without an exact commit distance — so it is not
+// worth spending someone's GitHub budget on unless they ask. Set
+// HERMES_DESKTOP_GITHUB_COMPARE=1 to opt back in.
+function githubCompareEnabled() {
+  return /^(1|true|yes|on)$/i.test(String(process.env.HERMES_DESKTOP_GITHUB_COMPARE || '').trim())
+}
+
 async function fetchCompareBehindCount({ currentSha, originUrl, targetSha }) {
+  if (!githubCompareEnabled()) {
+    return null
+  }
+
   const url = compareApiUrl({ currentSha, originUrl, targetSha })
 
   if (!url) {
